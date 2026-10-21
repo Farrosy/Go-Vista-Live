@@ -8,7 +8,7 @@
 
   3.Enable the Deph and Opaque Texture.
 
-         ----Go to Assets/Settings/PC_RP Asset (Universal Render Data)
+         ----Go to Assets/Settings/PC_RP Asset (Universal Render Data)!
 
   4.Deph Texture mode (important).
 
