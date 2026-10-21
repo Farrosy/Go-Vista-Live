@@ -27,6 +27,17 @@
 *.blend1
 *.blend1.meta
 
+# Package caches and temporary files (keep manifest, lockfile, and embedded packages)
+/Packages/**/node_modules/
+/Packages/**/.cache/
+/Packages/**/.npm/
+/Packages/**/.yarn/
+/Packages/**/npm-debug.log*
+/Packages/**/*.log
+/Packages/**/*.tmp
+/Packages/**/.DS_Store
+/Packages/**/Thumbs.db
+
 # MemoryCaptures can get excessive in size.
 # They also could contain extremely sensitive data
 /[Mm]emoryCaptures/
