@@ -1,0 +1,588 @@
+    [UnityEngine.Scripting.Preserve]
+    public class {{ entityData.behaviour_name }} : CoherenceSyncBaked
+    {
+        private Entity entityId;
+        private Logger logger = Coherence.Log.Log.GetLogger<{{ entityData.behaviour_name }}>();
+        
+{{~ for command in entityData.commands ~}}
+	{{~ if command.bake_conditional != "" ~}}
+#if {{ command.bake_conditional }}
+	{{~ end ~}}
+        private global::{{ command.method_declaring_class }} {{ command.command_name }}_CommandTarget;
+	{{~ if command.bake_conditional != "" ~}}
+#endif
+	{{~ end ~}}
+{{~ end ~}}
+        
+        {{~ if inputDefinition != null ~}}
+        private InputBuffer<InputData> inputBuffer;
+        private InputData currentInput;
+        private long lastAddedFrame = -1;
+        private CoherenceInput coherenceInput;
+        private long currentSimulationFrame => coherenceInput.CurrentSimulationFrame;
+        {{~ end ~}}
+        
+        private IClient client;
+        private CoherenceBridge bridge;
+        
+        private readonly Dictionary<string, Binding> bakedValueBindings = new Dictionary<string, Binding>()
+        {
+{{~ for component in entityData.components ~}}
+	{{~ if component.bake_conditional != "" ~}}
+#if {{ component.bake_conditional }}
+    	{{~ for member in component.members_info ~}}
+            ["{{ member.binding_guid }}"] = new Binding_{{ entityData.asset_id }}_{{ member.binding_guid | string.replace "-" "_" }}(),
+    	{{~ end ~}}
+#else
+		{{~ for member in component.members_info ~}}
+			["{{ member.binding_guid }}"] = new NoOpBinding(),
+		{{~ end ~}}
+#endif
+	{{~ else ~}}
+		{{~ for member in component.members_info ~}}
+			["{{ member.binding_guid }}"] = new Binding_{{ entityData.asset_id }}_{{ member.binding_guid | string.replace "-" "_" }}(),
+		{{~ end ~}}
+    {{~ end ~}}
+{{~ end ~}}
+        };
+        
+        private Dictionary<string, Action<CommandBinding, CommandsHandler>> bakedCommandBindings = new Dictionary<string, Action<CommandBinding, CommandsHandler>>();
+        
+        public {{ entityData.behaviour_name }}()
+        {
+{{~ for command in entityData.commands ~}}
+	{{~ if command.bake_conditional != "" ~}}
+#if {{ command.bake_conditional }}
+	{{~ end ~}}
+            bakedCommandBindings.Add("{{ command.binding_guid }}", BakeCommandBinding_{{ command.command_name }});
+	{{~ if command.bake_conditional != "" ~}}
+#endif
+	{{~ end ~}}
+{{~ end ~}}
+        }
+        
+        public override Binding BakeValueBinding(Binding valueBinding)
+        {
+            if (bakedValueBindings.TryGetValue(valueBinding.guid, out var bakedBinding))
+            {
+                valueBinding.CloneTo(bakedBinding);
+                return bakedBinding;
+            }
+            
+            return null;
+        }
+        
+        public override void BakeCommandBinding(CommandBinding commandBinding, CommandsHandler commandsHandler)
+        {
+            if (bakedCommandBindings.TryGetValue(commandBinding.guid, out var commandBindingBaker))
+            {
+                commandBindingBaker.Invoke(commandBinding, commandsHandler);
+            }
+        }
+{{~ for command in entityData.commands ~}}
+	{{~ if command.bake_conditional != "" ~}}
+#if {{ command.bake_conditional }}
+	{{~ end ~}}
+        private void BakeCommandBinding_{{ command.command_name }}(CommandBinding commandBinding, CommandsHandler commandsHandler)
+        {
+            {{ command.command_name }}_CommandTarget = (global::{{ command.method_declaring_class }})commandBinding.UnityComponent;
+            var {{ command.command_name }}_localTarget = (global::{{ command.method_declaring_class }})commandBinding.UnityComponent;
+            commandsHandler.AddBakedCommand(
+				{{~ if command.method_name | string.contains "." ~}}
+            	"{{ command.method_name }}",
+				{{~ else ~}}
+				"{{ command.method_declaring_class }}.{{ command.method_name }}",
+				{{~ end ~}}
+            	"{{ command.signature }}",
+            	SendCommand_{{ command.command_name }},
+            	__args => ReceiveLocalCommand_{{ command.command_name }}(__args, {{ command.command_name }}_localTarget),
+            	MessageTarget.{{ command.routing }},
+            	{{ command.command_name }}_localTarget,
+            	commandBinding.UsesMeta());
+    {{~ for iface in command.class_interfaces ~}}
+            commandsHandler.AddBakedCommand(
+            	"{{ iface }}.{{ command.method_name }}",
+            	"{{ command.signature }}",
+            	SendCommand_{{ command.command_name }},
+            	__args => ReceiveLocalCommand_{{ command.command_name }}(__args, {{ command.command_name }}_localTarget),
+            	MessageTarget.{{ command.routing }},
+            	{{ command.command_name }}_localTarget,
+            	commandBinding.UsesMeta());
+    {{~ end ~}}
+        }
+        
+        private void SendCommand_{{ command.command_name }}(GenericCommandRequestArgs requestArgs)
+        {
+            var command = client.SchemaDataFactory.CreateCommand({{ command.command_id }}, entityId, requestArgs.Target, 
+                requestArgs.UsesMeta, requestArgs.Sender, requestArgs.Frame);
+
+    {{~ if (command.parameters_info | array.size) > 0 ~}}
+            // The command is rented from a pool, so it has to be returned if an argument can't be written.
+            try
+            {
+        {{~ for member in command.parameters_info ~}}
+            {{~ if member.baked_type == "Entity" ~}}
+                {{~ entityRefCastType = (member.type == "Coherence.Toolkit.CoherenceSync") ? "Coherence.Toolkit.ICoherenceSync" : ("global::" + member.type) ~}}
+                command.GetField({{ for.index }}).SetEntity(({{ member.baked_type }})bridge.UnityObjectToEntityId(requestArgs.Args[{{for.index}}] as {{ entityRefCastType }}));
+            {{~ else if member.is_enum ~}}
+                command.GetField({{ for.index }}).SetEnum(({{ member.baked_type }})Convert.ToInt32(requestArgs.Args[{{for.index}}]));
+            {{~ else ~}}
+                command.GetField({{ for.index }}).Set{{ member.schema_type }}((({{ member.baked_type }})requestArgs.Args[{{for.index}}]){{ resolveCsharpTypeToSchemaType member.schema_type }});
+            {{~ end ~}}
+        {{~ end ~}}
+            }
+            catch
+            {
+                command.Dispose();
+                throw;
+            }
+
+    {{~ end ~}}
+            client.SendCommand(command, requestArgs.ChannelID);
+        }
+        
+        private void ReceiveLocalCommand_{{ command.command_name }}(GenericCommandRequestArgs requestArgs, global::{{ command.method_declaring_class }} target)
+        {
+			{{~ if command.method_name | string.contains "." ~}}
+			(({{ command.method_name | string.split '.' | array.first }})target).{{ command.method_name | string.split '.' | array.last }}({{ ResolveCommandRequestArgs command.parameters_info }});
+			{{~ else ~}}
+			target.{{ command.method_name }}({{ ResolveCommandRequestArgs command.parameters_info }});
+			{{~ end ~}}
+        }
+
+        private void ReceiveCommand_{{ command.command_name }}(CommandData command)
+        {
+			var target = {{ command.command_name }}_CommandTarget;
+
+            {{~ argList = "" ~}}
+            {{~ for member in command.parameters_info ~}}
+                {{~ schemaTypeToCsharpType = resolveSchemaTypeToCsharpType member.schema_type ~}}
+            var arg{{ for.index }} = {{ResolveCommandParam member}}(command.GetField({{ for.index }}).Get{{ member.schema_type }}(){{ schemaTypeToCsharpType }});
+                {{~ if argList != "" ~}}
+                    {{~ argList = argList + ", " ~}}
+                {{~ end ~}}
+                {{~ argList = argList + "arg" + for.index ~}}
+            {{~ end ~}}
+
+            command.Dispose();
+
+			{{~ if command.method_name | string.contains "." ~}}
+			(({{ command.method_name | string.split '.' | array.first }})target).{{ command.method_name | string.split '.' | array.last }}({{ argList }});
+			{{~ else ~}}
+			target.{{ command.method_name }}({{ argList }});
+			{{~ end ~}}
+        }
+	{{~ if command.bake_conditional != "" ~}}
+#endif // {{ command.bake_conditional }}
+	{{~ end ~}}
+{{~ end ~}}
+        
+        public override void ReceiveCommand(CommandData command)
+        {
+            switch (command.CommandID)
+            {
+{{~ for command in entityData.commands ~}}
+	{{~ if command.bake_conditional != "" ~}}
+#if {{ command.bake_conditional }}
+	{{~ end ~}}
+                case {{ command.command_id }}:
+                    ReceiveCommand_{{ command.command_name }}(command);
+                    break;
+	{{~ if command.bake_conditional != "" ~}}
+#endif
+	{{~ end ~}}
+{{~ end ~}}
+                default:
+                    logger.Warning(Coherence.Log.Warning.ToolkitBakedSyncReceiveCommandUnhandled,
+                        $"{{ entityData.behaviour_name }} Unhandled command: {command.CommandID}.");
+                    break;
+            }
+        }
+        
+        public override void Dispose()
+        {
+{{~ if inputDefinition != null ~}}
+            if (bridge != null)
+            {
+                bridge.OnLateFixedNetworkUpdate -= SendInputState;
+            }
+{{~ end ~}}
+        }
+        
+        public override void Initialize(Entity entityId, CoherenceBridge bridge, IClient client, CoherenceInput input, Logger logger)
+        {
+            this.logger = logger.With<{{ entityData.behaviour_name }}>();
+            this.bridge = bridge;
+            this.entityId = entityId;
+            this.client = client;        
+{{~ if inputDefinition != null ~}}
+            coherenceInput = input;
+            inputBuffer = new InputBuffer<InputData>(coherenceInput.InitialBufferSize, coherenceInput.InitialInputDelay, coherenceInput.UseFixedSimulationFrames);
+            currentInput = client.SchemaDataFactory.CreateInput({{ inputDefinition.id }}, entityId, MessageTarget.StateAuthorityOnly, 0);
+            
+            coherenceInput.internalSetButton = SetButton;
+            coherenceInput.internalSetAxis = SetAxis;
+            coherenceInput.internalSetAxis2D = SetAxis2D;
+            coherenceInput.internalSetAxis3D = SetAxis3D;
+            coherenceInput.internalSetRotation = SetRotation;
+            coherenceInput.internalSetInteger = SetInteger;
+            coherenceInput.internalSetString = SetString;
+            coherenceInput.internalGetButton = GetButton;
+            coherenceInput.internalGetAxis = GetAxis;
+            coherenceInput.internalGetAxis2D = GetAxis2D;
+            coherenceInput.internalGetAxis3D = GetAxis3D;
+            coherenceInput.internalGetRotation = GetRotation;
+            coherenceInput.internalGetInteger = GetInteger;
+            coherenceInput.internalGetString = GetString;
+            coherenceInput.internalRequestBuffer = () => inputBuffer;
+            coherenceInput.internalOnInputReceived += OnInput;
+            
+            if (coherenceInput.UseFixedSimulationFrames)
+            {
+                bridge.OnLateFixedNetworkUpdate += SendInputState;
+            }
+{{~ end ~}}    
+        }
+{{~ if inputDefinition != null ~}}
+
+        private void SetButton(string name, bool value)
+        {
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Bool" ~}}
+                case "{{ member.name }}":
+                    currentInput.GetField({{ for.index }}).SetBool(value);
+                    break;
+        {{~ end ~}}
+    {{~ end ~}}
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input button of name: {name}.");
+                    break;
+            }
+        }
+        
+        private void SetAxis(string name, float value)
+        {
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Float" ~}}
+                case "{{ member.name }}":
+                    currentInput.GetField({{ for.index }}).SetFloat(value);
+                    break;
+        {{~ end ~}}
+    {{~ end ~}}
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input axis of name: {name}.");
+                    break;
+            }
+        }
+        
+        private void SetAxis2D(string name, Vector2 value)
+        {
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Vector2" ~}}
+                case "{{ member.name }}":
+                    currentInput.GetField({{ for.index }}).SetVector2(value.ToCoreVector2());
+                    break;
+        {{~ end ~}}
+    {{~ end ~}}
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input axis2D of name: {name}.");
+                    break;
+            }
+        }
+        
+        private void SetAxis3D(string name, Vector3 value)
+        {
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Vector3" ~}}
+                case "{{ member.name }}":
+                    currentInput.GetField({{ for.index }}).SetVector3(value.ToVector3d());
+                    break;
+        {{~ end ~}}
+    {{~ end ~}}
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input axis3D of name: {name}.");
+                    break;
+            }
+        }
+        
+        private void SetRotation(string name, Quaternion value)
+        {
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Quaternion" ~}}
+                case "{{ member.name }}":
+                    currentInput.GetField({{ for.index }}).SetQuaternion(value.ToCoreQuaternion());
+                    break;
+        {{~ end ~}}
+    {{~ end ~}}
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input rotation of name: {name}.");
+                    break;
+            }
+        }
+        
+        private void SetInteger(string name, int value)
+        {
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Int" ~}}
+                case "{{ member.name }}":
+                    currentInput.GetField({{ for.index }}).SetInt(value);
+                    break;
+        {{~ end ~}}
+    {{~ end ~}}
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input integer of name: {name}.");
+                    break;
+            }
+        }
+        
+        private void SetString(string name, string value)
+        {
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "String" ~}}
+                case "{{ member.name }}":
+                    currentInput.GetField({{ for.index }}).SetString(value);
+                    break;
+        {{~ end ~}}
+    {{~ end ~}}
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input string of name: {name}.");
+                    break;
+            }
+        }
+        
+        public override void SendInputState()
+        {
+            if (!coherenceInput.IsProducer || !coherenceInput.IsReadyToProcessInputs || !coherenceInput.IsInputOwner)
+            {
+                return;
+            }
+
+            var currentFrame = currentSimulationFrame;
+
+            if (lastAddedFrame != currentFrame)
+            {
+                var input = currentInput.Clone(client.SchemaDataFactory);
+                input.Frame = currentFrame;
+                inputBuffer.AddInput(input, currentFrame);
+                lastAddedFrame = currentFrame;
+            }
+
+            while (inputBuffer.DequeueForSending(currentFrame, out long frameToSend, out InputData input, out bool differs))
+            {
+                if (!input.IsInitialized) 
+                {
+                    input = client.SchemaDataFactory.CreateInput({{ inputDefinition.id }}, entityId, MessageTarget.StateAuthorityOnly, 0);
+                }
+                else
+                {
+                    input = input.Clone(client.SchemaDataFactory);
+                }
+
+                coherenceInput.DebugOnInputSent(frameToSend, input);
+                input.Frame = frameToSend;
+                input.Entity = entityId;
+                client.SendInput(input);
+            }
+        }
+        
+        private bool ShouldPollCurrentInput(long frame)
+        {
+            return coherenceInput.IsProducer && coherenceInput.Delay == 0 && frame == currentSimulationFrame;
+        }
+        
+        private bool GetButton(string name, long? simulationFrame)
+        {
+            long frame = simulationFrame.GetValueOrDefault(currentSimulationFrame);
+            inputBuffer.TryGetInput(frame, out InputData input);
+            
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Bool" ~}}
+                case "{{ member.name }}":
+                    if (ShouldPollCurrentInput(frame))
+                    {
+                        return currentInput.GetField({{ for.index }}).GetBool();
+                    }
+                    return input.IsInitialized ? input.GetField({{ for.index }}).GetBool() : default;
+        {{~ end ~}}
+    {{~ end ~}}        
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input button of name: {name}.");
+                    break;
+            }
+            
+            return default;
+        }
+        
+        private float GetAxis(string name, long? simulationFrame)
+        {
+            long frame = simulationFrame.GetValueOrDefault(currentSimulationFrame);
+            inputBuffer.TryGetInput(frame, out InputData input);
+            
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Float" ~}}
+                case "{{ member.name }}":
+                    if (ShouldPollCurrentInput(frame))
+                    {
+                        return currentInput.GetField({{ for.index }}).GetFloat();
+                    }
+                    return input.IsInitialized ? input.GetField({{ for.index }}).GetFloat() : default;
+        {{~ end ~}}
+    {{~ end ~}}        
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input axis of name: {name}.");
+                    break;
+            }
+            
+            return default;
+        }
+        
+        private Vector2 GetAxis2D(string name, long? simulationFrame)
+        {
+            long frame = simulationFrame.GetValueOrDefault(currentSimulationFrame);
+            inputBuffer.TryGetInput(frame, out InputData input);
+            
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Vector2" ~}}
+                case "{{ member.name }}":
+                    if (ShouldPollCurrentInput(frame))
+                    {
+                        return currentInput.GetField({{ for.index }}).GetVector2().ToUnityVector2();
+                    }
+                    return input.IsInitialized ? input.GetField({{ for.index }}).GetVector2().ToUnityVector2() : default;
+        {{~ end ~}}
+    {{~ end ~}}        
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input axis2D of name: {name}.");
+                    break;
+            }
+            
+            return Vector2.zero;
+        }
+        
+        private Vector3 GetAxis3D(string name, long? simulationFrame)
+        {
+            long frame = simulationFrame.GetValueOrDefault(currentSimulationFrame);
+            inputBuffer.TryGetInput(frame, out InputData input);
+            
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Vector3" ~}}
+                case "{{ member.name }}":
+                    if (ShouldPollCurrentInput(frame))
+                    {
+                        return currentInput.GetField({{ for.index }}).GetVector3().ToUnityVector3();
+                    }
+                    return input.IsInitialized ? input.GetField({{ for.index }}).GetVector3().ToUnityVector3() : default;
+        {{~ end ~}}
+    {{~ end ~}}        
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input axis3D of name: {name}.");
+                    break;
+            }
+            
+            return Vector3.zero;
+        }
+        
+        private Quaternion GetRotation(string name, long? simulationFrame)
+        {
+            long frame = simulationFrame.GetValueOrDefault(currentSimulationFrame);
+            inputBuffer.TryGetInput(frame, out InputData input);
+            
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Quaternion" ~}}
+                case "{{ member.name }}":
+                    if (ShouldPollCurrentInput(frame))
+                    {
+                        return currentInput.GetField({{ for.index }}).GetQuaternion().ToUnityQuaternion();
+                    }
+                    return input.IsInitialized ? input.GetField({{ for.index }}).GetQuaternion().ToUnityQuaternion() : default;
+        {{~ end ~}}
+    {{~ end ~}}        
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input rotation of name: {name}.");
+                    break;
+            }
+            
+            return Quaternion.identity;
+        }
+        
+        private int GetInteger(string name, long? simulationFrame)
+        {
+            long frame = simulationFrame.GetValueOrDefault(currentSimulationFrame);
+            inputBuffer.TryGetInput(frame, out InputData input);
+            
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "Int" ~}}
+                case "{{ member.name }}":
+                    if (ShouldPollCurrentInput(frame))
+                    {
+                        return currentInput.GetField({{ for.index }}).GetInt();
+                    }
+                    return input.IsInitialized ? input.GetField({{ for.index }}).GetInt() : default;
+        {{~ end ~}}
+    {{~ end ~}}        
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input integer of name: {name}.");
+                    break;
+            }
+            
+            return 0;
+        }
+        
+        private string GetString(string name, long? simulationFrame)
+        {
+            long frame = simulationFrame.GetValueOrDefault(currentSimulationFrame);
+            inputBuffer.TryGetInput(frame, out InputData input);
+            
+            switch (name)
+            {
+    {{~ for member in inputDefinition.members ~}}
+        {{~ if member.type == "String" ~}}
+                case "{{ member.name }}":
+                    if (ShouldPollCurrentInput(frame))
+                    {
+                        return currentInput.GetField({{ for.index }}).GetString();
+                    }
+                    return input.IsInitialized ? input.GetField({{ for.index }}).GetString() : default;
+        {{~ end ~}}
+    {{~ end ~}}        
+                default:
+                    logger.Error(Coherence.Log.Error.ToolkitInputMissingInput, $"No input integer of name: {name}.");
+                    break;
+            }
+            
+            return null;
+        }
+        
+        private void OnInput(InputData input)
+        {
+            coherenceInput.DebugOnInputReceived(input.Frame, input);
+            inputBuffer.ReceiveInput(input, input.Frame);
+        }
+{{~ end ~}}
+    }
