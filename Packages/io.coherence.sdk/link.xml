@@ -1,0 +1,19 @@
+<linker>
+    <assembly fullname="Coherence.RSL" preserve="all" />
+
+    <!-- Newtonsoft.Json constructs JWT.Builder.JwtHeader reflectively when decoding a token, so its
+         members are invisible to managed stripping. Without this, high stripping levels (the default
+         on consoles) remove them and every connection to a client-hosted Replication Server is
+         denied with InvalidChallenge. -->
+    <assembly fullname="Coherence.JWT" preserve="all" />
+
+    <assembly fullname="System">
+        <type fullname="System.Net.Configuration.ConnectionManagementSection" />
+        <type fullname="System.Net.Configuration.ConnectionManagementElementCollection" />
+        <type fullname="System.Net.Configuration.NetSectionGroup" />
+    </assembly>
+
+    <assembly fullname="System.Configuration">
+        <type fullname="System.Configuration.ExeConfigurationHost" />
+    </assembly>
+</linker>

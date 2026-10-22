@@ -1,0 +1,9 @@
+    [UnityEngine.Scripting.Preserve]
+    public class BakeInfo 
+    {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void OnRuntimeMethodLoad()
+        {
+            Impl.BakedDataSchemaID = "{{ schema_id }}";
+        }
+    }

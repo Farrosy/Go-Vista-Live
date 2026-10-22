@@ -1,0 +1,33 @@
+#if !COHERENCE_COMMAND_EXTENSIONS_DISABLE
+[UnityEngine.Scripting.Preserve]
+public static class {{ class_name }}
+{
+{{~ seen_methods = []
+for command in commands
+    method_name = command.method_name | string.split "." | array.last
+    if array.contains seen_methods method_name; continue; end
+    seen_methods = array.add seen_methods method_name
+    ext_declaring_class = command.extension_method_declaring_class ?? command.method_declaring_class
+    ext_params = command.extension_method_parameters_info ?? command.parameters_info
+    type_params = command.extension_method_type_params
+    type_params_str = ((array.size type_params) > 0) ? "<" + (type_params | array.join ", ") + ">" : "" ~}}
+    public static bool {{ method_name }}{{ type_params_str }}(this {{ ext_declaring_class }} _self, MessageTarget coherenceMessageTarget{{~ for param in ext_params ~}}, {{ param.type | string.replace "+" "." }} {{ param.name }}{{~ end ~}})
+    {
+        if (!_self)
+        {
+            return false;
+        }
+
+        var __sync = _self.GetComponentInParent<CoherenceSync>(true);
+        if (!__sync)
+        {
+            return false;
+        }
+
+        return __sync.SendCommand(_self, nameof({{ method_name }}), coherenceMessageTarget{{~ for param in ext_params ~}}, (typeof({{ param.type | string.replace "+" "." }}), (object){{ param.name }}){{~ end ~}});
+    }
+{{~ if !for.last }}
+{{ end ~}}
+{{~ end ~}}
+}
+#endif
