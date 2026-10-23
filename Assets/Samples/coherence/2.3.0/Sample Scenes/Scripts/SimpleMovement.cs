@@ -1,8 +1,9 @@
 namespace Coherence.Samples
 {
     using UnityEngine;
+    using Unity.Netcode;
 
-    public class SimpleMovement : MonoBehaviour
+    public class SimpleMovement : NetworkBehaviour
     {
         public float speed = 10f;
 
@@ -10,7 +11,8 @@ namespace Coherence.Samples
     
         private void Update()
         {
-            if (!AllowMovement)
+            // Only the owning client should read local input and move this player.
+            if (!IsOwner || !AllowMovement)
             {
                 return;
             }
