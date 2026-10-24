@@ -40,9 +40,14 @@ namespace Normal.Realtime.Examples {
         }
 
         private void Start() {
-            // Call LocalStart() only if this instance is owned by the local client
-            if (_realtimeView.isOwnedLocallyInHierarchy)
-                LocalStart();
+            // Remote copies still need this component's prefab data, but must
+            // never run controller input or local physics logic.
+            if (!_realtimeView.isOwnedLocallyInHierarchy) {
+                enabled = false;
+                return;
+            }
+
+            LocalStart();
         }
 
         private void Update() {

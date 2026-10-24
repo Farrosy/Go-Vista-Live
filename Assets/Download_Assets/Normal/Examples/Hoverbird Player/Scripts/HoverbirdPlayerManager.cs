@@ -25,7 +25,13 @@ namespace Normal.Realtime.Examples {
                 preventOwnershipTakeover = true,    // Prevent other clients from calling RequestOwnership() on the root RealtimeView.
                 useInstance              = realtime // Use the instance of Realtime that fired the didConnectToRoom event.
             };
-            GameObject playerGameObject = Realtime.Instantiate(_prefab.name, options);
+            // Give each client a deterministic, separate spawn point. Without
+            // this, every player starts at (0, 0, 0) and their characters overlap.
+            int clientID = Mathf.Max(0, realtime.clientID);
+            float angle = clientID * 2.39996323f; // Golden angle spreads larger rooms evenly.
+            float radius = 3.0f + Mathf.Sqrt(clientID) * 0.5f;
+            Vector3 spawnPosition = new Vector3(Mathf.Cos(angle) * radius, 0.0f, Mathf.Sin(angle) * radius);
+            GameObject playerGameObject = Realtime.Instantiate(_prefab.name, spawnPosition, Quaternion.identity, options);
 
             // Get a reference to the player
             HoverbirdPlayer player = playerGameObject.GetComponent<HoverbirdPlayer>();
