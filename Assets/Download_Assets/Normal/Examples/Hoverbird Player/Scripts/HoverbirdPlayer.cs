@@ -19,6 +19,7 @@ namespace Normal.Realtime.Examples {
 
         private bool      _jumpThisFrame;
         private bool      _jumping;
+        private bool      _gameplayEnabled;
 
         private Rigidbody _rigidbody;
 
@@ -48,17 +49,27 @@ namespace Normal.Realtime.Examples {
             }
 
             LocalStart();
+            _rigidbody.isKinematic = !_gameplayEnabled;
+        }
+
+        public void SetGameplayEnabled(bool enabled) {
+            _gameplayEnabled = enabled;
+            if (_rigidbody != null) {
+                _rigidbody.isKinematic = !enabled;
+                if (enabled)
+                    _rigidbody.linearVelocity = Vector3.zero;
+            }
         }
 
         private void Update() {
             // Call LocalUpdate() only if this instance is owned by the local client
-            if (_realtimeView.isOwnedLocallyInHierarchy)
+            if (_gameplayEnabled && _realtimeView.isOwnedLocallyInHierarchy)
                 LocalUpdate();
         }
 
         private void FixedUpdate() {
             // Call LocalFixedUpdate() only if this instance is owned by the local client
-            if (_realtimeView.isOwnedLocallyInHierarchy)
+            if (_gameplayEnabled && _realtimeView.isOwnedLocallyInHierarchy)
                 LocalFixedUpdate();
         }
 
