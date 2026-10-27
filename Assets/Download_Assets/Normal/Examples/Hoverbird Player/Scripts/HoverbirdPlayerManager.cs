@@ -1,7 +1,6 @@
 ﻿#if NORMCORE
 
 using UnityEngine;
-using UnityEngine.Animations;
 
 namespace Normal.Realtime.Examples {
     public class HoverbirdPlayerManager : MonoBehaviour {
@@ -33,11 +32,13 @@ namespace Normal.Realtime.Examples {
             // avatar is created after this client presses Join Game.
             _localPlayer = null;
             _gameStarted = false;
+            HoverbirdMobileControls.SetVisible(false);
         }
 
         private void DidDisconnectFromRoom(Realtime realtime) {
             _localPlayer = null;
             _gameStarted = false;
+            HoverbirdMobileControls.SetVisible(false);
         }
 
         public void BeginGame() {
@@ -45,6 +46,7 @@ namespace Normal.Realtime.Examples {
                 return;
 
             _gameStarted = true;
+            HoverbirdMobileControls.SetVisible(true);
             SpawnLocalPlayer(_realtime);
         }
 
@@ -68,16 +70,10 @@ namespace Normal.Realtime.Examples {
             _localPlayer = player;
             player.SetGameplayEnabled(true);
 
-            // Get the constraint used to position the camera behind the player
-            ParentConstraint cameraConstraint = _camera.GetComponent<ParentConstraint>();
-
-            // Add the camera target so the camera follows it
-            ConstraintSource constraintSource = new ConstraintSource { sourceTransform = player.cameraTarget, weight = 1.0f };
-            int constraintIndex = cameraConstraint.AddSource(constraintSource);
-
-            // Set the camera offset so it acts like a third-person camera.
-            cameraConstraint.SetTranslationOffset(constraintIndex, new Vector3( 0.0f,  1.0f, -4.0f));
-            cameraConstraint.SetRotationOffset   (constraintIndex, new Vector3(15.0f,  0.0f,  0.0f));
+            // Use the same free-look orbit camera as DevScene, targeting this client's avatar.
+            CameraOrbit cameraOrbit = _camera.GetComponent<CameraOrbit>();
+            if (cameraOrbit != null)
+                cameraOrbit.SetTarget(player.transform);
         }
 
     }

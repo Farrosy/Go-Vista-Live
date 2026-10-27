@@ -56,6 +56,8 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
         Apply(value);
     }
 
+    public void ResetSprint() => SetSprint(false);
+
     private void Apply(bool value)
     {
         if (buttonImage) buttonImage.color = value ? activeColor : normalColor;

@@ -13,13 +13,19 @@ public class CameraOrbit : MonoBehaviour
     private float yaw;
     private float pitch = 15f;
 
+    public void SetTarget(Transform value)
+    {
+        target = value;
+        if (target) yaw = transform.eulerAngles.y;
+    }
+
     void Start() => yaw = transform.eulerAngles.y;
 
     void LateUpdate()
     {
         if (!target) return;
 
-        Vector2 look = PlayerInputHub.Instance.ConsumeLook();
+        Vector2 look = PlayerInputHub.Instance ? PlayerInputHub.Instance.ConsumeLook() : Vector2.zero;
         yaw += look.x * sensitivity;
         pitch = Mathf.Clamp(pitch - look.y * sensitivity, minPitch, maxPitch);
 
