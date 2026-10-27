@@ -13,7 +13,29 @@ public class PlayerInputHub : MonoBehaviour
 
     private Vector2 lookDelta;
 
-    void Awake() => Instance = this;
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
+    public void SetJoystick(Joystick value) => joystick = value;
+
+    public void ResetInput()
+    {
+        Sprint = false;
+        lookDelta = Vector2.zero;
+        if (joystick) joystick.OnPointerUp(null);
+    }
 
     public void AddLook(Vector2 delta) => lookDelta += delta;
 
