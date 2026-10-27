@@ -72,8 +72,8 @@ namespace Normal.Realtime.Examples {
 
             // Use the same free-look orbit camera as DevScene, targeting this client's avatar.
             CameraOrbit cameraOrbit = _camera.GetComponent<CameraOrbit>();
-            if (cameraOrbit != null)
-                cameraOrbit.SetTarget(player.transform);
+            // if (cameraOrbit != null)
+            //     cameraOrbit.SetTarget(player.transform);
         }
 
     }

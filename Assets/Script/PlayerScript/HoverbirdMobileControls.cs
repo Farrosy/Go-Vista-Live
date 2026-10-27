@@ -12,7 +12,7 @@ public sealed class HoverbirdMobileControls : MonoBehaviour
     {
         if (!visible)
         {
-            if (PlayerInputHub.Instance) PlayerInputHub.Instance.ResetInput();
+            // if (PlayerInputHub.Instance) PlayerInputHub.Instance.ResetInput();
             if (sprintButton) sprintButton.ResetSprint();
         }
         if (controlsCanvas) controlsCanvas.enabled = visible;
