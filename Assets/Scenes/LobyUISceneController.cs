@@ -5,6 +5,7 @@ using Normal.Realtime.Examples;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -51,6 +52,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private Button _waitingRosterToggleButton;
     private Coroutine _playerListRoutine;
     private bool _roomFullDisconnectRequested;
+    private bool _startingGame;
+    private const string WorldSceneName = "WorldScene";
 
     private void OnEnable() {
 #if UNITY_EDITOR
@@ -979,13 +982,46 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void BeginGame() {
+        if (_startingGame)
+            return;
         HoverbirdPlayerManager playerManager = FindFirstObjectByType<HoverbirdPlayerManager>();
         if (playerManager == null) {
             SetStatus("Hoverbird Player Manager tidak ditemukan.");
             return;
         }
 
+        StartCoroutine(LoadWorldAndBeginGame(playerManager));
+    }
+
+    private IEnumerator LoadWorldAndBeginGame(HoverbirdPlayerManager playerManager) {
+        _startingGame = true;
+        SetStatus("Memuat world…");
+
+        Scene worldScene = SceneManager.GetSceneByName(WorldSceneName);
+        if (!worldScene.isLoaded) {
+            AsyncOperation load = SceneManager.LoadSceneAsync(WorldSceneName, LoadSceneMode.Additive);
+            if (load == null) {
+                _startingGame = false;
+                SetStatus("Gagal memuat WorldScene. Pastikan scene ada di Build Settings.");
+                yield break;
+            }
+            yield return load;
+            worldScene = SceneManager.GetSceneByName(WorldSceneName);
+        }
+
+        if (worldScene.IsValid() && worldScene.isLoaded) {
+            // Keep the camera rig and Realtime object in the multiplayer scene;
+            // WorldScene contributes only the environment.
+            foreach (GameObject root in worldScene.GetRootGameObjects()) {
+                foreach (Camera worldCamera in root.GetComponentsInChildren<Camera>(true))
+                    worldCamera.enabled = false;
+                foreach (AudioListener listener in root.GetComponentsInChildren<AudioListener>(true))
+                    listener.enabled = false;
+            }
+        }
+
         playerManager.BeginGame();
+        _startingGame = false;
         SetWaitingJoinButtonJoined(true);
         if (_waitingPanel != null)
             _waitingPanel.SetActive(false);
