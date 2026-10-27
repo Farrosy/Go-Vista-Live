@@ -582,7 +582,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9cb897de27295d343b4ac360dd964ce3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraOrbit
   target: {fileID: 0}
   pivotOffset: {x: 0, y: 1.6, z: 0}
@@ -590,19 +590,6 @@ MonoBehaviour:
   sensitivity: 0.12
   minPitch: -25
   maxPitch: 70
---- !u!1001 &901329300
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications: []
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: c3a017a46f944c9c867c222bcb034fc1, type: 3}
 --- !u!1001 &722965845
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -700,6 +687,43 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b79c1e68dcc5529568806537cbf0f96c, type: 3}
+--- !u!1001 &901329300
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 100000001, guid: c3a017a46f944c9c867c222bcb034fc1, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 100000001, guid: c3a017a46f944c9c867c222bcb034fc1, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 100000001, guid: c3a017a46f944c9c867c222bcb034fc1, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000001, guid: c3a017a46f944c9c867c222bcb034fc1, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 508
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000001, guid: c3a017a46f944c9c867c222bcb034fc1, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 302
+      objectReference: {fileID: 0}
+    - target: {fileID: 2929252283488122355, guid: c3a017a46f944c9c867c222bcb034fc1, type: 3}
+      propertyPath: m_Name
+      value: Fixed Joystick
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c3a017a46f944c9c867c222bcb034fc1, type: 3}
 --- !u!1001 &928542059
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1740,3 +1764,4 @@ SceneRoots:
   - {fileID: 1354985695}
   - {fileID: 985244392}
   - {fileID: 215597947}
+  - {fileID: 901329300}
