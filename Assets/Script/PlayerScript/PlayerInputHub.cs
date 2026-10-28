@@ -8,36 +8,34 @@ public class PlayerInputHub : MonoBehaviour
     [Header("Drag Fixed Joystick dari Hierarchy ke sini")]
     [SerializeField] private Joystick joystick;
 
-    public Vector2 Move => joystick ? new Vector2(joystick.Horizontal, joystick.Vertical) : Vector2.zero;
-    public bool Sprint { get; set; }
-
+    private bool sprint;
     private Vector2 lookDelta;
 
-    void Awake()
+    /// True saat dialog/cutscene: gerak, sprint, dan look dimatikan.
+    public bool InputLocked { get; private set; }
+
+    public Vector2 Move => (joystick && !InputLocked)
+        ? new Vector2(joystick.Horizontal, joystick.Vertical)
+        : Vector2.zero;
+
+    public bool Sprint
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
+        get => sprint && !InputLocked;
+        set => sprint = value;
     }
 
-    void OnDestroy()
-    {
-        if (Instance == this) Instance = null;
-    }
+    void Awake() => Instance = this;
 
-    public void SetJoystick(Joystick value) => joystick = value;
-
-    public void ResetInput()
+    public void SetLocked(bool locked)
     {
-        Sprint = false;
+        InputLocked = locked;
         lookDelta = Vector2.zero;
-        if (joystick) joystick.OnPointerUp(null);
     }
 
-    public void AddLook(Vector2 delta) => lookDelta += delta;
+    public void AddLook(Vector2 delta)
+    {
+        if (!InputLocked) lookDelta += delta;
+    }
 
     /// Dipanggil kamera tiap frame; ngambil lalu reset.
     public Vector2 ConsumeLook()

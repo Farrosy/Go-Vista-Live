@@ -16,6 +16,7 @@ public class InteractButtonUI : MonoBehaviour
     private Interactable current;
     private Transform player;
     private CanvasGroup group;
+    private bool suppressed;
 
     void Awake()
     {
@@ -47,7 +48,7 @@ public class InteractButtonUI : MonoBehaviour
 
         Interactable best = null;
         float bestDist = float.MaxValue;
-        if (player)
+        if (player && !suppressed)
         {
             foreach (var i in inRange)
             {
@@ -56,7 +57,15 @@ public class InteractButtonUI : MonoBehaviour
             }
         }
 
+        if (DialogueUI.Instance != null && DialogueUI.Instance.IsActive) return;  // sembunyikan saat dialog
         if (best != current) SetCurrent(best);
+    }
+
+    /// Dipakai dialog: sembunyikan prompt + tombol selama dialog berjalan.
+    public void SetSuppressed(bool value)
+    {
+        suppressed = value;
+        if (value) SetCurrent(null);
     }
 
     private void SetCurrent(Interactable target)
