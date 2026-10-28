@@ -27,6 +27,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private const string PrefabFolderPath = "Assets/Prefab";
     private const string LobbyCanvasPrefabPath = "Assets/Prefab/LobbyCanvas.prefab";
     private const string WaitingCanvasPrefabPath = "Assets/Prefab/RoomWaitingCanvas.prefab";
+    private const string LoadingCanvasPrefabPath = "Assets/Prefab/RoomLoadingCanvas.prefab";
+    private const string LoadingSceneName = "RoomLoadingScene";
     private const string RecentRoomsKey = "LobyUIScene.RecentRooms";
     private const int MaxRecentRooms = 3;
     private const int MaxRoomPlayers = 10;
@@ -53,6 +55,10 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private Coroutine _playerListRoutine;
     private bool _roomFullDisconnectRequested;
     private bool _startingGame;
+    private bool _returnToLobbyOnDisconnect;
+    private string _selectedRecentRoom;
+    private AsyncOperation _loadingSceneOperation;
+    private Scene _loadingScene;
     private const string WorldSceneName = "WorldScene";
 
     private void OnEnable() {
@@ -101,7 +107,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         realtime.didDisconnectFromRoom += DidDisconnectFromRoom;
         realtime.didDisconnectFromRoomWithEvent += DidDisconnectFromRoomWithEvent;
 
-        AddClickListener("Lobby Create Button", ConnectByRoomName);
+        AddClickListener("Lobby Create Button", CreateRoom);
         AddClickListener("Lobby Join Button", ConnectByRoomName);
         AddClickListener("Lobby Quickmatch Button", ConnectQuickmatch);
         AddClickListener("Lobby Join Code Button", ConnectQuickmatchCode);
@@ -116,6 +122,63 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
 #if UNITY_EDITOR
+    internal static void EnsureLoadingSceneAssets() {
+        const string scenePath = "Assets/Scenes/Multiplayer/RoomLoadingScene.unity";
+        const string prefabPath = "Assets/Prefab/RoomLoadingCanvas.prefab";
+        if (EditorApplication.isPlayingOrWillChangePlaymode ||
+            AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) != null)
+            return;
+        Canvas canvas = new GameObject("Room Loading Canvas", typeof(RectTransform), typeof(Canvas),
+                                      typeof(CanvasScaler), typeof(GraphicRaycaster)).GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 100;
+        CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 0.5f;
+        RectTransform panel = CreateRect("Loading Panel", canvas.transform, new Vector2(620f, 260f));
+        panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0.5f);
+        panel.anchoredPosition = Vector2.zero;
+        panel.gameObject.AddComponent<Image>().color = PanelColor;
+        CreateText("Loading Title", panel, "GO VISTA", 30, FontStyle.Bold, TextAnchor.MiddleCenter,
+                   new Vector2(520f, 54f), new Vector2(0f, -42f), Color.white);
+        Text status = CreateText("Loading Status", panel, "Menyiapkan koneksi…", 17, FontStyle.Normal,
+                                 TextAnchor.MiddleCenter, new Vector2(540f, 48f), new Vector2(0f, -100f), Color.white);
+        RectTransform track = CreateRect("Progress Track", panel, new Vector2(500f, 24f));
+        track.anchoredPosition = new Vector2(0f, -165f);
+        track.gameObject.AddComponent<Image>().color = FieldColor;
+        RectTransform fill = CreateRect("Progress Fill", track, Vector2.zero);
+        fill.anchorMin = Vector2.zero;
+        fill.anchorMax = Vector2.one;
+        fill.offsetMin = fill.offsetMax = Vector2.zero;
+        Image progress = fill.gameObject.AddComponent<Image>();
+        progress.color = AccentColor;
+        progress.type = Image.Type.Filled;
+        progress.fillMethod = Image.FillMethod.Horizontal;
+        progress.fillAmount = 0.05f;
+        RoomLoadingCanvas loading = canvas.gameObject.AddComponent<RoomLoadingCanvas>();
+        var so = new SerializedObject(loading);
+        so.FindProperty("progressFill").objectReferenceValue = progress;
+        so.FindProperty("statusText").objectReferenceValue = status;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EnsurePrefabFolderExists();
+        GameObject prefab = PrefabUtility.SaveAsPrefabAsset(canvas.gameObject, prefabPath);
+        GameObject.DestroyImmediate(canvas.gameObject);
+        if (prefab == null) return;
+        Scene scene = SceneManager.GetSceneByPath(scenePath);
+        bool openedHere = !scene.IsValid() || !scene.isLoaded;
+        if (openedHere) scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+        PrefabUtility.InstantiatePrefab(prefab, scene);
+        EditorSceneManager.SaveScene(scene, scenePath);
+        EditorBuildSettingsScene[] scenes = EditorBuildSettings.scenes;
+        var list = new List<EditorBuildSettingsScene>(scenes);
+        if (!list.Exists(item => item.path == scenePath)) {
+            list.Add(new EditorBuildSettingsScene(scenePath, true));
+            EditorBuildSettings.scenes = list.ToArray();
+        }
+        if (openedHere) EditorSceneManager.CloseScene(scene, true);
+    }
+
     private void BuildCanvasInEditor() {
         EnsureCanvasInEditor();
     }
@@ -814,6 +877,10 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void ConnectByRoomName() {
+        if (!string.IsNullOrEmpty(_selectedRecentRoom)) {
+            JoinSelectedRecentRoom();
+            return;
+        }
         string requestedRoom = _roomInput != null ? _roomInput.text.Trim() : "";
         if (string.IsNullOrEmpty(requestedRoom)) {
             SetStatus("Nama room harus diisi.");
@@ -823,11 +890,25 @@ public sealed class LobyUISceneController : MonoBehaviour {
             SetStatus("Nama room harus kurang dari 512 karakter.");
             return;
         }
-        Connect(() => realtime.Connect(requestedRoom));
+        Connect(() => realtime.Connect(requestedRoom), "Membuat room dan menghubungkan ke server…");
+    }
+
+    private void CreateRoom() {
+        _selectedRecentRoom = null;
+        string requestedRoom = _roomInput != null ? _roomInput.text.Trim() : "";
+        if (string.IsNullOrEmpty(requestedRoom)) {
+            SetStatus("Nama room harus diisi.");
+            return;
+        }
+        if (requestedRoom.Length >= 512) {
+            SetStatus("Nama room harus kurang dari 512 karakter.");
+            return;
+        }
+        Connect(() => realtime.Connect(requestedRoom), "Membuat room dan menghubungkan ke server…");
     }
 
     private void ConnectQuickmatch() {
-        Connect(() => realtime.ConnectToNextAvailableQuickmatchRoom("go-vista", 10));
+        Connect(() => realtime.ConnectToNextAvailableQuickmatchRoom("go-vista", 10), "Mencari atau membuat room…");
     }
 
     private void ConnectQuickmatchCode() {
@@ -836,18 +917,34 @@ public sealed class LobyUISceneController : MonoBehaviour {
             SetStatus("Masukkan kode Quickmatch terlebih dahulu.");
             return;
         }
-        Connect(() => realtime.ConnectDirectlyToQuickmatchRoom("go-vista", code));
+        Connect(() => realtime.ConnectDirectlyToQuickmatchRoom("go-vista", code), "Memeriksa kode dan menghubungkan…");
     }
 
-    private void Connect(System.Action connect) {
+    private void JoinSelectedRecentRoom() {
+        if (string.IsNullOrEmpty(_selectedRecentRoom)) {
+            SetStatus("Pilih room terakhir terlebih dahulu.");
+            return;
+        }
+        string room = _selectedRecentRoom;
+        if (room.StartsWith("qm:")) {
+            string code = room.Substring(3);
+            Connect(() => realtime.ConnectDirectlyToQuickmatchRoom("go-vista", code), "Memeriksa kode dan menghubungkan…");
+        } else {
+            Connect(() => realtime.Connect(room), "Menghubungkan ke room…");
+        }
+    }
+
+    private void Connect(System.Action connect, string status) {
         if (realtime == null || _busy)
             return;
         _busy = true;
-        SetStatus("Menghubungkan ke Normcore…");
+        SetStatus(status);
+        ShowLoading(status);
         try {
             connect();
         } catch (System.Exception exception) {
             _busy = false;
+            HideLoading();
             SetStatus("Gagal memulai koneksi: " + exception.Message);
             Debug.LogException(exception);
         }
@@ -855,6 +952,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private void DidConnectToRoom(Realtime connectedRealtime) {
         _busy = false;
+        HideLoading();
         _roomFullDisconnectRequested = false;
         string roomCode = connectedRealtime.room != null ? connectedRealtime.room.quickmatchRoomCode : null;
         SetStatus("Terhubung.");
@@ -892,6 +990,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private void DidDisconnectFromRoom(Realtime disconnectedRealtime) {
         _busy = false;
+        HideLoading();
+        if (ReturnToLobbyIfRequested())
+            return;
         if (_waitingCanvas != null)
             _waitingCanvas.SetActive(false);
         SetWaitingJoinButtonJoined(false);
@@ -912,6 +1013,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private void DidDisconnectFromRoomWithEvent(Realtime disconnectedRealtime, DisconnectEvent disconnectEvent) {
         _busy = false;
+        HideLoading();
+        if (ReturnToLobbyIfRequested())
+            return;
 
         // Quickmatch rooms are temporary. Normcore reports this when a saved
         // room name/code no longer resolves, so remove that stale card locally.
@@ -1065,8 +1169,19 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void Disconnect() {
+        _returnToLobbyOnDisconnect = true;
         if (realtime != null && realtime.connected)
             realtime.Disconnect();
+        else
+            SceneManager.LoadScene("LobbyReturnScene", LoadSceneMode.Single);
+    }
+
+    private bool ReturnToLobbyIfRequested() {
+        if (!_returnToLobbyOnDisconnect)
+            return false;
+        _returnToLobbyOnDisconnect = false;
+        SceneManager.LoadScene("LobbyReturnScene", LoadSceneMode.Single);
+        return true;
     }
 
     private void CopyQuickmatchCode() {
@@ -1081,6 +1196,55 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private void SetStatus(string status) {
         if (_statusText != null)
             _statusText.text = status;
+    }
+
+    private void ShowLoading(string status) {
+        if (!Application.isPlaying)
+            return;
+        if (_loadingSceneOperation != null && !_loadingSceneOperation.isDone)
+            return;
+        _loadingSceneOperation = SceneManager.LoadSceneAsync(LoadingSceneName, LoadSceneMode.Additive);
+        if (_loadingSceneOperation == null) {
+            Debug.LogWarning("RoomLoadingScene tidak ada di Build Settings.");
+            return;
+        }
+        StartCoroutine(ConfigureLoadingScene(status));
+    }
+
+    private IEnumerator ConfigureLoadingScene(string status) {
+        yield return _loadingSceneOperation;
+        _loadingSceneOperation = null;
+        _loadingScene = SceneManager.GetSceneByName(LoadingSceneName);
+        if (!_loadingScene.IsValid() || !_loadingScene.isLoaded)
+            yield break;
+        foreach (GameObject root in _loadingScene.GetRootGameObjects()) {
+            RoomLoadingCanvas loading = root.GetComponentInChildren<RoomLoadingCanvas>(true);
+            if (loading != null) {
+                loading.SetStatus(status);
+                loading.SetProgress(0.15f);
+            }
+        }
+        if (_busy)
+            StartCoroutine(AnimateLoadingProgress());
+    }
+
+    private IEnumerator AnimateLoadingProgress() {
+        float progress = 0.15f;
+        while (_busy && _loadingScene.IsValid() && _loadingScene.isLoaded) {
+            progress = Mathf.Min(0.88f, progress + Time.unscaledDeltaTime * 0.035f);
+            foreach (GameObject root in _loadingScene.GetRootGameObjects()) {
+                RoomLoadingCanvas loading = root.GetComponentInChildren<RoomLoadingCanvas>(true);
+                if (loading != null) loading.SetProgress(progress);
+            }
+            yield return null;
+        }
+    }
+
+    private void HideLoading() {
+        if (_loadingSceneOperation != null && !_loadingSceneOperation.isDone)
+            return;
+        if (_loadingScene.IsValid() && _loadingScene.isLoaded)
+            SceneManager.UnloadSceneAsync(_loadingScene);
     }
 
     private void RefreshRecentRooms() {
@@ -1115,12 +1279,12 @@ public sealed class LobyUISceneController : MonoBehaviour {
             buttonRect.anchorMax = new Vector2(1f, 1f);
             buttonRect.pivot = new Vector2(0.5f, 1f);
             button.onClick.AddListener(() => {
+                _selectedRecentRoom = room;
                 if (_roomInput != null)
-                    _roomInput.text = room;
-                if (isQuickmatch)
-                    Connect(() => realtime.ConnectDirectlyToQuickmatchRoom("go-vista", roomCode));
-                else
-                    Connect(() => realtime.Connect(room));
+                    _roomInput.text = isQuickmatch ? string.Empty : room;
+                if (isQuickmatch && _codeInput != null)
+                    _codeInput.text = roomCode;
+                SetStatus("Room dipilih: " + label + ". Tekan GABUNG untuk melanjutkan.");
             });
         }
         _recentScroll.verticalNormalizedPosition = 1f;
@@ -1172,6 +1336,7 @@ internal static class LobyUISceneCanvasBootstrap {
         EditorSceneManager.sceneOpened += OnSceneOpened;
         EditorSceneManager.sceneSaved += OnSceneSaved;
         EditorApplication.delayCall += BuildForOpenScenes;
+        EditorApplication.delayCall += LobyUISceneController.EnsureLoadingSceneAssets;
     }
 
     private static void OnSceneSaved(UnityEngine.SceneManagement.Scene scene) {

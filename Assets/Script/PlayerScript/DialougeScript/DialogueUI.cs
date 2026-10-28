@@ -25,6 +25,9 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
 
     public bool IsActive { get; private set; }
 
+    /// Dipanggil saat dialog dibaca sampai baris terakhir (dipakai ProgressService).
+    public static event System.Action<DialogueData> DialogueFinished;
+
     private CanvasGroup group;
     private CameraOrbit cameraOrbit;
     private Transform player;
@@ -159,6 +162,8 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
         if (cameraOrbit) cameraOrbit.ReleaseFocus();
         PlayerInputHub.Instance.SetLocked(false);
         if (InteractButtonUI.Instance) InteractButtonUI.Instance.SetSuppressed(false);
+
+        DialogueFinished?.Invoke(data);
     }
 
     private void FaceNpc()

@@ -6,6 +6,8 @@ namespace Normal.Realtime.Examples {
     public class HoverbirdPlayerManager : MonoBehaviour {
         [SerializeField] private GameObject _camera = default;
         [SerializeField] private GameObject _prefab;
+        [Tooltip("Nama world untuk posisi tersimpan (ProgressService). Samakan dengan scene world yang di-load.")]
+        [SerializeField] private string _worldName = "WorldScene";
 
         private Realtime _realtime;
         private HoverbirdPlayer _localPlayer;
@@ -36,6 +38,9 @@ namespace Normal.Realtime.Examples {
         }
 
         private void DidDisconnectFromRoom(Realtime realtime) {
+            // Simpan posisi terakhir yang sudah terekam sebelum avatar hilang.
+            _ = ProgressService.SaveAsync();
+            ProgressService.ClearLocalPlayer();
             _localPlayer = null;
             _gameStarted = false;
             HoverbirdMobileControls.SetVisible(false);
@@ -62,13 +67,20 @@ namespace Normal.Realtime.Examples {
             float angle = clientID * 2.39996323f; // Golden angle spreads larger rooms evenly.
             float radius = 3.0f + Mathf.Sqrt(clientID) * 0.5f;
             Vector3 spawnPosition = new Vector3(Mathf.Cos(angle) * radius, 0.0f, Mathf.Sin(angle) * radius);
-            GameObject playerGameObject = Realtime.Instantiate(_prefab.name, spawnPosition, Quaternion.identity, options);
+            Quaternion spawnRotation = Quaternion.identity;
+            // Lanjutkan dari posisi terakhir akun ini (Cloud Save), kalau pernah main di world ini.
+            if (ProgressService.TryGetLastPose(_worldName, out Vector3 savedPosition, out Quaternion savedRotation)) {
+                spawnPosition = savedPosition;
+                spawnRotation = savedRotation;
+            }
+            GameObject playerGameObject = Realtime.Instantiate(_prefab.name, spawnPosition, spawnRotation, options);
             playerGameObject.name = "Player " + (clientID + 1);
 
             // Get a reference to the player
             HoverbirdPlayer player = playerGameObject.GetComponent<HoverbirdPlayer>();
             _localPlayer = player;
             player.SetGameplayEnabled(true);
+            ProgressService.SetLocalPlayer(player.transform, _worldName);
 
             // Use the same free-look orbit camera as DevScene, targeting this client's avatar.
             CameraOrbit cameraOrbit = _camera.GetComponent<CameraOrbit>();

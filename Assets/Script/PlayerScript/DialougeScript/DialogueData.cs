@@ -16,6 +16,13 @@ public class DialogueData : ScriptableObject
     public string speakerName = "NPC";
     public Sprite portrait;
 
+    [Header("Progres")]
+    [Tooltip("ID unik untuk simpan progres. Kosong = pakai nama asset. JANGAN diganti setelah rilis, " +
+             "nanti progres pemain untuk dialog ini dianggap belum selesai.")]
+    public string dialogueId;
+
+    public string Id => string.IsNullOrEmpty(dialogueId) ? name : dialogueId;
+
     [Header("Isi dialog (satu elemen = satu kotak teks)")]
     public DialogueLine[] lines;
 
