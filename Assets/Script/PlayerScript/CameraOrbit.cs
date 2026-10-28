@@ -22,6 +22,12 @@ public class CameraOrbit : MonoBehaviour
     private float fDistance, fHeight, fSide;
     private float blend;   // 0 = kamera normal, 1 = fokus penuh
 
+    public void SetTarget(Transform value)
+    {
+        target = value;
+        if (target) yaw = transform.eulerAngles.y;
+    }
+
     void Start() => yaw = transform.eulerAngles.y;
 
     public void FocusOn(Transform point, float dist, float height, float side)
@@ -39,7 +45,7 @@ public class CameraOrbit : MonoBehaviour
     {
         if (!target) return;
 
-        Vector2 look = PlayerInputHub.Instance.ConsumeLook();
+        Vector2 look = PlayerInputHub.Instance ? PlayerInputHub.Instance.ConsumeLook() : Vector2.zero;
         if (!focusing)
         {
             yaw += look.x * sensitivity;
