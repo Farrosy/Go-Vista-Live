@@ -8,6 +8,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float sprintSpeed = 6f;
     [SerializeField] private float turnSpeed = 720f;
     [SerializeField] private float gravity = -20f;
+    [SerializeField] private float jumpHeight = 1.5f;
+    [SerializeField] private float jumpCooldown = 0.5f;
 
     [Tooltip("ON = joystick atas = maju searah kamera. OFF = joystick atas = selalu +Z dunia, kamera tidak ngaruh.")]
     [SerializeField] private bool cameraRelative = true;
@@ -18,6 +20,7 @@ public class PlayerController : MonoBehaviour
 
     private CharacterController cc;
     private float verticalVel;
+    private float nextJumpTime;
 
     void Awake()
     {
@@ -47,7 +50,20 @@ public class PlayerController : MonoBehaviour
             transform.rotation = Quaternion.RotateTowards(transform.rotation, target, turnSpeed * Time.deltaTime);
         }
 
-        verticalVel = cc.isGrounded ? -2f : verticalVel + gravity * Time.deltaTime;
+        if (cc.isGrounded && verticalVel <= 0f)
+            verticalVel = -2f;
+        else
+            verticalVel += gravity * Time.deltaTime;
         cc.Move((dir * speed + Vector3.up * verticalVel) * Time.deltaTime);
+    }
+
+    public void TryJump()
+    {
+        var input = PlayerInputHub.Instance;
+        if ((input && input.InputLocked) || !cc.isGrounded || Time.time < nextJumpTime)
+            return;
+
+        verticalVel = Mathf.Sqrt(2f * Mathf.Abs(gravity) * Mathf.Max(0f, jumpHeight));
+        nextJumpTime = Time.time + Mathf.Max(0f, jumpCooldown);
     }
 }
