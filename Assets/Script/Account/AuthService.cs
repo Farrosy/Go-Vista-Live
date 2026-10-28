@@ -22,7 +22,7 @@ public readonly struct ServiceResult {
 }
 
 /// <summary>
-/// Pembungkus Unity Authentication (UGS): inisialisasi, register, login, auto-login, dan logout.
+/// Pembungkus Unity Authentication (UGS): inisialisasi, register, login, login tamu, auto-login, dan logout.
 /// Tidak berisi kode UI sama sekali, jadi bisa dipanggil dari scene mana pun.
 /// </summary>
 public static class AuthService {
@@ -31,6 +31,10 @@ public static class AuthService {
         "Password 8–30 karakter, wajib ada huruf besar, huruf kecil, angka, dan simbol.";
 
     private const string LastUsernameKey = "Auth.LastUsername";
+    private const string GuestFlagKey = "Auth.IsGuest";
+    public const string GuestDisplayName = "Tamu";
+
+    private enum SignInKind { Login, Register, Guest }
     private static readonly Regex UsernamePattern = new Regex(@"^[A-Za-z0-9.\-@_]{3,20}$");
 
     private static Task _initTask;
@@ -44,6 +48,12 @@ public static class AuthService {
 
     /// <summary>Username terakhir yang berhasil login di perangkat ini (untuk ditampilkan).</summary>
     public static string LastUsername => PlayerPrefs.GetString(LastUsernameKey, "");
+
+    /// <summary>True kalau akun yang sedang/terakhir login adalah akun tamu (anonymous).</summary>
+    public static bool IsGuest => PlayerPrefs.GetInt(GuestFlagKey, 0) == 1;
+
+    /// <summary>Nama untuk ditampilkan di UI: username, atau "Tamu" untuk akun tamu.</summary>
+    public static string DisplayName => IsGuest ? GuestDisplayName : LastUsername;
 
     // Reset saat Play Mode dimulai, supaya tetap benar walau Domain Reload dimatikan.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -85,7 +95,7 @@ public static class AuthService {
 
         return RunSignInAsync(
             () => AuthenticationService.Instance.SignUpWithUsernamePasswordAsync(username, password),
-            username, isRegister: true);
+            username, SignInKind.Register);
     }
 
     public static Task<ServiceResult> SignInAsync(string username, string password) {
@@ -95,7 +105,19 @@ public static class AuthService {
 
         return RunSignInAsync(
             () => AuthenticationService.Instance.SignInWithUsernamePasswordAsync(username, password),
-            username, isRegister: false);
+            username, SignInKind.Login);
+    }
+
+    /// <summary>
+    /// Masuk tanpa username/password (akun anonymous UGS). Progres tetap tersimpan di Cloud Save, tapi akun
+    /// tamu hanya bisa dipulihkan di perangkat ini dan hilang permanen kalau pemain keluar akun.
+    ///
+    /// TODO (next develop): fitur "Simpan akun tamu" dengan
+    /// AuthenticationService.Instance.AddUsernamePasswordAsync(username, password), supaya tamu bisa
+    /// mengubah akunnya jadi akun biasa tanpa kehilangan progres.
+    /// </summary>
+    public static Task<ServiceResult> SignInAsGuestAsync() {
+        return RunSignInAsync(() => AuthenticationService.Instance.SignInAnonymouslyAsync(), null, SignInKind.Guest);
     }
 
     /// <summary>Keluar dan hapus sesi tersimpan, jadi tidak auto-login lagi.</summary>
@@ -140,30 +162,37 @@ public static class AuthService {
         }
     }
 
-    private static async Task<ServiceResult> RunSignInAsync(Func<Task> signIn, string username, bool isRegister) {
+    private static async Task<ServiceResult> RunSignInAsync(Func<Task> signIn, string username, SignInKind kind) {
         ServiceResult init = await EnsureInitializedAsync();
         if (!init.Success)
             return init;
 
         // Pastikan tidak ada sesi lain yang masih aktif sebelum ganti akun.
-        if (AuthenticationService.Instance.IsSignedIn)
-            AuthenticationService.Instance.SignOut(clearCredentials: true);
+        IAuthenticationService auth = AuthenticationService.Instance;
+        if (auth.IsSignedIn)
+            auth.SignOut(clearCredentials: true);
+        // Kalau masih ada session token lama, SignInAnonymouslyAsync akan memulihkan akun itu,
+        // bukan membuat akun tamu baru.
+        if (kind == SignInKind.Guest && auth.SessionTokenExists)
+            auth.ClearSessionToken();
 
         try {
             await signIn();
-            PlayerPrefs.SetString(LastUsernameKey, username);
+            PlayerPrefs.SetInt(GuestFlagKey, kind == SignInKind.Guest ? 1 : 0);
+            if (kind != SignInKind.Guest)
+                PlayerPrefs.SetString(LastUsernameKey, username);
             PlayerPrefs.Save();
             return ServiceResult.Ok();
         } catch (RequestFailedException e) {
-            Debug.LogWarning($"[Auth] {(isRegister ? "Register" : "Login")} gagal ({e.ErrorCode}): {e.Message}");
-            return ServiceResult.Fail(ToFriendlyMessage(e, isRegister));
+            Debug.LogWarning($"[Auth] {kind} gagal ({e.ErrorCode}): {e.Message}");
+            return ServiceResult.Fail(ToFriendlyMessage(e, kind));
         } catch (Exception e) {
             Debug.LogException(e);
             return ServiceResult.Fail("Terjadi kesalahan tak terduga. Coba lagi.");
         }
     }
 
-    private static string ToFriendlyMessage(RequestFailedException e, bool isRegister) {
+    private static string ToFriendlyMessage(RequestFailedException e, SignInKind kind) {
         if (e.ErrorCode == CommonErrorCodes.TransportError || e.ErrorCode == CommonErrorCodes.Timeout ||
             e.ErrorCode == CommonErrorCodes.ServiceUnavailable)
             return "Tidak bisa terhubung ke server. Cek koneksi internet kamu.";
@@ -173,11 +202,13 @@ public static class AuthService {
         string message = e.Message ?? "";
         if (message.IndexOf("banned", StringComparison.OrdinalIgnoreCase) >= 0)
             return "Akun ini diblokir.";
-        if (isRegister && message.IndexOf("exist", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (kind == SignInKind.Register && message.IndexOf("exist", StringComparison.OrdinalIgnoreCase) >= 0)
             return "Username sudah dipakai. Coba username lain.";
 
         // Format username/password sudah dicek lokal, jadi kegagalan login hampir selalu
         // berarti kombinasi username/password salah.
-        return isRegister ? "Pendaftaran gagal. Coba lagi beberapa saat." : "Username atau password salah.";
+        return kind == SignInKind.Register ? "Pendaftaran gagal. Coba lagi beberapa saat."
+             : kind == SignInKind.Guest ? "Gagal masuk sebagai tamu. Coba lagi beberapa saat."
+             : "Username atau password salah.";
     }
 }
