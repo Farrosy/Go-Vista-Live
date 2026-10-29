@@ -25,6 +25,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private const string CanvasRootName = "Loby Canvas";
     private const string WaitingCanvasRootName = "Room Waiting Canvas";
+    private const string WaitingCanvasPrefabRootName = "RoomWaitingCanvas";
     private const string PrefabFolderPath = "Assets/Prefab";
     private const string LobbyCanvasPrefabPath = "Assets/Prefab/LobbyCanvas.prefab";
     private const string WaitingCanvasPrefabPath = "Assets/Prefab/RoomWaitingCanvas.prefab";
@@ -467,9 +468,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private GameObject FindWaitingCanvas() {
         if (!gameObject.scene.IsValid())
-            return GameObject.Find(WaitingCanvasRootName);
+            return GameObject.Find(WaitingCanvasRootName) ?? GameObject.Find(WaitingCanvasPrefabRootName);
         foreach (GameObject root in gameObject.scene.GetRootGameObjects()) {
-            if (root.name == WaitingCanvasRootName)
+            if (root.name == WaitingCanvasRootName || root.name == WaitingCanvasPrefabRootName)
                 return root;
         }
         return null;
