@@ -49,9 +49,10 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private static readonly Color LineColor = new Color(1f, 1f, 1f, 0.12f);
 
     // Ukuran UI untuk layar HP (referensi 1920x1080). Teks < 24 atau tombol < 88 terlalu kecil untuk jari.
-    // Ganti LayoutVersion kalau mengubah layout di BuildCanvasContents/BuildWaitingCanvasContents,
-    // supaya canvas lama otomatis dibangun ulang (di prefab, scene, dan saat Play).
-    private const string LayoutVersion = "Layout v8"; // v8: semua tombol berlatar solid (tidak transparan)
+    // Canvas lobby dan room waiting punya versi sendiri supaya perubahan satu UI tidak
+    // membangun ulang prefab UI lainnya.
+    private const string LobbyLayoutVersion = "Layout v8";
+    private const string WaitingCanvasLayoutVersion = "Layout v12"; // v12: batang ikon pause sama besar dan tajam
     private const int LabelFontSize = 26;
     private const int BodyFontSize = 30;
     private const int SmallFontSize = 24;
@@ -98,20 +99,37 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private Text _waitingStatusText;
     private Text _playerCountText;
     private RectTransform _playerListContent;
+    private Text _pausePlayerCountText;
+    private RectTransform _pausePlayerListContent;
+    private ScrollRect _pausePlayerScroll;
+    private GameObject _pauseButton;
+    private GameObject _pauseOverlay;
+    private GameObject _pauseMainPanel;
+    private GameObject _pausePlayersPanel;
+    private GameObject _pauseSettingsPanel;
+    private GameObject _pauseLeaveConfirmPanel;
+    private Slider _pauseSensitivitySlider;
+    private Text _pauseSensitivityValue;
+    private InGameMenuPage _inGameMenuPage;
     private Text _copyButtonLabel;
     private Coroutine _copyFeedbackRoutine;
     private Coroutine _guestSignOutConfirmRoutine;
-    private string _rosterSignature;
+    private string _waitingRosterSignature;
+    private string _pauseRosterSignature;
     private Button _waitingJoinButton;
     private Button _waitingRosterToggleButton;
     private Coroutine _playerListRoutine;
     private bool _roomFullDisconnectRequested;
     private bool _startingGame;
+    private bool _gameplayStarted;
+    private bool _leaveRoomPending;
     private bool _worldLoading;
     private bool _unloadWorldWhenReady;
     private AsyncOperation _worldUnloadOperation;
     private bool _returnToLobbyOnDisconnect;
     private const string WorldSceneName = "WorldScene";
+
+    private enum InGameMenuPage { Closed, Main, Players, Settings, LeaveConfirm }
 
     private void OnEnable() {
 #if UNITY_EDITOR
@@ -137,6 +155,26 @@ public sealed class LobyUISceneController : MonoBehaviour {
         realtime.didConnectToRoom -= DidConnectToRoom;
         realtime.didDisconnectFromRoom -= DidDisconnectFromRoom;
         realtime.didDisconnectFromRoomWithEvent -= DidDisconnectFromRoomWithEvent;
+    }
+
+    private void Update() {
+        if (!Application.isPlaying || !_gameplayStarted || _leaveRoomPending ||
+            !Input.GetKeyDown(KeyCode.Escape))
+            return;
+
+        switch (_inGameMenuPage) {
+            case InGameMenuPage.Closed:
+                OpenPauseMenu();
+                break;
+            case InGameMenuPage.Main:
+                ClosePauseMenu();
+                break;
+            case InGameMenuPage.Players:
+            case InGameMenuPage.Settings:
+            case InGameMenuPage.LeaveConfirm:
+                ReturnToPauseMenu();
+                break;
+        }
     }
 
     private void InitializeRuntime() {
@@ -206,7 +244,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
             GameObject sceneCanvas = FindCanvasInScene();
             bool changed = false;
             // Canvas yang di-unpack di scene ini dibangun ulang di tempat; instance prefab ikut lewat UpgradeCanvasPrefabs.
-            if (!PrefabUtility.IsPartOfPrefabInstance(sceneCanvas) && !IsCurrentLayout(sceneCanvas.transform)) {
+            if (!PrefabUtility.IsPartOfPrefabInstance(sceneCanvas) &&
+                !IsCurrentLayout(sceneCanvas.transform, LobbyLayoutVersion)) {
                 RebuildInPlace(sceneCanvas.transform, BuildCanvasContents);
                 changed = true;
             }
@@ -259,20 +298,20 @@ public sealed class LobyUISceneController : MonoBehaviour {
     internal static void UpgradeCanvasPrefabs() {
         if (EditorApplication.isPlayingOrWillChangePlaymode)
             return;
-        UpgradePrefab(LobbyCanvasPrefabPath, BuildCanvasContents);
-        UpgradePrefab(WaitingCanvasPrefabPath, BuildWaitingCanvasContents);
+        UpgradePrefab(LobbyCanvasPrefabPath, BuildCanvasContents, LobbyLayoutVersion);
+        UpgradePrefab(WaitingCanvasPrefabPath, BuildWaitingCanvasContents, WaitingCanvasLayoutVersion);
     }
 
-    private static void UpgradePrefab(string path, System.Action<Transform> build) {
+    private static void UpgradePrefab(string path, System.Action<Transform> build, string layoutVersion) {
         if (LoadCanvasPrefab(path) == null)
             return;
         GameObject root = PrefabUtility.LoadPrefabContents(path);
         try {
-            if (IsCurrentLayout(root.transform))
+            if (IsCurrentLayout(root.transform, layoutVersion))
                 return;
             RebuildInPlace(root.transform, build);
             PrefabUtility.SaveAsPrefabAsset(root, path);
-            Debug.Log($"[Lobby UI] {path} diperbarui ke {LayoutVersion}.");
+            Debug.Log($"[Lobby UI] {path} diperbarui ke {layoutVersion}.");
         } finally {
             PrefabUtility.UnloadPrefabContents(root);
         }
@@ -300,7 +339,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private void EnsureCanvasExists() {
         if (HasCompleteCanvas()) {
             Transform lobbyCanvas = FindCanvasInScene().transform;
-            if (!IsCurrentLayout(lobbyCanvas))
+            if (!IsCurrentLayout(lobbyCanvas, LobbyLayoutVersion))
                 RebuildInPlace(lobbyCanvas, BuildCanvasContents);
             EnsureWaitingCanvasExists();
             return;
@@ -403,12 +442,110 @@ public sealed class LobyUISceneController : MonoBehaviour {
         Button rosterToggle = CreateButton("Waiting Roster Toggle Button", safeArea, "PEMAIN", PrimaryColor);
         PlaceTopRight(rosterToggle.GetComponent<RectTransform>(), 30f, 30f, 220f, 88f);
         rosterToggle.gameObject.SetActive(false);
-        AddLayoutMarker(canvas);
+
+        BuildInGamePauseContents(canvas, safeArea);
+        AddLayoutMarker(canvas, WaitingCanvasLayoutVersion);
+    }
+
+    private static void BuildInGamePauseContents(Transform canvas, RectTransform safeArea) {
+        Button pauseButton = CreateButton("Pause Button", safeArea, "", PrimaryColor);
+        RectTransform pauseButtonRect = pauseButton.GetComponent<RectTransform>();
+        PlaceTopRight(pauseButtonRect, 30f, 30f, 96f, 96f);
+        RectTransform leftPauseBarRect = Place(CreateRect("Pause Icon Left Bar", pauseButtonRect, Vector2.zero),
+                                                32f, 28f, 12f, 40f);
+        RectTransform rightPauseBarRect = Place(CreateRect("Pause Icon Right Bar", pauseButtonRect, Vector2.zero),
+                                                 52f, 28f, 12f, 40f);
+        Image leftPauseBar = leftPauseBarRect.gameObject.AddComponent<Image>();
+        Image rightPauseBar = rightPauseBarRect.gameObject.AddComponent<Image>();
+        leftPauseBar.color = rightPauseBar.color = Color.white;
+        leftPauseBar.raycastTarget = false;
+        rightPauseBar.raycastTarget = false;
+        pauseButton.gameObject.SetActive(false);
+
+        RectTransform overlay = CreateModalOverlay("Pause Overlay", canvas);
+        RectTransform pauseSafeArea = CreateSafeArea("Pause Safe Area", overlay);
+
+        RectTransform main = CreateResponsivePanel("Pause Main Panel", pauseSafeArea, new Vector2(860f, 750f));
+        AddShape(main.gameObject, PanelColor, cornerScale: 1.8f);
+        AddOutline(main, LineColor, cornerScale: 1.8f);
+        Place(CreateText("Pause Title", main, "JEDA", 52, FontStyle.Bold, TextAnchor.MiddleCenter,
+                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 48f, 38f, 764f, 72f);
+        Place(CreateButton("Pause Resume Button", main, "LANJUTKAN", PrimaryColor, 34).GetComponent<RectTransform>(),
+              64f, 142f, 732f, 96f);
+        Place(CreateButton("Pause Players Button", main, "PEMAIN", CardColor, 32).GetComponent<RectTransform>(),
+              64f, 258f, 732f, 96f);
+        Place(CreateButton("Pause Settings Button", main, "PENGATURAN", CardColor, 32).GetComponent<RectTransform>(),
+              64f, 374f, 732f, 96f);
+        Place(CreateButton("Pause Leave Room Button", main, "KELUAR ROOM", DangerTextColor, 30, true)
+                  .GetComponent<RectTransform>(), 64f, 490f, 732f, 96f);
+
+        RectTransform players = CreateResponsivePanel("Pause Players Panel", pauseSafeArea, new Vector2(1200f, 910f));
+        AddShape(players.gameObject, PanelColor, cornerScale: 1.8f);
+        AddOutline(players, LineColor, cornerScale: 1.8f);
+        Place(CreateText("Pause Players Title", players, "PEMAIN", 52, FontStyle.Bold, TextAnchor.MiddleLeft,
+                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 52f, 42f, 660f, 72f);
+        RectTransform count = Place(CreateRect("Pause Player Count Pill", players, Vector2.zero),
+                                    780f, 52f, 252f, 56f);
+        AddShape(count.gameObject, CardColor, cornerScale: 1.8f);
+        Stretch(CreateText("Pause Player Count", count, "0 / 10 pemain", LabelFontSize, FontStyle.Bold,
+                           TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f);
+        RectTransform list = Place(CreateRect("Pause Player Box", players, Vector2.zero),
+                                   52f, 142f, 1096f, 650f);
+        AddShape(list.gameObject, ListColor);
+        list.gameObject.AddComponent<RectMask2D>();
+        ScrollRect scroll = list.gameObject.AddComponent<ScrollRect>();
+        scroll.horizontal = false;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 28f;
+        scroll.viewport = list;
+        RectTransform content = CreateRect("Pause Player List Content", list, new Vector2(0f, 650f));
+        content.anchorMin = new Vector2(0f, 1f);
+        content.anchorMax = new Vector2(1f, 1f);
+        scroll.content = content;
+        Place(CreateButton("Pause Players Back Button", players, "KEMBALI", PrimaryColor)
+                  .GetComponent<RectTransform>(), 400f, 814f, 400f, 88f);
+        players.gameObject.SetActive(false);
+
+        RectTransform settings = CreateResponsivePanel("Pause Settings Panel", pauseSafeArea, new Vector2(960f, 620f));
+        AddShape(settings.gameObject, PanelColor, cornerScale: 1.8f);
+        AddOutline(settings, LineColor, cornerScale: 1.8f);
+        Place(CreateText("Pause Settings Title", settings, "PENGATURAN", 48, FontStyle.Bold,
+                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              56f, 40f, 780f, 68f);
+        Place(CreateText("Pause Sensitivity Label", settings, "SENSITIVITAS KAMERA", LabelFontSize,
+                         FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
+              56f, 164f, 500f, 40f);
+        Place(CreateText("Pause Sensitivity Value", settings, "1.0x", BodyFontSize, FontStyle.Bold,
+                         TextAnchor.MiddleRight, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              704f, 164f, 200f, 40f);
+        Place(CreateSlider("Pause Sensitivity Slider", settings, GameSettings.MinCameraSensitivity,
+                           GameSettings.MaxCameraSensitivity).GetComponent<RectTransform>(), 56f, 220f, 848f, 72f);
+        Place(CreateButton("Pause Settings Back Button", settings, "KEMBALI", PrimaryColor)
+                  .GetComponent<RectTransform>(), 56f, 424f, 848f, 96f);
+        settings.gameObject.SetActive(false);
+
+        RectTransform confirm = CreateResponsivePanel("Pause Leave Confirm Panel", pauseSafeArea, new Vector2(820f, 440f));
+        AddShape(confirm.gameObject, PanelColor, cornerScale: 1.8f);
+        AddOutline(confirm, LineColor, cornerScale: 1.8f);
+        Place(CreateText("Pause Leave Confirm Title", confirm, "Keluar dari room?", 42, FontStyle.Bold,
+                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              56f, 48f, 708f, 64f);
+        Place(CreateText("Pause Leave Confirm Body", confirm,
+                         "Kamu akan meninggalkan permainan dan kembali ke lobby.", BodyFontSize,
+                         FontStyle.Normal, TextAnchor.UpperLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
+              56f, 132f, 708f, 92f);
+        Place(CreateButton("Pause Leave Cancel Button", confirm, "BATAL", CardColor)
+                  .GetComponent<RectTransform>(), 56f, 280f, 342f, 96f);
+        Place(CreateButton("Pause Leave Confirm Button", confirm, "KELUAR ROOM", DangerTextColor, 26, true)
+                  .GetComponent<RectTransform>(), 422f, 280f, 342f, 96f);
+        confirm.gameObject.SetActive(false);
+
+        overlay.gameObject.SetActive(false);
     }
 
     /// <summary>Pastikan canvas ruang tunggu memakai layout terbaru. Mengembalikan true kalau ada perubahan.</summary>
     internal static bool EnsureWaitingCanvasControls(Transform canvas) {
-        if (IsCurrentLayout(canvas))
+        if (IsCurrentLayout(canvas, WaitingCanvasLayoutVersion))
             return false;
         RebuildInPlace(canvas, BuildWaitingCanvasContents);
         return true;
@@ -427,12 +564,12 @@ public sealed class LobyUISceneController : MonoBehaviour {
                FindChild(root, "Lobby Status") != null;
     }
 
-    private static bool IsCurrentLayout(Transform canvas) {
-        return canvas.Find(LayoutVersion) != null;
+    private static bool IsCurrentLayout(Transform canvas, string layoutVersion) {
+        return canvas.Find(layoutVersion) != null;
     }
 
-    private static void AddLayoutMarker(Transform canvas) {
-        var marker = new GameObject(LayoutVersion, typeof(RectTransform));
+    private static void AddLayoutMarker(Transform canvas, string layoutVersion) {
+        var marker = new GameObject(layoutVersion, typeof(RectTransform));
         marker.transform.SetParent(canvas, false);
         marker.SetActive(false);
     }
@@ -568,7 +705,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         BuildMainMenu(safeArea);
         BuildSettingsOverlay(canvas);
         BuildExitConfirmOverlay(canvas);
-        AddLayoutMarker(canvas);
+        AddLayoutMarker(canvas, LobbyLayoutVersion);
     }
 
     /// <summary>
@@ -953,14 +1090,38 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _waitingStatusText = FindChild(waitingRoot, "Waiting Status")?.GetComponent<Text>();
             _playerCountText = FindChild(waitingRoot, "Waiting Player Count")?.GetComponent<Text>();
             _playerListContent = FindChild(waitingRoot, "Waiting Player List Content") as RectTransform;
+            _pausePlayerCountText = FindChild(waitingRoot, "Pause Player Count")?.GetComponent<Text>();
+            _pausePlayerListContent = FindChild(waitingRoot, "Pause Player List Content") as RectTransform;
+            _pausePlayerScroll = FindChild(waitingRoot, "Pause Player Box")?.GetComponent<ScrollRect>();
             _copyButtonLabel = FindChild(waitingRoot, "Waiting Copy Code Button Label")?.GetComponent<Text>();
             _waitingJoinButton = FindChild(waitingRoot, "Waiting Join Game Button")?.GetComponent<Button>();
             _waitingRosterToggleButton = FindChild(waitingRoot, "Waiting Roster Toggle Button")?.GetComponent<Button>();
+            _pauseButton = FindChild(waitingRoot, "Pause Button")?.gameObject;
+            _pauseOverlay = FindChild(waitingRoot, "Pause Overlay")?.gameObject;
+            _pauseMainPanel = FindChild(waitingRoot, "Pause Main Panel")?.gameObject;
+            _pausePlayersPanel = FindChild(waitingRoot, "Pause Players Panel")?.gameObject;
+            _pauseSettingsPanel = FindChild(waitingRoot, "Pause Settings Panel")?.gameObject;
+            _pauseLeaveConfirmPanel = FindChild(waitingRoot, "Pause Leave Confirm Panel")?.gameObject;
+            _pauseSensitivitySlider = FindChild(waitingRoot, "Pause Sensitivity Slider")?.GetComponent<Slider>();
+            _pauseSensitivityValue = FindChild(waitingRoot, "Pause Sensitivity Value")?.GetComponent<Text>();
+            if (_pauseSensitivitySlider != null) {
+                _pauseSensitivitySlider.onValueChanged.RemoveListener(OnPauseSensitivityChanged);
+                _pauseSensitivitySlider.onValueChanged.AddListener(OnPauseSensitivityChanged);
+            }
             AddClickListenerIn(_waitingCanvas, "Waiting Join Game Button", BeginGame);
             AddClickListenerIn(_waitingCanvas, "Waiting Disconnect Button", Disconnect);
             AddClickListenerIn(_waitingCanvas, "Waiting Copy Code Button", CopyQuickmatchCode);
             AddClickListenerIn(_waitingCanvas, "Waiting Close Roster Button", CloseWaitingRoster);
             AddClickListenerIn(_waitingCanvas, "Waiting Roster Toggle Button", ToggleWaitingRoster);
+            AddClickListenerIn(_waitingCanvas, "Pause Button", OpenPauseMenu);
+            AddClickListenerIn(_waitingCanvas, "Pause Resume Button", ClosePauseMenu);
+            AddClickListenerIn(_waitingCanvas, "Pause Players Button", OpenPausePlayers);
+            AddClickListenerIn(_waitingCanvas, "Pause Settings Button", OpenPauseSettings);
+            AddClickListenerIn(_waitingCanvas, "Pause Players Back Button", ReturnToPauseMenu);
+            AddClickListenerIn(_waitingCanvas, "Pause Settings Back Button", ClosePauseSettings);
+            AddClickListenerIn(_waitingCanvas, "Pause Leave Room Button", OpenLeaveRoomConfirm);
+            AddClickListenerIn(_waitingCanvas, "Pause Leave Cancel Button", ReturnToPauseMenu);
+            AddClickListenerIn(_waitingCanvas, "Pause Leave Confirm Button", Disconnect);
         }
     }
 
@@ -1121,9 +1282,12 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private void DidConnectToRoom(Realtime connectedRealtime) {
         _busy = false;
         _roomFullDisconnectRequested = false;
+        _leaveRoomPending = false;
+        ResetInGameMenu();
         string roomCode = connectedRealtime.room != null ? connectedRealtime.room.quickmatchRoomCode : null;
         SetStatus("Terhubung.", StatusKind.Success);
-        _rosterSignature = null;
+        _waitingRosterSignature = null;
+        _pauseRosterSignature = null;
         SpawnPresence(connectedRealtime);
         // Yang dibagikan ke teman: kode Quickmatch kalau ada, kalau tidak nama room.
         if (_waitingCodeText != null)
@@ -1157,6 +1321,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private void DidDisconnectFromRoom(Realtime disconnectedRealtime) {
         _busy = false;
+        ResetInGameMenu();
+        _leaveRoomPending = false;
         if (ReturnToLobbyIfRequested())
             return;
         if (_worldLoading)
@@ -1317,17 +1483,28 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private void RefreshPlayerRows(SortedDictionary<int, bool> players) {
         if (_playerCountText != null)
             _playerCountText.text = players.Count + " / " + MaxRoomPlayers + " pemain";
-        if (_playerListContent == null)
-            return;
+        if (_pausePlayerCountText != null)
+            _pausePlayerCountText.text = players.Count + " / " + MaxRoomPlayers + " pemain";
 
         var signature = new System.Text.StringBuilder();
         foreach (KeyValuePair<int, bool> player in players)
             signature.Append(player.Key).Append(player.Value ? '+' : '-');
-        if (signature.ToString() == _rosterSignature)
-            return;
-        _rosterSignature = signature.ToString();
+        string currentSignature = signature.ToString();
+        if (_waitingRosterSignature != currentSignature) {
+            _waitingRosterSignature = currentSignature;
+            PopulatePlayerRows(_playerListContent, players);
+        }
+        if (_pauseRosterSignature != currentSignature) {
+            _pauseRosterSignature = currentSignature;
+            PopulatePlayerRows(_pausePlayerListContent, players);
+        }
+    }
 
-        ClearChildren(_playerListContent);
+    private void PopulatePlayerRows(RectTransform content, SortedDictionary<int, bool> players) {
+        if (content == null)
+            return;
+
+        ClearChildren(content);
         const float inset = 16f;
         int hostId = -1;
         foreach (int id in players.Keys) {
@@ -1337,7 +1514,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
         int index = 0;
         foreach (KeyValuePair<int, bool> player in players) {
-            RectTransform row = CreateListRow(_playerListContent, "Player Row " + player.Key, index++,
+            RectTransform row = CreateListRow(content, "Player Row " + player.Key, index++,
                                               PlayerRowHeight, PlayerRowSpacing, inset);
             bool isLocal = player.Key == realtime.clientID;
             AddShape(row.gameObject, isLocal ? CardColor : new Color(CardColor.r, CardColor.g, CardColor.b, 0.6f));
@@ -1371,7 +1548,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         // Slot kosong supaya jelas masih ada tempat (kapasitas MaxRoomPlayers).
         int emptySlots = Mathf.Min(EmptySlotsShown, MaxRoomPlayers - players.Count);
         for (int i = 0; i < emptySlots; i++) {
-            RectTransform row = CreateListRow(_playerListContent, "Empty Slot " + i, index++,
+            RectTransform row = CreateListRow(content, "Empty Slot " + i, index++,
                                               PlayerRowHeight, PlayerRowSpacing, inset);
             AddShape(row.gameObject, new Color(1f, 1f, 1f, 0.18f), "ui-dashed");
             AddShape(PlaceInRow(CreateRect("Avatar", row, Vector2.zero), 20f, 60f, 60f).gameObject,
@@ -1381,8 +1558,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
                        104f, 560f, 60f);
         }
 
-        _playerListContent.sizeDelta = new Vector2(0f, 2f * inset + index * PlayerRowHeight +
-                                                       Mathf.Max(0, index - 1) * PlayerRowSpacing);
+        content.sizeDelta = new Vector2(0f, 2f * inset + index * PlayerRowHeight +
+                                            Mathf.Max(0, index - 1) * PlayerRowSpacing);
     }
 
     private void BeginGame() {
@@ -1499,11 +1676,17 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
         playerManager.BeginGame();
         _startingGame = false;
+        _gameplayStarted = true;
         SetWaitingJoinButtonJoined(true);
         if (_waitingPanel != null)
             _waitingPanel.SetActive(false);
         if (_waitingRosterToggleButton != null)
-            _waitingRosterToggleButton.gameObject.SetActive(true);
+            _waitingRosterToggleButton.gameObject.SetActive(false);
+        if (_pauseButton != null)
+            _pauseButton.SetActive(true);
+        if (_pauseOverlay != null)
+            _pauseOverlay.SetActive(false);
+        _inGameMenuPage = InGameMenuPage.Closed;
         if (_panel != null)
             _panel.SetActive(false);
     }
@@ -1523,6 +1706,134 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _waitingRosterToggleButton.gameObject.SetActive(true);
     }
 
+    private void OpenPauseMenu() {
+        if (!_gameplayStarted || _inGameMenuPage != InGameMenuPage.Closed)
+            return;
+        if (DialogueUI.Instance != null && DialogueUI.Instance.IsActive)
+            return;
+
+        PlayerInputHub input = PlayerInputHub.Instance;
+        if (input != null && input.InputLocked)
+            return;
+
+        if (input != null)
+            input.SetPauseLocked(true);
+        HoverbirdMobileControls.SetVisible(false);
+        ShowInGameMenuPage(InGameMenuPage.Main);
+    }
+
+    private void ClosePauseMenu() {
+        if (!_gameplayStarted || _inGameMenuPage != InGameMenuPage.Main)
+            return;
+
+        GameSettings.Save();
+        ShowInGameMenuPage(InGameMenuPage.Closed);
+        if (PlayerInputHub.Instance != null)
+            PlayerInputHub.Instance.SetPauseLocked(false);
+        HoverbirdMobileControls.SetVisible(true);
+    }
+
+    private void OpenPausePlayers() {
+        if (_inGameMenuPage != InGameMenuPage.Main)
+            return;
+        ShowInGameMenuPage(InGameMenuPage.Players);
+        if (_pausePlayerScroll != null)
+            _pausePlayerScroll.verticalNormalizedPosition = 1f;
+    }
+
+    private void OpenPauseSettings() {
+        if (_inGameMenuPage != InGameMenuPage.Main)
+            return;
+        if (_pauseSensitivitySlider != null)
+            _pauseSensitivitySlider.SetValueWithoutNotify(GameSettings.CameraSensitivity);
+        UpdatePauseSensitivityLabel();
+        ShowInGameMenuPage(InGameMenuPage.Settings);
+    }
+
+    private void OnPauseSensitivityChanged(float value) {
+        GameSettings.CameraSensitivity = value;
+        UpdatePauseSensitivityLabel();
+    }
+
+    private void UpdatePauseSensitivityLabel() {
+        if (_pauseSensitivityValue != null)
+            _pauseSensitivityValue.text = GameSettings.CameraSensitivity.ToString("0.0") + "x";
+    }
+
+    private void ClosePauseSettings() {
+        if (_inGameMenuPage != InGameMenuPage.Settings)
+            return;
+        GameSettings.Save();
+        ReturnToPauseMenu();
+    }
+
+    private void OpenLeaveRoomConfirm() {
+        if (_inGameMenuPage == InGameMenuPage.Main)
+            ShowInGameMenuPage(InGameMenuPage.LeaveConfirm);
+    }
+
+    private void ReturnToPauseMenu() {
+        if (!_gameplayStarted || _leaveRoomPending || _inGameMenuPage == InGameMenuPage.Closed)
+            return;
+        if (_inGameMenuPage == InGameMenuPage.Settings)
+            GameSettings.Save();
+        ShowInGameMenuPage(InGameMenuPage.Main);
+    }
+
+    private void ShowInGameMenuPage(InGameMenuPage page) {
+        _inGameMenuPage = page;
+        if (_pauseOverlay != null)
+            _pauseOverlay.SetActive(page != InGameMenuPage.Closed);
+        if (_pauseMainPanel != null)
+            _pauseMainPanel.SetActive(page == InGameMenuPage.Main);
+        if (_pausePlayersPanel != null)
+            _pausePlayersPanel.SetActive(page == InGameMenuPage.Players);
+        if (_pauseSettingsPanel != null)
+            _pauseSettingsPanel.SetActive(page == InGameMenuPage.Settings);
+        if (_pauseLeaveConfirmPanel != null)
+            _pauseLeaveConfirmPanel.SetActive(page == InGameMenuPage.LeaveConfirm);
+    }
+
+    private void ResetInGameMenu() {
+        _gameplayStarted = false;
+        _inGameMenuPage = InGameMenuPage.Closed;
+        _leaveRoomPending = false;
+        if (_pauseOverlay != null)
+            _pauseOverlay.SetActive(false);
+        if (_pauseButton != null)
+            _pauseButton.SetActive(false);
+        if (_pauseMainPanel != null)
+            _pauseMainPanel.SetActive(true);
+        if (_pausePlayersPanel != null)
+            _pausePlayersPanel.SetActive(false);
+        if (_pauseSettingsPanel != null)
+            _pauseSettingsPanel.SetActive(false);
+        if (_pauseLeaveConfirmPanel != null)
+            _pauseLeaveConfirmPanel.SetActive(false);
+        Button confirmButton = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Confirm Button")?.GetComponent<Button>()
+            : null;
+        if (confirmButton != null) {
+            confirmButton.interactable = true;
+            Text label = confirmButton.GetComponentInChildren<Text>(true);
+            if (label != null)
+                label.text = "KELUAR ROOM";
+        }
+        Button cancelButton = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Cancel Button")?.GetComponent<Button>()
+            : null;
+        if (cancelButton != null)
+            cancelButton.interactable = true;
+        Text confirmBody = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Confirm Body")?.GetComponent<Text>()
+            : null;
+        if (confirmBody != null)
+            confirmBody.text = "Kamu akan meninggalkan permainan dan kembali ke lobby.";
+        if (PlayerInputHub.Instance != null)
+            PlayerInputHub.Instance.SetPauseLocked(false);
+        HoverbirdMobileControls.SetVisible(false);
+    }
+
     private void SetWaitingJoinButtonJoined(bool joined) {
         if (_waitingJoinButton == null)
             return;
@@ -1535,8 +1846,33 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void Disconnect() {
+        if (_leaveRoomPending)
+            return;
+
+        _leaveRoomPending = true;
         _returnToLobbyOnDisconnect = true;
         s_openLobbyOnNextLoad = true;
+        GameSettings.Save();
+        Button confirmButton = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Confirm Button")?.GetComponent<Button>()
+            : null;
+        if (confirmButton != null) {
+            confirmButton.interactable = false;
+            Text label = confirmButton.GetComponentInChildren<Text>(true);
+            if (label != null)
+                label.text = "KELUAR…";
+        }
+        Button cancelButton = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Cancel Button")?.GetComponent<Button>()
+            : null;
+        if (cancelButton != null)
+            cancelButton.interactable = false;
+        Text confirmBody = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Confirm Body")?.GetComponent<Text>()
+            : null;
+        if (confirmBody != null)
+            confirmBody.text = "Sedang meninggalkan room…";
+        SetWaitingStatus("Meninggalkan room…");
         if (realtime != null && realtime.connected)
             realtime.Disconnect();
         else

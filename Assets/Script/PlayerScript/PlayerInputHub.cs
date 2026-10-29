@@ -10,13 +10,26 @@ public class PlayerInputHub : MonoBehaviour
 
     private bool sprint;
     private Vector2 lookDelta;
+    private bool inputLocked;
+    private bool pauseLocked;
+    private bool ignoreJoystickUntilNeutral;
 
-    /// True saat dialog/cutscene: gerak, sprint, dan look dimatikan.
-    public bool InputLocked { get; private set; }
+    /// True saat dialog/cutscene atau menu pause: gerak, sprint, dan look dimatikan.
+    public bool InputLocked => inputLocked || pauseLocked;
 
-    public Vector2 Move => (joystick && !InputLocked)
-        ? new Vector2(joystick.Horizontal, joystick.Vertical)
-        : Vector2.zero;
+    public Vector2 Move
+    {
+        get
+        {
+            if (!joystick || InputLocked) return Vector2.zero;
+            if (ignoreJoystickUntilNeutral)
+            {
+                if (joystick.Direction.sqrMagnitude > 0.0001f) return Vector2.zero;
+                ignoreJoystickUntilNeutral = false;
+            }
+            return new Vector2(joystick.Horizontal, joystick.Vertical);
+        }
+    }
 
     public bool Sprint
     {
@@ -28,8 +41,17 @@ public class PlayerInputHub : MonoBehaviour
 
     public void SetLocked(bool locked)
     {
-        InputLocked = locked;
-        lookDelta = Vector2.zero;
+        inputLocked = locked;
+        if (locked) ignoreJoystickUntilNeutral = true;
+        ClearPendingInput();
+    }
+
+    /// <summary>Lock terpisah supaya menutup dialog tidak membuka input ketika pause menu masih aktif.</summary>
+    public void SetPauseLocked(bool locked)
+    {
+        pauseLocked = locked;
+        if (locked) ignoreJoystickUntilNeutral = true;
+        ClearPendingInput();
     }
 
     public void AddLook(Vector2 delta)
@@ -43,5 +65,14 @@ public class PlayerInputHub : MonoBehaviour
         var d = lookDelta;
         lookDelta = Vector2.zero;
         return d;
+    }
+
+    private void ClearPendingInput()
+    {
+        sprint = false;
+        lookDelta = Vector2.zero;
+        // The joystick package exposes its reset through IPointerUpHandler.
+        // Clear it explicitly so disabling the controls canvas cannot leave movement held on resume.
+        if (joystick) joystick.OnPointerUp(null);
     }
 }
