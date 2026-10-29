@@ -12,10 +12,17 @@ namespace Normal.Realtime.Examples {
         private Realtime _realtime;
         private HoverbirdPlayer _localPlayer;
         private bool _gameStarted;
+        private Vector3 _waitingCameraPosition;
+        private Quaternion _waitingCameraRotation;
 
         private void Awake() {
             // Get the Realtime component on this game object
             _realtime = GetComponent<Realtime>();
+
+            if (_camera != null) {
+                _waitingCameraPosition = _camera.transform.position;
+                _waitingCameraRotation = _camera.transform.rotation;
+            }
 
             // Notify us when Realtime successfully connects to the room
             _realtime.didConnectToRoom += DidConnectToRoom;
@@ -35,6 +42,7 @@ namespace Normal.Realtime.Examples {
             _localPlayer = null;
             _gameStarted = false;
             HoverbirdMobileControls.SetVisible(false);
+            ResetWaitingCamera();
         }
 
         private void DidDisconnectFromRoom(Realtime realtime) {
@@ -44,6 +52,7 @@ namespace Normal.Realtime.Examples {
             _localPlayer = null;
             _gameStarted = false;
             HoverbirdMobileControls.SetVisible(false);
+            ResetWaitingCamera();
         }
 
         public void BeginGame() {
@@ -53,6 +62,16 @@ namespace Normal.Realtime.Examples {
             _gameStarted = true;
             HoverbirdMobileControls.SetVisible(true);
             SpawnLocalPlayer(_realtime);
+        }
+
+        private void ResetWaitingCamera() {
+            if (_camera == null)
+                return;
+
+            CameraOrbit cameraOrbit = _camera.GetComponent<CameraOrbit>();
+            if (cameraOrbit != null)
+                cameraOrbit.SetTarget(null);
+            _camera.transform.SetPositionAndRotation(_waitingCameraPosition, _waitingCameraRotation);
         }
 
         private void SpawnLocalPlayer(Realtime realtime) {

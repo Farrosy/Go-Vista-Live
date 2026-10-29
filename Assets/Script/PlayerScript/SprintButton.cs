@@ -20,6 +20,7 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     private Color normalColor;
     private Color activeColor;
     private bool active;
+    private bool movedWhileActive;
 
     void Awake()
     {
@@ -38,6 +39,22 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
 
     void OnDisable() => SetSprint(false);
 
+    void Update()
+    {
+        if (!active || !PlayerInputHub.Instance) return;
+
+        // Keep sprint armed when selected before moving, but clear it once
+        // movement has started and the joystick returns to neutral.
+        if (PlayerInputHub.Instance.Move.sqrMagnitude > 0.0001f)
+        {
+            movedWhileActive = true;
+        }
+        else if (movedWhileActive)
+        {
+            SetSprint(false);
+        }
+    }
+
     public void OnPointerDown(PointerEventData e)
     {
         if (toggleMode) SetSprint(!active);
@@ -52,6 +69,7 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     private void SetSprint(bool value)
     {
         active = value;
+        if (!value) movedWhileActive = false;
         if (PlayerInputHub.Instance) PlayerInputHub.Instance.Sprint = value;
         Apply(value);
     }

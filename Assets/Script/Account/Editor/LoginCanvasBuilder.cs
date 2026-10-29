@@ -26,17 +26,19 @@ public static class LoginCanvasBuilder {
     private const string LoginScenePath = "Assets/Scenes/Multiplayer/LoginUIScene.unity";
     private const string MainScenePath = "Assets/Scenes/MainMultiplayerScene.unity";
     private const string AutoSetupSessionKey = "GoVista.LoginUISetupChecked";
+    // Ganti kalau layout di BuildContents diubah, supaya prefab lama otomatis dibangun ulang.
+    private const string LayoutVersion = "Layout v6"; // v6: tombol tamu berlatar solid
 
     private static readonly Color BackdropColor = new Color(0.03f, 0.05f, 0.09f, 1f);
     private static readonly Color PanelColor = new Color(0.055f, 0.085f, 0.14f, 0.97f);
     private static readonly Color FieldColor = new Color(0.12f, 0.16f, 0.23f, 1f);
     private static readonly Color AccentColor = new Color(0.16f, 0.55f, 0.95f, 1f);
-    private static readonly Color DangerColor = new Color(0.65f, 0.22f, 0.2f);
     private static readonly Color MutedColor = new Color(0.68f, 0.76f, 0.88f);
 
     static LoginCanvasBuilder() {
         EditorSceneManager.sceneSaving -= ApplyLoginSceneEditsToPrefab;
         EditorSceneManager.sceneSaving += ApplyLoginSceneEditsToPrefab;
+        EditorApplication.delayCall += UpgradePrefabLayout;
 
         if (SessionState.GetBool(AutoSetupSessionKey, false))
             return;
@@ -174,6 +176,29 @@ public static class LoginCanvasBuilder {
         SceneManager.MoveGameObjectToScene(cameraObject, scene);
     }
 
+    /// <summary>
+    /// Bangun ulang isi prefab LoginCanvas kalau masih layout lama. Root dan komponen LoginUIController
+    /// dipertahankan, jadi instance di scene tetap tersambung (event Inspector juga tidak hilang).
+    /// </summary>
+    private static void UpgradePrefabLayout() {
+        if (EditorApplication.isPlayingOrWillChangePlaymode ||
+            AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) == null)
+            return;
+
+        GameObject root = PrefabUtility.LoadPrefabContents(PrefabPath);
+        try {
+            if (root.transform.Find(LayoutVersion) != null)
+                return;
+            for (int i = root.transform.childCount - 1; i >= 0; i--)
+                Object.DestroyImmediate(root.transform.GetChild(i).gameObject);
+            BuildContents(root);
+            PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+            Debug.Log($"[Login UI] LoginCanvas diperbarui ke {LayoutVersion}.");
+        } finally {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
     private static GameObject CreateCanvas() {
         var canvasObject = new GameObject(CanvasName,
             typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -184,63 +209,83 @@ public static class LoginCanvasBuilder {
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 0.5f;
+        BuildContents(canvasObject);
+        return canvasObject;
+    }
 
+    // Ukuran untuk layar HP (referensi 1920x1080): teks >= 22, input/tombol >= 72.
+    private static void BuildContents(GameObject canvasObject) {
         // Layar penuh yang menutupi (dan memblokir klik ke) lobby di belakangnya.
         RectTransform screen = CreateRect("Login Screen", canvasObject.transform, Vector2.zero);
         Stretch(screen);
         screen.gameObject.AddComponent<Image>().color = BackdropColor;
 
         // Panel memakai VerticalLayoutGroup supaya elemen yang disembunyikan (mode Masuk) tidak meninggalkan celah.
-        RectTransform panel = CreateRect("Login Panel", screen, new Vector2(560f, 0f));
+        // Panel di dalam safe area; ResponsivePanel mengecilkannya kalau layar terlalu pendek/sempit.
+        RectTransform safeArea = CreateRect("Login Safe Area", screen, Vector2.zero);
+        Stretch(safeArea);
+        safeArea.gameObject.AddComponent<SafeAreaFitter>();
+        RectTransform panel = CreateRect("Login Panel", safeArea, new Vector2(900f, 0f));
         panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0.5f, 0.5f);
         panel.anchoredPosition = Vector2.zero;
+        panel.gameObject.AddComponent<ResponsivePanel>();
         panel.gameObject.AddComponent<Image>().color = PanelColor;
         var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(40, 40, 32, 36);
-        layout.spacing = 8f;
+        layout.padding = new RectOffset(56, 56, 44, 48);
+        layout.spacing = 10f;
         layout.childControlWidth = true;
         layout.childForceExpandWidth = true;
         layout.childControlHeight = false;
         layout.childForceExpandHeight = false;
         panel.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        Text title = CreateText("Login Title", panel, "MASUK", 30, FontStyle.Bold, 48f, Color.white);
-        Text subtitle = CreateText("Login Subtitle", panel, "Masuk ke akun Go Vista kamu.", 15,
-                                   FontStyle.Normal, 34f, MutedColor);
-        CreateText("Username Label", panel, "USERNAME", 14, FontStyle.Bold, 26f, Color.white);
+        Text title = CreateText("Login Title", panel, "MASUK", 52, FontStyle.Bold, 68f, Color.white);
+        Text subtitle = CreateText("Login Subtitle", panel, "Masuk ke akun Go Vista kamu.", 28,
+                                   FontStyle.Normal, 40f, MutedColor);
+        CreateText("Username Label", panel, "USERNAME", 26, FontStyle.Bold, 34f, Color.white);
         InputField username = CreateInputField("Username Input", panel, "Username",
                                                 InputField.ContentType.Standard);
-        CreateText("Password Label", panel, "PASSWORD", 14, FontStyle.Bold, 26f, Color.white);
+        CreateText("Password Label", panel, "PASSWORD", 26, FontStyle.Bold, 34f, Color.white);
         InputField password = CreateInputField("Password Input", panel, "Password",
                                                 InputField.ContentType.Password);
-        Text confirmLabel = CreateText("Confirm Password Label", panel, "KONFIRMASI PASSWORD", 14,
-                                       FontStyle.Bold, 26f, Color.white);
+        Text confirmLabel = CreateText("Confirm Password Label", panel, "KONFIRMASI PASSWORD", 26,
+                                       FontStyle.Bold, 34f, Color.white);
         InputField confirm = CreateInputField("Confirm Password Input", panel, "Ulangi password",
                                               InputField.ContentType.Password);
         Text hint = CreateText("Password Hint", panel, AuthService.UsernameRules + "\n" + AuthService.PasswordRules,
-                               12, FontStyle.Normal, 40f, MutedColor);
-        Text status = CreateText("Login Status", panel, "", 15, FontStyle.Normal, 40f, Color.white);
-        Button submit = CreateButton("Login Submit Button", panel, "MASUK", 54f, AccentColor, out Text submitLabel);
-        Button switchMode = CreateButton("Login Switch Mode Button", panel, "Belum punya akun? Daftar", 42f,
-                                         FieldColor, out Text switchLabel);
+                               22, FontStyle.Normal, 60f, MutedColor);
+        Text status = CreateText("Login Status", panel, "", 26, FontStyle.Normal, 56f, Color.white);
+        Button submit = CreateButton("Login Submit Button", panel, "MASUK", 104f, AccentColor, 30,
+                                     out Text submitLabel);
+        // Opsi tamu: tombol sekunder (latar solid gelap + garis tepi, tidak transparan) dan catatan risikonya.
+        // Hanya tampil di mode Masuk.
+        Button guest = CreateButton("Login Guest Button", panel, "MASUK SEBAGAI TAMU", 88f, FieldColor, 28,
+                                    out Text guestLabel);
+        guestLabel.color = MutedColor;
+        Image guestImage = guest.GetComponent<Image>();
+        guestImage.sprite = Resources.Load<Sprite>("UI/ui-rounded"); // sudutnya sama dengan garis tepi
+        guestImage.type = Image.Type.Sliced;
+        RectTransform guestOutline = CreateRect("Login Guest Button Outline", guest.transform, Vector2.zero);
+        Stretch(guestOutline);
+        Image guestOutlineImage = guestOutline.gameObject.AddComponent<Image>();
+        guestOutlineImage.sprite = Resources.Load<Sprite>("UI/ui-outline");
+        guestOutlineImage.type = Image.Type.Sliced;
+        guestOutlineImage.color = MutedColor;
+        guestOutlineImage.raycastTarget = false;
+        Text guestNote = CreateText("Login Guest Note", panel,
+                                    "Progres tamu hanya ada di perangkat ini dan hilang kalau keluar akun.",
+                                    22, FontStyle.Normal, 56f, MutedColor);
+        guestNote.alignment = TextAnchor.MiddleCenter;
+        Button switchMode = CreateButton("Login Switch Mode Button", panel, "Belum punya akun? Daftar", 72f,
+                                         FieldColor, 26, out Text switchLabel);
 
-        // Badge kecil di kiri atas: nama akun + tombol keluar.
-        RectTransform badge = CreateRect("Account Badge", canvasObject.transform, new Vector2(400f, 48f));
-        badge.anchorMin = badge.anchorMax = badge.pivot = new Vector2(0f, 1f);
-        badge.anchoredPosition = new Vector2(20f, -20f);
-        badge.gameObject.AddComponent<Image>().color = PanelColor;
-        Text accountName = CreateText("Account Name", badge, "Masuk sebagai -", 14, FontStyle.Bold, 0f, Color.white);
-        Stretch(accountName.rectTransform);
-        accountName.rectTransform.offsetMin = new Vector2(14f, 0f);
-        accountName.rectTransform.offsetMax = new Vector2(-124f, 0f);
-        Button signOut = CreateButton("Account Sign Out Button", badge, "KELUAR", 36f, DangerColor, out _);
-        RectTransform signOutRect = signOut.GetComponent<RectTransform>();
-        signOutRect.anchorMin = signOutRect.anchorMax = signOutRect.pivot = new Vector2(1f, 0.5f);
-        signOutRect.sizeDelta = new Vector2(104f, 36f);
-        signOutRect.anchoredPosition = new Vector2(-6f, 0f);
-        badge.gameObject.SetActive(false);
+        var marker = new GameObject(LayoutVersion, typeof(RectTransform));
+        marker.transform.SetParent(canvasObject.transform, false);
+        marker.SetActive(false);
 
-        var controller = canvasObject.AddComponent<LoginUIController>();
+        LoginUIController controller = canvasObject.GetComponent<LoginUIController>();
+        if (controller == null)
+            controller = canvasObject.AddComponent<LoginUIController>();
         var so = new SerializedObject(controller);
         so.FindProperty("loginScreen").objectReferenceValue = screen.gameObject;
         so.FindProperty("titleText").objectReferenceValue = title;
@@ -253,9 +298,11 @@ public static class LoginCanvasBuilder {
         so.FindProperty("submitLabel").objectReferenceValue = submitLabel;
         so.FindProperty("switchModeButton").objectReferenceValue = switchMode;
         so.FindProperty("switchModeLabel").objectReferenceValue = switchLabel;
-        so.FindProperty("accountBadge").objectReferenceValue = badge.gameObject;
-        so.FindProperty("accountNameText").objectReferenceValue = accountName;
-        so.FindProperty("signOutButton").objectReferenceValue = signOut;
+        so.FindProperty("guestButton").objectReferenceValue = guest;
+        SerializedProperty loginOnly = so.FindProperty("loginOnlyObjects");
+        loginOnly.arraySize = 2;
+        loginOnly.GetArrayElementAtIndex(0).objectReferenceValue = guest.gameObject;
+        loginOnly.GetArrayElementAtIndex(1).objectReferenceValue = guestNote.gameObject;
         SerializedProperty registerOnly = so.FindProperty("registerOnlyObjects");
         GameObject[] registerOnlyObjects = { confirmLabel.gameObject, confirm.gameObject, hint.gameObject };
         registerOnly.arraySize = registerOnlyObjects.Length;
@@ -265,7 +312,6 @@ public static class LoginCanvasBuilder {
 
         foreach (GameObject item in registerOnlyObjects)
             item.SetActive(false);
-        return canvasObject;
     }
 
     private static RectTransform CreateRect(string name, Transform parent, Vector2 size) {
@@ -302,7 +348,7 @@ public static class LoginCanvasBuilder {
     }
 
     private static Button CreateButton(string name, Transform parent, string label, float height, Color color,
-                                       out Text labelText) {
+                                       int fontSize, out Text labelText) {
         RectTransform rect = CreateRect(name, parent, new Vector2(0f, height));
         Image image = rect.gameObject.AddComponent<Image>();
         image.color = color;
@@ -313,7 +359,7 @@ public static class LoginCanvasBuilder {
         colors.pressedColor = Color.Lerp(color, Color.black, 0.18f);
         button.colors = colors;
 
-        labelText = CreateText(name + " Label", rect, label, 15, FontStyle.Bold, 0f, Color.white);
+        labelText = CreateText(name + " Label", rect, label, fontSize, FontStyle.Bold, 0f, Color.white);
         labelText.alignment = TextAnchor.MiddleCenter;
         Stretch(labelText.rectTransform);
         return button;
@@ -321,23 +367,23 @@ public static class LoginCanvasBuilder {
 
     private static InputField CreateInputField(string name, Transform parent, string placeholder,
                                                InputField.ContentType contentType) {
-        RectTransform rect = CreateRect(name, parent, new Vector2(0f, 50f));
+        RectTransform rect = CreateRect(name, parent, new Vector2(0f, 88f));
         Image image = rect.gameObject.AddComponent<Image>();
         image.color = FieldColor;
         InputField input = rect.gameObject.AddComponent<InputField>();
         input.targetGraphic = image;
 
-        Text valueText = CreateText(name + " Text", rect, "", 16, FontStyle.Normal, 0f, Color.white);
+        Text valueText = CreateText(name + " Text", rect, "", 30, FontStyle.Normal, 0f, Color.white);
         Stretch(valueText.rectTransform);
-        valueText.rectTransform.offsetMin = new Vector2(14f, 4f);
-        valueText.rectTransform.offsetMax = new Vector2(-14f, -4f);
+        valueText.rectTransform.offsetMin = new Vector2(20f, 6f);
+        valueText.rectTransform.offsetMax = new Vector2(-20f, -6f);
         valueText.supportRichText = false;
 
-        Text placeholderText = CreateText(name + " Placeholder", rect, placeholder, 16, FontStyle.Italic, 0f,
+        Text placeholderText = CreateText(name + " Placeholder", rect, placeholder, 30, FontStyle.Italic, 0f,
                                           new Color(0.58f, 0.65f, 0.76f));
         Stretch(placeholderText.rectTransform);
-        placeholderText.rectTransform.offsetMin = new Vector2(14f, 4f);
-        placeholderText.rectTransform.offsetMax = new Vector2(-14f, -4f);
+        placeholderText.rectTransform.offsetMin = new Vector2(20f, 6f);
+        placeholderText.rectTransform.offsetMax = new Vector2(-20f, -6f);
 
         input.textComponent = valueText;
         input.placeholder = placeholderText;

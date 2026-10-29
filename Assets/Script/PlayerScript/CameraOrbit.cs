@@ -48,8 +48,9 @@ public class CameraOrbit : MonoBehaviour
         Vector2 look = PlayerInputHub.Instance ? PlayerInputHub.Instance.ConsumeLook() : Vector2.zero;
         if (!focusing)
         {
-            yaw += look.x * sensitivity;
-            pitch = Mathf.Clamp(pitch - look.y * sensitivity, minPitch, maxPitch);
+            float lookSpeed = sensitivity * GameSettings.CameraSensitivity; // pengali dari menu Pengaturan
+            yaw += look.x * lookSpeed;
+            pitch = Mathf.Clamp(pitch - look.y * lookSpeed, minPitch, maxPitch);
         }
 
         // Pose kamera normal (selalu dihitung, jadi saat kembali posisinya persis seperti sebelum fokus)

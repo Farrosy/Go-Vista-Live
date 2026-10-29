@@ -24,16 +24,17 @@ public sealed class LoginUIController : MonoBehaviour {
     [SerializeField] private Text submitLabel;
     [SerializeField] private Button switchModeButton;
     [SerializeField] private Text switchModeLabel;
-
-    [Header("Badge Akun (tampil setelah login, di luar room)")]
-    [SerializeField] private GameObject accountBadge;
-    [SerializeField] private Text accountNameText;
-    [SerializeField] private Button signOutButton;
+    [SerializeField] private Button guestButton;
+    [Tooltip("Objek yang hanya tampil di mode Masuk (tombol tamu dan catatannya).")]
+    [SerializeField] private GameObject[] loginOnlyObjects;
 
     [Header("Event")]
     [Tooltip("Dipanggil setelah login DAN progres berhasil di-load.")]
     [SerializeField] private UnityEvent onSignedIn;
     [SerializeField] private UnityEvent onSignedOut;
+
+    /// <summary>Dipanggil setelah login atau logout. Lobby memakai ini untuk memperbarui chip akun.</summary>
+    public static event System.Action AccountChanged;
 
     private static readonly Color InfoColor = new Color(0.83f, 0.9f, 1f);
     private static readonly Color ErrorColor = new Color(1f, 0.55f, 0.5f);
@@ -41,6 +42,7 @@ public sealed class LoginUIController : MonoBehaviour {
 
     private bool _registerMode;
     private bool _busy;
+    private bool _alreadySignedIn;
     private Realtime _realtime;
 
     private void Awake() {
@@ -53,21 +55,27 @@ public sealed class LoginUIController : MonoBehaviour {
 
         submitButton.onClick.AddListener(Submit);
         switchModeButton.onClick.AddListener(() => SetMode(!_registerMode));
-        signOutButton.onClick.AddListener(SignOut);
+        guestButton.onClick.AddListener(SignInAsGuest);
         usernameInput.characterLimit = 20;
         passwordInput.characterLimit = 30;
         confirmPasswordInput.characterLimit = 30;
+
+        // Scene dimuat ulang (misalnya kembali ke lobby setelah keluar room): akun dan progres masih aktif
+        // di memori, jadi layar login disembunyikan sebelum frame pertama dan tidak sempat terlihat.
+        _alreadySignedIn = AuthService.IsSignedIn && ProgressService.IsLoaded;
+        if (_alreadySignedIn)
+            loginScreen.SetActive(false);
     }
 
     private async void Start() {
         _realtime = FindFirstObjectByType<Realtime>();
-        if (_realtime != null) {
-            _realtime.didConnectToRoom += OnRoomStateChanged;
-            _realtime.didDisconnectFromRoom += OnRoomStateChanged;
-        }
-
         usernameInput.text = AuthService.LastUsername;
         SetMode(false);
+        if (_alreadySignedIn) {
+            AccountChanged?.Invoke();
+            onSignedIn.Invoke();
+            return;
+        }
         ShowLoginScreen();
 
         SetBusy(true);
@@ -81,13 +89,6 @@ public sealed class LoginUIController : MonoBehaviour {
             await FinishSignInAsync();
         else
             SetStatus("", InfoColor);
-    }
-
-    private void OnDestroy() {
-        if (_realtime == null)
-            return;
-        _realtime.didConnectToRoom -= OnRoomStateChanged;
-        _realtime.didDisconnectFromRoom -= OnRoomStateChanged;
     }
 
     private async void Submit() {
@@ -124,6 +125,24 @@ public sealed class LoginUIController : MonoBehaviour {
         await FinishSignInAsync();
     }
 
+    private async void SignInAsGuest() {
+        if (_busy)
+            return;
+
+        SetBusy(true);
+        SetStatus("Masuk sebagai tamu...", InfoColor);
+        ServiceResult result = await AuthService.SignInAsGuestAsync();
+        if (this == null)
+            return;
+
+        SetBusy(false);
+        if (!result.Success) {
+            SetStatus(result.Message, ErrorColor);
+            return;
+        }
+        await FinishSignInAsync();
+    }
+
     /// <summary>Setelah akun masuk: load progres dulu, baru buka lobby.</summary>
     private async Task FinishSignInAsync() {
         SetBusy(true);
@@ -142,12 +161,13 @@ public sealed class LoginUIController : MonoBehaviour {
         passwordInput.text = "";
         confirmPasswordInput.text = "";
         loginScreen.SetActive(false);
-        RefreshAccountBadge();
-        Debug.Log($"[Auth] Masuk sebagai {AuthService.LastUsername} (PlayerId: {AuthService.PlayerId})");
+        Debug.Log($"[Auth] Masuk sebagai {AuthService.DisplayName} (PlayerId: {AuthService.PlayerId})");
+        AccountChanged?.Invoke();
         onSignedIn.Invoke();
     }
 
-    private async void SignOut() {
+    /// <summary>Simpan progres, keluar dari room dan akun, lalu tampilkan layar login. Dipanggil dari lobby.</summary>
+    public async void SignOut() {
         if (_busy)
             return;
 
@@ -165,6 +185,7 @@ public sealed class LoginUIController : MonoBehaviour {
         ShowLoginScreen();
         SetMode(false);
         SetStatus("Kamu sudah keluar dari akun.", SuccessColor);
+        AccountChanged?.Invoke();
         onSignedOut.Invoke();
     }
 
@@ -180,23 +201,16 @@ public sealed class LoginUIController : MonoBehaviour {
             if (item != null)
                 item.SetActive(register);
         }
+        foreach (GameObject item in loginOnlyObjects) {
+            if (item != null)
+                item.SetActive(!register);
+        }
         confirmPasswordInput.text = "";
         SetStatus("", InfoColor);
     }
 
     private void ShowLoginScreen() {
         loginScreen.SetActive(true);
-        accountBadge.SetActive(false);
-    }
-
-    private void OnRoomStateChanged(Realtime _) {
-        RefreshAccountBadge();
-    }
-
-    private void RefreshAccountBadge() {
-        bool inRoom = _realtime != null && _realtime.connected;
-        accountBadge.SetActive(AuthService.IsSignedIn && !inRoom);
-        accountNameText.text = "Masuk sebagai " + AuthService.LastUsername;
     }
 
     private void SetBusy(bool busy) {
@@ -206,6 +220,7 @@ public sealed class LoginUIController : MonoBehaviour {
         confirmPasswordInput.interactable = !busy;
         submitButton.interactable = !busy;
         switchModeButton.interactable = !busy;
+        guestButton.interactable = !busy;
     }
 
     private void SetStatus(string message, Color color) {
@@ -217,7 +232,6 @@ public sealed class LoginUIController : MonoBehaviour {
         return loginScreen != null && titleText != null && subtitleText != null && usernameInput != null &&
                passwordInput != null && confirmPasswordInput != null && statusText != null &&
                submitButton != null && submitLabel != null && switchModeButton != null &&
-               switchModeLabel != null && accountBadge != null && accountNameText != null &&
-               signOutButton != null;
+               switchModeLabel != null && guestButton != null && loginOnlyObjects != null;
     }
 }
