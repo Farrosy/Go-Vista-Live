@@ -31,6 +31,14 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         var input = PlayerInputHub.Instance;
+        if (input && input.InputLocked)
+        {
+            IsSprinting = false;
+            Speed01 = 0f;
+            verticalVel = cc.isGrounded ? -2f : 0f;
+            return;
+        }
+
         Vector2 m = input.Move;
         Vector3 dir = new Vector3(m.x, 0f, m.y);
 
