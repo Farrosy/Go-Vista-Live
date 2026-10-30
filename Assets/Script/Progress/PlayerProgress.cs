@@ -20,6 +20,10 @@ public class PlayerProgress {
     /// <summary>ID dialog (DialogueData.Id) yang sudah selesai dibaca sampai baris terakhir.</summary>
     public List<string> completedDialogues = new List<string>();
 
+    // ---------------------------------------------------------------- Karakter
+    /// <summary>ID karakter pilihan (CharacterDatabase). Kosong = karakter pertama (default).</summary>
+    public string characterId = "";
+
     // ---------------------------------------------------------------- Posisi terakhir (TIDAK DIPAKAI)
     // Dulu dipakai untuk spawn di posisi terakhir. Sekarang pemain selalu spawn di PlayerSpawnPoint,
     // dan ProgressService.Migrate() mengosongkan field ini. Dibiarkan supaya save lama tetap terbaca.

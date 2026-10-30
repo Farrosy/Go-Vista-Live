@@ -127,6 +127,16 @@ public static class ProgressService {
         MarkDialogueCompleted(dialogue.Id);
     }
 
+    // ================================================================ Karakter
+
+    public static void SetCharacter(string characterId) {
+        if (Current.characterId == characterId)
+            return;
+        Current.characterId = characterId ?? "";
+        MarkDirty();
+        _ = SaveAsync(); // jarang terjadi, langsung simpan
+    }
+
     // TODO (next develop): tambahkan helper untuk data baru di sini, misalnya:
     //   public static void AddCoins(int amount) { Current.coins += amount; MarkDirty(); }
     //   public static void MarkDistrictVisited(string districtId) { ...pola sama dengan MarkDialogueCompleted... }
@@ -136,6 +146,7 @@ public static class ProgressService {
     /// <summary>Perbaiki/upgrade data lama supaya cocok dengan versi PlayerProgress sekarang.</summary>
     private static void Migrate(PlayerProgress p) {
         p.completedDialogues ??= new List<string>();
+        p.characterId ??= "";
         // Posisi terakhir tidak dipakai lagi (spawn selalu di PlayerSpawnPoint). Kosongkan data
         // lama supaya ikut terhapus dari cloud di save berikutnya.
         p.hasLastPosition = false;

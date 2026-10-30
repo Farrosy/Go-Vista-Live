@@ -5,13 +5,14 @@ using UnityEngine;
 /// Pasang di object yang punya Realtime (MainMultiplayerScene). Membuat avatar pemain lokal saat
 /// tombol MULAI ditekan (LobyUISceneController memanggil BeginGame), lalu menyambungkan kamera.
 ///
-/// Prefab avatar harus ada di folder Resources (Realtime.Instantiate memanggil lewat nama) dan
-/// berisi RealtimeView, RealtimeTransform, PlayerController, dan PlayerAnimSync.
+/// Prefab avatar = karakter pilihan pemain (CharacterSelection / CharacterDatabase). Field Prefab di
+/// bawah dipakai kalau database kosong. Prefab harus ada di folder Resources (Realtime.Instantiate
+/// memanggil lewat nama) dan berisi RealtimeView, RealtimeTransform, PlayerController, dan PlayerAnimSync.
 /// </summary>
 [RequireComponent(typeof(Realtime))]
 public class PlayerManager : MonoBehaviour {
     [SerializeField] private GameObject _camera = default;
-    [Tooltip("Prefab avatar di folder Resources (mis. Assets/Resources/Player Avatar.prefab).")]
+    [Tooltip("Cadangan kalau CharacterDatabase kosong. Prefab avatar di folder Resources.")]
     [SerializeField] private GameObject _prefab;
 
     private Realtime _realtime;
@@ -76,8 +77,11 @@ public class PlayerManager : MonoBehaviour {
     }
 
     private void SpawnLocalPlayer(Realtime realtime) {
-        if (_prefab == null) {
-            Debug.LogError("[Spawn] Prefab avatar belum diisi di PlayerManager.");
+        GameObject prefab = CharacterSelection.Current?.avatarPrefab;
+        if (prefab == null)
+            prefab = _prefab;
+        if (prefab == null) {
+            Debug.LogError("[Spawn] Prefab avatar belum diisi (CharacterDatabase / PlayerManager).");
             return;
         }
 
@@ -104,12 +108,12 @@ public class PlayerManager : MonoBehaviour {
             spawnRotation = Quaternion.identity;
         }
 
-        GameObject playerGameObject = Realtime.Instantiate(_prefab.name, spawnPosition, spawnRotation, options);
+        GameObject playerGameObject = Realtime.Instantiate(prefab.name, spawnPosition, spawnRotation, options);
         playerGameObject.name = "Player " + (clientID + 1);
 
         _localPlayer = playerGameObject.GetComponent<PlayerController>();
         if (_localPlayer == null) {
-            Debug.LogError($"[Spawn] Prefab '{_prefab.name}' tidak punya PlayerController.");
+            Debug.LogError($"[Spawn] Prefab '{prefab.name}' tidak punya PlayerController.");
             return;
         }
 
