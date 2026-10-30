@@ -1,7 +1,13 @@
+using System;
+using Normal.Realtime;
 using UnityEngine;
 
 /// Pasang di Player (root, butuh CharacterController, otomatis ditambah).
 /// Model karakter (yang punya Animator) jadi CHILD dari object ini.
+///
+/// Multiplayer: kalau ada RealtimeView, hanya avatar milik client ini yang membaca input.
+/// Avatar pemain lain cuma ikut posisi dari RealtimeTransform, animasinya dari PlayerAnimSync.
+/// Tanpa RealtimeView (mis. DevScene/characterControl), selalu dianggap pemain lokal.
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
@@ -31,8 +37,15 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Toleransi 'masih dianggap menapak tanah' supaya animasi tidak berkedip di tanjakan/anak tangga.")]
     [SerializeField] private float groundedGrace = 0.1f;
 
+    /// Avatar yang dikendalikan client ini. Null sebelum spawn / setelah keluar world.
+    public static PlayerController Local { get; private set; }
+
+    public bool IsLocal { get; private set; }
     public bool IsSprinting { get; private set; }
     public float Speed01 { get; private set; }   // 0 = diam, 0.5 = jalan, 1 = sprint
+    public bool IsGroundedForAnim => Time.time - lastGroundedTime <= groundedGrace;
+    /// Dipanggil saat lompat dimulai (dipakai PlayerAnimSync supaya pemain lain ikut melihat).
+    public event Action Jumped;
 
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
@@ -45,19 +58,53 @@ public class PlayerController : MonoBehaviour
     private float launchTimer;
     private float lastGroundedTime;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Local = null;
+    }
+
     void Awake()
     {
         cc = GetComponent<CharacterController>();
-        if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
         if (!animator) animator = GetComponentInChildren<Animator>();
         if (animator) animator.applyRootMotion = false;   // gerak dikendalikan script, bukan animasi
         lastGroundedTime = Time.time;
     }
 
+    void Start()
+    {
+        var view = GetComponent<RealtimeView>();
+        IsLocal = view == null || view.isOwnedLocallyInHierarchy;
+
+        if (!IsLocal)
+        {
+            // Avatar pemain lain: tidak membaca input. CharacterController tetap aktif sebagai
+            // collider supaya pemain tidak saling tembus.
+            enabled = false;
+            return;
+        }
+
+        var realtimeTransform = GetComponent<RealtimeTransform>();
+        if (realtimeTransform) realtimeTransform.RequestOwnership();
+
+        Local = this;
+    }
+
+    void OnDestroy()
+    {
+        if (Local == this) Local = null;
+    }
+
+    /// Kamera yang dipakai untuk arah gerak. Dipanggil PlayerManager saat spawn.
+    public void SetCamera(Transform cam) => cameraTransform = cam;
+
     void Update()
     {
+        if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
+
         var input = PlayerInputHub.Instance;
-        Vector2 m = input.Move;
+        Vector2 m = input ? input.Move : Vector2.zero;
         Vector3 dir = new Vector3(m.x, 0f, m.y);
 
         if (cameraRelative && cameraTransform)
@@ -66,7 +113,7 @@ public class PlayerController : MonoBehaviour
         dir = Vector3.ClampMagnitude(dir, 1f);
 
         bool moving = dir.sqrMagnitude > 0.0001f;
-        IsSprinting = input.Sprint && moving;
+        IsSprinting = input && input.Sprint && moving;
         float speed = IsSprinting ? sprintSpeed : walkSpeed;
         Speed01 = dir.magnitude * (IsSprinting ? 1f : 0.5f);
 
@@ -102,20 +149,34 @@ public class PlayerController : MonoBehaviour
     public void TryJump()
     {
         var input = PlayerInputHub.Instance;
-        if ((input && input.InputLocked) || !cc.isGrounded || launchPending || Time.time < nextJumpTime)
+        if (!IsLocal || (input && input.InputLocked) || !cc.isGrounded || launchPending || Time.time < nextJumpTime)
             return;
 
         nextJumpTime = Time.time + Mathf.Max(0f, jumpCooldown);
         launchPending = true;
         launchTimer = Mathf.Max(0f, jumpLaunchDelay);
         if (animator) animator.SetTrigger(JumpHash);
+        Jumped?.Invoke();
     }
 
     private void UpdateAnimator()
     {
-        if (!animator) return;
-        bool animGrounded = Time.time - lastGroundedTime <= groundedGrace;
-        animator.SetBool(IsGroundedHash, animGrounded);
-        animator.SetFloat(SpeedHash, Speed01, speedDampTime, Time.deltaTime);
+        ApplyAnimator(animator, Speed01, IsGroundedForAnim, speedDampTime);
     }
+
+    /// Dipakai juga oleh PlayerAnimSync untuk avatar pemain lain, supaya parameternya sama persis.
+    public static void ApplyAnimator(Animator anim, float speed01, bool grounded, float dampTime)
+    {
+        if (!anim) return;
+        anim.SetBool(IsGroundedHash, grounded);
+        anim.SetFloat(SpeedHash, speed01, dampTime, Time.deltaTime);
+    }
+
+    public static void TriggerJump(Animator anim)
+    {
+        if (anim) anim.SetTrigger(JumpHash);
+    }
+
+    public Animator Animator => animator;
+    public float SpeedDampTime => speedDampTime;
 }

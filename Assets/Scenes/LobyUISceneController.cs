@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Collections;
 using System.Threading.Tasks;
 using Normal.Realtime;
-using Normal.Realtime.Examples;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -52,7 +51,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
     // Canvas lobby dan room waiting punya versi sendiri supaya perubahan satu UI tidak
     // membangun ulang prefab UI lainnya.
     private const string LobbyLayoutVersion = "Layout v8";
-    private const string WaitingCanvasLayoutVersion = "Layout v12"; // v12: batang ikon pause sama besar dan tajam
+    private const string WaitingCanvasLayoutVersion = "Layout v13"; // v13: tombol ATUR KONTROL di pengaturan pause
     private const int LabelFontSize = 26;
     private const int BodyFontSize = 30;
     private const int SmallFontSize = 24;
@@ -129,7 +128,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private bool _returnToLobbyOnDisconnect;
     private const string WorldSceneName = "WorldScene";
 
-    private enum InGameMenuPage { Closed, Main, Players, Settings, LeaveConfirm }
+    private enum InGameMenuPage { Closed, Main, Players, Settings, LeaveConfirm, ControlLayout }
 
     private void OnEnable() {
 #if UNITY_EDITOR
@@ -173,6 +172,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
             case InGameMenuPage.Settings:
             case InGameMenuPage.LeaveConfirm:
                 ReturnToPauseMenu();
+                break;
+            case InGameMenuPage.ControlLayout:
+                FindControlLayoutEditor()?.Cancel();
                 break;
         }
     }
@@ -520,6 +522,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
               704f, 164f, 200f, 40f);
         Place(CreateSlider("Pause Sensitivity Slider", settings, GameSettings.MinCameraSensitivity,
                            GameSettings.MaxCameraSensitivity).GetComponent<RectTransform>(), 56f, 220f, 848f, 72f);
+        Place(CreateButton("Pause Controls Button", settings, "ATUR KONTROL", CardColor)
+                  .GetComponent<RectTransform>(), 56f, 316f, 848f, 88f);
         Place(CreateButton("Pause Settings Back Button", settings, "KEMBALI", PrimaryColor)
                   .GetComponent<RectTransform>(), 56f, 424f, 848f, 96f);
         settings.gameObject.SetActive(false);
@@ -1119,6 +1123,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
             AddClickListenerIn(_waitingCanvas, "Pause Settings Button", OpenPauseSettings);
             AddClickListenerIn(_waitingCanvas, "Pause Players Back Button", ReturnToPauseMenu);
             AddClickListenerIn(_waitingCanvas, "Pause Settings Back Button", ClosePauseSettings);
+            AddClickListenerIn(_waitingCanvas, "Pause Controls Button", OpenControlLayoutEditor);
             AddClickListenerIn(_waitingCanvas, "Pause Leave Room Button", OpenLeaveRoomConfirm);
             AddClickListenerIn(_waitingCanvas, "Pause Leave Cancel Button", ReturnToPauseMenu);
             AddClickListenerIn(_waitingCanvas, "Pause Leave Confirm Button", Disconnect);
@@ -1447,7 +1452,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
                 if (presence.ClientID >= 0)
                     players[presence.ClientID] = false;
             }
-            foreach (HoverbirdPlayer player in FindObjectsByType<HoverbirdPlayer>(FindObjectsSortMode.None)) {
+            foreach (PlayerController player in FindObjectsByType<PlayerController>(FindObjectsSortMode.None)) {
                 RealtimeView view = player.GetComponent<RealtimeView>();
                 if (view != null && view.ownerIDSelf >= 0)
                     players[view.ownerIDSelf] = true;
@@ -1565,9 +1570,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private void BeginGame() {
         if (_startingGame)
             return;
-        HoverbirdPlayerManager playerManager = FindFirstObjectByType<HoverbirdPlayerManager>();
+        PlayerManager playerManager = FindFirstObjectByType<PlayerManager>();
         if (playerManager == null) {
-            SetStatus("Hoverbird Player Manager tidak ditemukan.", StatusKind.Error);
+            SetStatus("Player Manager tidak ditemukan.", StatusKind.Error);
             return;
         }
 
@@ -1655,7 +1660,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _worldUnloadOperation = SceneManager.UnloadSceneAsync(worldScene);
     }
 
-    private IEnumerator LoadWorldAndBeginGame(HoverbirdPlayerManager playerManager) {
+    private IEnumerator LoadWorldAndBeginGame(PlayerManager playerManager) {
         _startingGame = true;
         SetStatus("Memuat world…", StatusKind.Busy);
 
@@ -1718,7 +1723,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
         if (input != null)
             input.SetPauseLocked(true);
-        HoverbirdMobileControls.SetVisible(false);
+        MobileControls.SetVisible(false);
         ShowInGameMenuPage(InGameMenuPage.Main);
     }
 
@@ -1730,7 +1735,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         ShowInGameMenuPage(InGameMenuPage.Closed);
         if (PlayerInputHub.Instance != null)
             PlayerInputHub.Instance.SetPauseLocked(false);
-        HoverbirdMobileControls.SetVisible(true);
+        MobileControls.SetVisible(true);
     }
 
     private void OpenPausePlayers() {
@@ -1767,6 +1772,38 @@ public sealed class LobyUISceneController : MonoBehaviour {
         ReturnToPauseMenu();
     }
 
+    private static ControlLayoutEditor FindControlLayoutEditor() {
+        return FindFirstObjectByType<ControlLayoutEditor>(FindObjectsInactive.Include);
+    }
+
+    // Pause > Pengaturan > ATUR KONTROL. Input tetap terkunci (pause lock) selama mengatur,
+    // jadi joystick/tombol tidak menggerakkan karakter.
+    private void OpenControlLayoutEditor() {
+        if (_inGameMenuPage != InGameMenuPage.Settings)
+            return;
+        ControlLayoutEditor editor = FindControlLayoutEditor();
+        if (editor == null) {
+            Debug.LogWarning("[ControlLayout] Control Layout Editor tidak ada di MobileUI.");
+            return;
+        }
+
+        GameSettings.Save();
+        ShowInGameMenuPage(InGameMenuPage.ControlLayout);
+        if (_pauseButton != null)
+            _pauseButton.SetActive(false);
+        MobileControls.SetVisible(true);
+        editor.Open(OnControlLayoutEditorClosed);
+    }
+
+    private void OnControlLayoutEditorClosed() {
+        if (!_gameplayStarted || _inGameMenuPage != InGameMenuPage.ControlLayout)
+            return;
+        MobileControls.SetVisible(false);
+        if (_pauseButton != null)
+            _pauseButton.SetActive(true);
+        ShowInGameMenuPage(InGameMenuPage.Settings);
+    }
+
     private void OpenLeaveRoomConfirm() {
         if (_inGameMenuPage == InGameMenuPage.Main)
             ShowInGameMenuPage(InGameMenuPage.LeaveConfirm);
@@ -1783,7 +1820,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private void ShowInGameMenuPage(InGameMenuPage page) {
         _inGameMenuPage = page;
         if (_pauseOverlay != null)
-            _pauseOverlay.SetActive(page != InGameMenuPage.Closed);
+            _pauseOverlay.SetActive(page != InGameMenuPage.Closed && page != InGameMenuPage.ControlLayout);
         if (_pauseMainPanel != null)
             _pauseMainPanel.SetActive(page == InGameMenuPage.Main);
         if (_pausePlayersPanel != null)
@@ -1796,6 +1833,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private void ResetInGameMenu() {
         _gameplayStarted = false;
+        if (ControlLayoutEditor.IsOpen)
+            FindControlLayoutEditor()?.Cancel();
         _inGameMenuPage = InGameMenuPage.Closed;
         _leaveRoomPending = false;
         if (_pauseOverlay != null)
@@ -1831,7 +1870,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
             confirmBody.text = "Kamu akan meninggalkan permainan dan kembali ke lobby.";
         if (PlayerInputHub.Instance != null)
             PlayerInputHub.Instance.SetPauseLocked(false);
-        HoverbirdMobileControls.SetVisible(false);
+        MobileControls.SetVisible(false);
     }
 
     private void SetWaitingJoinButtonJoined(bool joined) {
