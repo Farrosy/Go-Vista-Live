@@ -41,15 +41,22 @@ public class Interactable : MonoBehaviour
         if (prompt) Destroy(prompt.gameObject);
     }
 
+    // Hanya avatar lokal: pemain lain yang mendekat tidak boleh memunculkan tombol Interact di layar kita.
+    static bool IsLocalPlayer(Collider other)
+    {
+        var pc = other.GetComponentInParent<PlayerController>();
+        return pc && pc == PlayerController.Local;
+    }
+
     void OnTriggerEnter(Collider other)
     {
-        if (other.GetComponentInParent<PlayerController>())
+        if (IsLocalPlayer(other) && InteractButtonUI.Instance)
             InteractButtonUI.Instance.Register(this);
     }
 
     void OnTriggerExit(Collider other)
     {
-        if (other.GetComponentInParent<PlayerController>())
+        if (IsLocalPlayer(other) && InteractButtonUI.Instance)
             InteractButtonUI.Instance.Unregister(this);
     }
 

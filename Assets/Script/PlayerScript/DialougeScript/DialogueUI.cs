@@ -30,7 +30,6 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
 
     private CanvasGroup group;
     private CameraOrbit cameraOrbit;
-    private Transform player;
     private DialogueData data;
     private Transform npcPoint;
     private Coroutine typing;
@@ -47,8 +46,6 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
     void Start()
     {
         cameraOrbit = FindAnyObjectByType<CameraOrbit>();
-        var pc = FindAnyObjectByType<PlayerController>();
-        if (pc) player = pc.transform;
     }
 
     public void StartDialogue(DialogueData d, Transform focusPoint)
@@ -168,6 +165,7 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
 
     private void FaceNpc()
     {
+        var player = PlayerController.Local ? PlayerController.Local.transform : null;
         if (!player || !npcPoint) return;
         Vector3 d = npcPoint.position - player.position;
         d.y = 0f;
