@@ -8,6 +8,9 @@ public class PlayerInputHub : MonoBehaviour
     [Header("Drag Fixed Joystick dari Hierarchy ke sini")]
     [SerializeField] private Joystick joystick;
 
+    [Header("Keyboard fallback (demo/editor)")]
+    [SerializeField] private bool keyboardFallback;
+
     private bool sprint;
     private Vector2 lookDelta;
     private bool inputLocked;
@@ -21,19 +24,28 @@ public class PlayerInputHub : MonoBehaviour
     {
         get
         {
-            if (!joystick || InputLocked) return Vector2.zero;
-            if (ignoreJoystickUntilNeutral)
+            if (InputLocked) return Vector2.zero;
+
+            if (joystick)
             {
-                if (joystick.Direction.sqrMagnitude > 0.0001f) return Vector2.zero;
-                ignoreJoystickUntilNeutral = false;
+                if (ignoreJoystickUntilNeutral)
+                {
+                    if (joystick.Direction.sqrMagnitude > 0.0001f) return Vector2.zero;
+                    ignoreJoystickUntilNeutral = false;
+                }
+                return new Vector2(joystick.Horizontal, joystick.Vertical);
             }
-            return new Vector2(joystick.Horizontal, joystick.Vertical);
+
+            if (keyboardFallback)
+                return new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+
+            return Vector2.zero;
         }
     }
 
     public bool Sprint
     {
-        get => sprint && !InputLocked;
+        get => !InputLocked && (sprint || (keyboardFallback && Input.GetKey(KeyCode.LeftShift)));
         set => sprint = value;
     }
 
