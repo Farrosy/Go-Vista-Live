@@ -7,6 +7,7 @@ public sealed class TrafficCar : MonoBehaviour
     private const float k_FollowSlowGap = 10f;
     private const float k_HideDuration = 0.4f;
     private const float k_WheelRadius = 0.45f;
+    private const float k_SameDirectionDot = 0.7f;
 
     private static readonly Collider[] k_OverlapBuffer = new Collider[64];
 
@@ -79,14 +80,15 @@ public sealed class TrafficCar : MonoBehaviour
 
         float targetSpeed = maxSpeed;
 
-        if (TryFindPlayerAhead(out float playerDistance))
+        ScanAhead(out float playerDistance, out float otherCarDistance);
+        if (playerDistance < float.PositiveInfinity)
         {
             targetSpeed = playerDistance <= stopDistance
                 ? 0f
                 : Mathf.Lerp(0f, maxSpeed, Mathf.InverseLerp(stopDistance, lookAhead, playerDistance));
         }
 
-        float carGap = route.GapAhead(this);
+        float carGap = Mathf.Min(route.GapAhead(this), otherCarDistance);
         if (carGap < float.PositiveInfinity)
         {
             float followSpeed = carGap <= k_FollowStopGap
@@ -107,6 +109,7 @@ public sealed class TrafficCar : MonoBehaviour
         }
         else if (distance >= route.Length)
         {
+            LogDisappearance();
             distance = 0f;
             Hide();
             wrapped = true;
@@ -122,10 +125,13 @@ public sealed class TrafficCar : MonoBehaviour
         }
     }
 
-    private bool TryFindPlayerAhead(out float playerDistance)
+    // Routes can share a lane after a junction merge, so cars on other routes are found
+    // physically here; only same-direction cars count, so crossing traffic cannot deadlock.
+    private void ScanAhead(out float playerDistance, out float otherCarDistance)
     {
         playerDistance = float.PositiveInfinity;
-        if (lookAhead <= 0f) return false;
+        otherCarDistance = float.PositiveInfinity;
+        if (lookAhead <= 0f) return;
 
         Vector3 center = transform.position + transform.up * 0.7f + transform.forward * (lookAhead * 0.5f);
         Vector3 halfExtents = new Vector3(1.1f, 0.9f, lookAhead * 0.5f + 1.5f);
@@ -137,6 +143,17 @@ public sealed class TrafficCar : MonoBehaviour
             Collider hit = k_OverlapBuffer[i];
             if (hit == null || hit.transform.IsChildOf(transform)) continue;
 
+            TrafficCar other = hit.GetComponentInParent<TrafficCar>();
+            if (other != null)
+            {
+                if (other.route == route) continue;
+                if (Vector3.Dot(other.transform.forward, transform.forward) < k_SameDirectionDot) continue;
+
+                float gap = Vector3.Dot(other.transform.position - transform.position, transform.forward);
+                if (gap > 0.5f && gap < otherCarDistance) otherCarDistance = gap;
+                continue;
+            }
+
             CharacterController controller = hit.GetComponentInParent<CharacterController>();
             if (controller == null) continue;
 
@@ -147,8 +164,6 @@ public sealed class TrafficCar : MonoBehaviour
             float candidate = Mathf.Max(0f, along);
             if (candidate < playerDistance) playerDistance = candidate;
         }
-
-        return playerDistance < float.PositiveInfinity;
     }
 
     private void EvaluateTransform(bool teleport = false)
@@ -173,6 +188,24 @@ public sealed class TrafficCar : MonoBehaviour
         else
         {
             transform.SetPositionAndRotation(position, rotation);
+        }
+    }
+
+    private void LogDisappearance()
+    {
+        if (!TrafficNetwork.LogDisappearingCars) return;
+
+        Vector3 position = transform.position;
+        string message = $"car={name}, route={route.Index} ({route.Length:0} m), position={position}";
+
+        if (TrafficNetwork.TryFindJunction(position, out string junction, out float junctionDistance))
+        {
+            Debug.LogWarning($"[Traffic] HILANG DI PERTIGAAN {junction} ({junctionDistance:0.0} m dari tengah): {message}", this);
+            Debug.DrawRay(position, Vector3.up * 20f, Color.red, 10f);
+        }
+        else
+        {
+            Debug.Log($"[Traffic] Hilang di ujung jalan (dead end): {message}", this);
         }
     }
 

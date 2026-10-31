@@ -35,6 +35,15 @@ public sealed class TrafficNetwork : MonoBehaviour
     [SerializeField] private bool addRoadColliders = true;
     [SerializeField] private bool drawRoutes = true;
 
+    [Header("Debug")]
+    [Tooltip("Log every car that disappears at the end of its route; junction cases are warnings.")]
+    [SerializeField] private bool logDisappearingCars = true;
+    [SerializeField] private float junctionLogRadius = 12f;
+
+    private static RoadCross[] crosses = Array.Empty<RoadCross>();
+    private static float junctionRadius = 12f;
+    public static bool LogDisappearingCars { get; private set; }
+
     private readonly List<TrafficRoute> routes = new();
     private readonly List<TrafficCar> cars = new();
     private Random random;
@@ -65,9 +74,14 @@ public sealed class TrafficNetwork : MonoBehaviour
             return;
         }
 
+        crosses = UnityEngine.Object.FindObjectsByType<RoadCross>();
+        junctionRadius = junctionLogRadius;
+        LogDisappearingCars = logDisappearingCars;
+
         Vector3 center = trafficCenter != null ? trafficCenter.position : fallbackCenter;
         SpawnCars(SelectRoutes(center));
         LogReport(sectionCount, center);
+        LogJunctionRouteEnds();
     }
 
     private void AddRoadColliders()
@@ -224,6 +238,53 @@ public sealed class TrafficNetwork : MonoBehaviour
         Debug.Log(builder.ToString());
     }
 
+    /// <summary>Nearest junction (RoadCross root, e.g. Road_011(Clone)) within the junction radius.</summary>
+    public static bool TryFindJunction(Vector3 position, out string name, out float distance)
+    {
+        name = null;
+        distance = float.PositiveInfinity;
+        for (int i = 0; i < crosses.Length; i++)
+        {
+            if (crosses[i] == null) continue;
+            float d = Vector3.Distance(crosses[i].transform.position, position);
+            if (d >= distance) continue;
+            distance = d;
+            name = crosses[i].transform.root.name;
+        }
+        return distance <= junctionRadius;
+    }
+
+    private void LogJunctionRouteEnds()
+    {
+        if (!logDisappearingCars) return;
+
+        var builder = new StringBuilder();
+        int problems = 0;
+        for (int i = 0; i < routes.Count; i++)
+        {
+            TrafficRoute route = routes[i];
+            if (route.Closed) continue;
+
+            Vector3 start = route.Points[0];
+            Vector3 end = route.Points[route.Points.Count - 1];
+            if (TryFindJunction(end, out string endJunction, out float endDistance))
+            {
+                builder.AppendLine($"[Traffic]   route {route.Index} ENDS inside {endJunction} ({endDistance:0.0} m from center) at {end} -> cars vanish here");
+                problems++;
+            }
+            if (TryFindJunction(start, out string startJunction, out float startDistance))
+            {
+                builder.AppendLine($"[Traffic]   route {route.Index} STARTS inside {startJunction} ({startDistance:0.0} m from center) at {start} -> cars pop in here");
+                problems++;
+            }
+        }
+
+        if (problems == 0)
+            Debug.Log($"[Traffic] Junction check OK: no route starts or ends inside a junction ({crosses.Length} junctions).");
+        else
+            Debug.LogWarning($"[Traffic] Junction check: {problems} route end(s) inside junctions.\n{builder}");
+    }
+
     private void OnDrawGizmos()
     {
         if (!drawRoutes || routes.Count == 0) return;
@@ -242,6 +303,7 @@ public sealed class TrafficNetwork : MonoBehaviour
         float minRouteLength, out int sectionCount)
     {
         var segments = new List<LaneSegment>();
+        int splineId = 0;
         RoadSection[] sections = UnityEngine.Object.FindObjectsByType<RoadSection>();
         sectionCount = sections.Length;
 
@@ -254,6 +316,7 @@ public sealed class TrafficNetwork : MonoBehaviour
             {
                 Spline spline = container.Splines[splineIndex];
                 if (spline == null) continue;
+                splineId++;
 
                 float localLength = spline.GetLength();
                 int steps = Mathf.Clamp(Mathf.CeilToInt(localLength / Mathf.Max(0.1f, sampleStep)), 2, 128);
@@ -281,7 +344,8 @@ public sealed class TrafficNetwork : MonoBehaviour
                         Vector3 delta = worldPosition - previousPosition;
                         float length = delta.magnitude;
                         if (length > 0.05f)
-                            segments.Add(new LaneSegment(previousPosition, worldPosition, delta / length, previousUp, worldUp));
+                            segments.Add(new LaneSegment(previousPosition, worldPosition, delta / length, previousUp, worldUp,
+                                splineId, step));
                     }
 
                     previousPosition = worldPosition;
@@ -347,6 +411,14 @@ public sealed class TrafficNetwork : MonoBehaviour
                 float sqr = (segments[i].End - segments[j].Start).sqrMagnitude;
                 if (sqr > mergeSqr) continue;
 
+                // Consecutive samples of one spline always belong together; sharp turn splines
+                // (Road_011 Section_1B/3B) bend more than minTangentDot between two samples.
+                if (segments[i].SplineId == segments[j].SplineId && segments[j].Step == segments[i].Step + 1)
+                {
+                    candidates.Add(new LinkCandidate(i, j, 100f));
+                    continue;
+                }
+
                 float dot = Vector3.Dot(segments[i].Forward, segments[j].Forward);
                 if (dot < minTangentDot) continue;
                 if (Vector3.Dot(segments[i].EndUp, segments[j].StartUp) < 0.9f) continue;
@@ -365,6 +437,32 @@ public sealed class TrafficNetwork : MonoBehaviour
             hasPredecessor[candidate.To] = true;
         }
 
+        // At a merge (e.g. a T-junction turn joining a straight lane) the target segment already has a
+        // predecessor, so the losing chain would end in the middle of the junction and its cars would
+        // vanish there. Remember those links so open routes can continue through the shared lane.
+        // The same applies backwards at a diverge, where the losing chain would start mid-junction.
+        int[] previous = new int[count];
+        int[] mergeNext = new int[count];
+        int[] mergePrevious = new int[count];
+        for (int i = 0; i < count; i++)
+        {
+            previous[i] = -1;
+            mergeNext[i] = -1;
+            mergePrevious[i] = -1;
+        }
+
+        for (int i = 0; i < count; i++)
+            if (next[i] >= 0) previous[next[i]] = i;
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            LinkCandidate candidate = candidates[i];
+            if (next[candidate.From] < 0 && mergeNext[candidate.From] < 0)
+                mergeNext[candidate.From] = candidate.To;
+            if (!hasPredecessor[candidate.To] && mergePrevious[candidate.To] < 0)
+                mergePrevious[candidate.To] = candidate.From;
+        }
+
         bool[] visited = new bool[count];
         int routeIndex = 0;
 
@@ -381,6 +479,7 @@ public sealed class TrafficNetwork : MonoBehaviour
                 current = next[current];
             }
 
+            ExtendThroughJunctions(chain, next, mergeNext, previous, mergePrevious);
             AddRoute(segments, chain, false, minRouteLength, routes, ref routeIndex);
         }
 
@@ -409,6 +508,27 @@ public sealed class TrafficNetwork : MonoBehaviour
         }
 
         return routes;
+    }
+
+    private static void ExtendThroughJunctions(List<int> chain, int[] next, int[] mergeNext, int[] previous,
+        int[] mergePrevious)
+    {
+        var used = new HashSet<int>(chain);
+
+        int Follow(int[] primary, int[] fallback, int segment) =>
+            primary[segment] >= 0 ? primary[segment] : fallback[segment];
+
+        for (int k = Follow(next, mergeNext, chain[chain.Count - 1]); k >= 0 && used.Add(k);
+             k = Follow(next, mergeNext, k))
+            chain.Add(k);
+
+        var prefix = new List<int>();
+        for (int k = Follow(previous, mergePrevious, chain[0]); k >= 0 && used.Add(k);
+             k = Follow(previous, mergePrevious, k))
+            prefix.Add(k);
+
+        prefix.Reverse();
+        chain.InsertRange(0, prefix);
     }
 
     private static void AddRoute(List<LaneSegment> segments, List<int> chain, bool closed,
@@ -458,14 +578,19 @@ public sealed class TrafficNetwork : MonoBehaviour
         public readonly Vector3 Forward;
         public readonly Vector3 StartUp;
         public readonly Vector3 EndUp;
+        public readonly int SplineId;
+        public readonly int Step;
 
-        public LaneSegment(Vector3 start, Vector3 end, Vector3 forward, Vector3 startUp, Vector3 endUp)
+        public LaneSegment(Vector3 start, Vector3 end, Vector3 forward, Vector3 startUp, Vector3 endUp,
+            int splineId, int step)
         {
             Start = start;
             End = end;
             Forward = forward;
             StartUp = startUp;
             EndUp = endUp;
+            SplineId = splineId;
+            Step = step;
         }
     }
 
