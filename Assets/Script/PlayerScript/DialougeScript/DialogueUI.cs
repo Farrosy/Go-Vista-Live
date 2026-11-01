@@ -35,6 +35,7 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
     private Coroutine typing;
     private int index;
     private bool isTyping;
+    private System.Action onEnded;
 
     void Awake()
     {
@@ -48,14 +49,16 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
         cameraOrbit = FindAnyObjectByType<CameraOrbit>();
     }
 
-    public void StartDialogue(DialogueData d, Transform focusPoint)
+    /// Return true kalau dialog benar-benar dimulai. 'ended' dipanggil saat dialog ditutup (dipakai NpcController).
+    public bool StartDialogue(DialogueData d, Transform focusPoint, System.Action ended = null)
     {
-        if (IsActive || d == null || d.lines == null || d.lines.Length == 0) return;
+        if (IsActive || d == null || d.lines == null || d.lines.Length == 0) return false;
 
         data = d;
         npcPoint = focusPoint;
         index = 0;
         IsActive = true;
+        onEnded = ended;
 
         PlayerInputHub.Instance.SetLocked(true);
         if (InteractButtonUI.Instance) InteractButtonUI.Instance.SetSuppressed(true);
@@ -68,6 +71,7 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
         if (nameLabel) nameLabel.text = d.speakerName;
         SetVisible(true);
         ShowLine();
+        return true;
     }
 
     public void OnPointerClick(PointerEventData e)
@@ -161,6 +165,10 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
         if (InteractButtonUI.Instance) InteractButtonUI.Instance.SetSuppressed(false);
 
         DialogueFinished?.Invoke(data);
+
+        var cb = onEnded;
+        onEnded = null;
+        cb?.Invoke();
     }
 
     private void FaceNpc()
