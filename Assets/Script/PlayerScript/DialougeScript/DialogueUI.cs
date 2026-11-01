@@ -173,8 +173,7 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
 
     private void FaceNpc()
     {
-        var pc = FindAnyObjectByType<PlayerController>();
-        var player = pc ? pc.transform : null;
+        var player = PlayerController.Local ? PlayerController.Local.transform : null;
         if (!player || !npcPoint) return;
         Vector3 d = npcPoint.position - player.position;
         d.y = 0f;

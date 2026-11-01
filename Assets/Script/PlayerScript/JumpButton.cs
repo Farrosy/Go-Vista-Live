@@ -4,6 +4,7 @@ using UnityEngine.UI;
 [RequireComponent(typeof(Button))]
 public class JumpButton : MonoBehaviour
 {
+    [Tooltip("Kosong = pakai avatar lokal (PlayerController.Local). Biarkan kosong untuk multiplayer.")]
     [SerializeField] private PlayerController player;
 
     private Button button;
@@ -22,10 +23,8 @@ public class JumpButton : MonoBehaviour
 
     private void OnJumpClicked()
     {
-        if (!player)
-            player = FindAnyObjectByType<PlayerController>();
-
-        if (player)
-            player.TryJump();
+        PlayerController target = player ? player : PlayerController.Local;
+        if (target)
+            target.TryJump();
     }
 }
