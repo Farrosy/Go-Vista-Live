@@ -35,15 +35,6 @@ public sealed class TrafficNetwork : MonoBehaviour
     [SerializeField] private bool addRoadColliders = true;
     [SerializeField] private bool drawRoutes = true;
 
-    [Header("Debug")]
-    [Tooltip("Log every car that disappears at the end of its route; junction cases are warnings.")]
-    [SerializeField] private bool logDisappearingCars = true;
-    [SerializeField] private float junctionLogRadius = 12f;
-
-    private static RoadCross[] crosses = Array.Empty<RoadCross>();
-    private static float junctionRadius = 12f;
-    public static bool LogDisappearingCars { get; private set; }
-
     private readonly List<TrafficRoute> routes = new();
     private readonly List<TrafficCar> cars = new();
     private Random random;
@@ -74,14 +65,9 @@ public sealed class TrafficNetwork : MonoBehaviour
             return;
         }
 
-        crosses = UnityEngine.Object.FindObjectsByType<RoadCross>();
-        junctionRadius = junctionLogRadius;
-        LogDisappearingCars = logDisappearingCars;
-
         Vector3 center = trafficCenter != null ? trafficCenter.position : fallbackCenter;
         SpawnCars(SelectRoutes(center));
         LogReport(sectionCount, center);
-        LogJunctionRouteEnds();
     }
 
     private void AddRoadColliders()
@@ -236,53 +222,6 @@ public sealed class TrafficNetwork : MonoBehaviour
             builder.AppendLine($"[Traffic]   route {route.Index}: {route.Length:0} m, closed={route.Closed}, nearest={route.ClosestDistanceTo(center):0} m");
 
         Debug.Log(builder.ToString());
-    }
-
-    /// <summary>Nearest junction (RoadCross root, e.g. Road_011(Clone)) within the junction radius.</summary>
-    public static bool TryFindJunction(Vector3 position, out string name, out float distance)
-    {
-        name = null;
-        distance = float.PositiveInfinity;
-        for (int i = 0; i < crosses.Length; i++)
-        {
-            if (crosses[i] == null) continue;
-            float d = Vector3.Distance(crosses[i].transform.position, position);
-            if (d >= distance) continue;
-            distance = d;
-            name = crosses[i].transform.root.name;
-        }
-        return distance <= junctionRadius;
-    }
-
-    private void LogJunctionRouteEnds()
-    {
-        if (!logDisappearingCars) return;
-
-        var builder = new StringBuilder();
-        int problems = 0;
-        for (int i = 0; i < routes.Count; i++)
-        {
-            TrafficRoute route = routes[i];
-            if (route.Closed) continue;
-
-            Vector3 start = route.Points[0];
-            Vector3 end = route.Points[route.Points.Count - 1];
-            if (TryFindJunction(end, out string endJunction, out float endDistance))
-            {
-                builder.AppendLine($"[Traffic]   route {route.Index} ENDS inside {endJunction} ({endDistance:0.0} m from center) at {end} -> cars vanish here");
-                problems++;
-            }
-            if (TryFindJunction(start, out string startJunction, out float startDistance))
-            {
-                builder.AppendLine($"[Traffic]   route {route.Index} STARTS inside {startJunction} ({startDistance:0.0} m from center) at {start} -> cars pop in here");
-                problems++;
-            }
-        }
-
-        if (problems == 0)
-            Debug.Log($"[Traffic] Junction check OK: no route starts or ends inside a junction ({crosses.Length} junctions).");
-        else
-            Debug.LogWarning($"[Traffic] Junction check: {problems} route end(s) inside junctions.\n{builder}");
     }
 
     private void OnDrawGizmos()

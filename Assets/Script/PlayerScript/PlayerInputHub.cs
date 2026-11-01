@@ -49,7 +49,24 @@ public class PlayerInputHub : MonoBehaviour
         set => sprint = value;
     }
 
-    void Awake() => Instance = this;
+    void Awake()
+    {
+        // WorldScene di-load additive di atas MainMultiplayerScene. Kalau scene itu punya hub sendiri
+        // tanpa joystick (mis. dibuat TrafficDemoSetup), jangan sampai menimpa hub MobileUI yang
+        // joystick-nya terpasang — kalau tertimpa, Move selalu nol dan karakter tidak bisa gerak.
+        if (Instance && Instance != this && Instance.joystick && !joystick)
+        {
+            Debug.LogWarning($"[PlayerInputHub] Hub duplikat tanpa joystick di '{gameObject.scene.name}' diabaikan.", this);
+            Destroy(this);
+            return;
+        }
+        Instance = this;
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
 
     public void SetLocked(bool locked)
     {

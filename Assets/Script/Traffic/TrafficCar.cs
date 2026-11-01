@@ -109,7 +109,6 @@ public sealed class TrafficCar : MonoBehaviour
         }
         else if (distance >= route.Length)
         {
-            LogDisappearance();
             distance = 0f;
             Hide();
             wrapped = true;
@@ -188,24 +187,6 @@ public sealed class TrafficCar : MonoBehaviour
         else
         {
             transform.SetPositionAndRotation(position, rotation);
-        }
-    }
-
-    private void LogDisappearance()
-    {
-        if (!TrafficNetwork.LogDisappearingCars) return;
-
-        Vector3 position = transform.position;
-        string message = $"car={name}, route={route.Index} ({route.Length:0} m), position={position}";
-
-        if (TrafficNetwork.TryFindJunction(position, out string junction, out float junctionDistance))
-        {
-            Debug.LogWarning($"[Traffic] HILANG DI PERTIGAAN {junction} ({junctionDistance:0.0} m dari tengah): {message}", this);
-            Debug.DrawRay(position, Vector3.up * 20f, Color.red, 10f);
-        }
-        else
-        {
-            Debug.Log($"[Traffic] Hilang di ujung jalan (dead end): {message}", this);
         }
     }
 
