@@ -1,8 +1,8 @@
 # Venue-Travel / Scene-Bridge System — Implementation Plan
 
-> **Status:** In progress. Written 2026-11-02. **Phases 0–3 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phase 4+ not started. Phase 3 is wired but not yet runtime-tested (no `TravelTo` caller until Phase 4/5).
+> **Status:** In progress. Written 2026-11-02. **Phases 0–4 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phase 5+ not started. Phase 4 pulled 6.1's WorldScene dock wiring forward (owner's choice); the dock → choice → fade → scene-swap is exercisable, but **arrival onto the venue cube needs Phase 5.1's `VenueCube` spawn markers** (not placed yet). Return-arm/cancel-on-pad is Phase 5.
 > **Audience:** Implementing agents/devs. Follow phases top-to-bottom; each `[ ]` is a discrete, checkable task.
-> **Mode note:** This document is a plan. Phases 0–3 have been implemented with owner go-ahead; do not start Phase 4+ until an owner says so.
+> **Mode note:** This document is a plan. Phases 0–4 have been implemented with owner go-ahead; do not start Phase 5+ until an owner says so.
 
 ---
 
@@ -108,9 +108,9 @@ These were confirmed by the project owner. Build to them.
   - Keep `Cover`/`Reveal` able to **hold black across the full load/unload** (not a fixed-duration tween that ends early), and let `Reveal` optionally wait on a "ready" signal — the loading screen will need that hook to stay up until the target scene is ready.
 - [x] **3.4 Integrate with `LobyUISceneController`** — set `CurrentVenue = World` after the existing first-spawn load, register the already-loaded WorldScene with the manager, and route all subsequent hops through `VenueTravelManager`. Keep churn minimal; pause-menu "Leave Room" → lobby stays unchanged. → Done; one call `VenueTravelManager.Instance?.AdoptInitialVenue(VenueId.World)` after `BeginGame()`. Subsequent hops routed via `TravelTo` (wired from Phase 4/5 callers). "Leave Room" untouched.
 
-## Phase 4 — Dock → destination choice (at the docks)
-- [ ] **4.1 `TravelChoiceUI`** — reusable choice panel (title + 2–3 buttons), styled like the lobby/dialogue panels. API: `Open(string title, (string label, Action onPick)[] options)` / `Close()`. (The existing `InteractButtonUI` is single-verb only, so a dedicated multi-choice panel is needed.) Likely lives on the persistent MainMultiplayerScene UI.
-- [ ] **4.2 `DockTravelPoint`** on `marina_001` / `boat_002`: an `Interactable` (trigger + on-screen Interact button). `onInteract` → `TravelChoiceUI.Open("Travel to the second island", { "Dance Club" → TravelTo(DanceClub, VenueCube), "Rooftop Bar" → TravelTo(RooftopBar, VenueCube) })`.
+## Phase 4 — Dock → destination choice (at the docks) ✅ DONE 2026-11-03 (runtime-testable)
+- [x] **4.1 `TravelChoiceUI`** — reusable choice panel (title + 2–3 buttons), styled like the lobby/dialogue panels. API: `Open(string title, (string label, Action onPick)[] options)` / `Close()`. (The existing `InteractButtonUI` is single-verb only, so a dedicated multi-choice panel is needed.) Likely lives on the persistent MainMultiplayerScene UI. → Done; procedural runtime-built panel (+ optional `onCancel`, + "Batal"). `TravelChoiceUI` GameObject added to `MainMultiplayerScene`.
+- [x] **4.2 `DockTravelPoint`** on `marina_001` / `boat_002`: an `Interactable` (trigger + on-screen Interact button). `onInteract` → `TravelChoiceUI.Open(...)`. → Done; script + placed in WorldScene as a trigger zone on the pier beside the boat (BoxCollider trigger + Interactable w/ new `Travel`/"Berlayar" action + `InteractPrompt` prefab). Title "Berlayar ke pulau seberang" → Dance Club / Rooftop Bar.
 
 ## Phase 5 — Venue cube: spawn pad + switch zone + re-arm rule
 - [ ] **5.1 `TravelPad`** — `Assets/Script/Travel/TravelPad.cs` on the cube in each venue (reuse/replace the existing `Cube`). Serialized: `VenueId thisVenue`.
@@ -126,7 +126,7 @@ These were confirmed by the project owner. Build to them.
 - [ ] **5.2 Walkable-area polish (required):** turn the raw cube into a proper **ground pad** — flat collider pad + emissive/glow ring material or projected decal, a subtle upward light beam or particles, and a floating `InteractPromptWorld`-style label ("Travel"). Add on-enter visual/audio feedback. The zone must read as an obviously walkable area, not a floating box.
 
 ## Phase 6 — Scene wiring
-- [ ] **6.1 WorldScene:** keep the `CentralPlaza` spawn; add a `Docks` spawn point beside `marina_001`; add `DockTravelPoint` to `marina_001` / `boat_002`.
+- [~] **6.1 WorldScene:** keep the `CentralPlaza` spawn; add a `Docks` spawn point beside `marina_001`; add `DockTravelPoint` to `marina_001` / `boat_002`. → **Mostly done in Phase 4** (owner pulled it forward): `Docks SpawnPoint` at (230,22.298,380) facing inland + `DockTravelPoint` trigger zone on the pier beside the boat are placed & saved in WorldScene; CentralPlaza spawn unchanged. Remaining: optional placement polish only.
 - [ ] **6.2 `Demo_DanceClub_01`:** put `TravelPad(thisVenue = DanceClub)` + `VenueCube` spawn on its `Cube`; ensure a Camera + Directional Light exist (per Unity-MCP scene rules) but the camera stays disabled at runtime (manager handles it).
 - [ ] **6.3 `Demo_RooftopBar_01`:** same with `thisVenue = RooftopBar`.
 - [ ] **6.4 Avatar prefab(s) in `Resources`:** add `PlayerVenueSync` + `VenueVisibilityFilter`; verify they still carry `RealtimeView` / `RealtimeTransform` / `PlayerController` / `PlayerAnimSync`.

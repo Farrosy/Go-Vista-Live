@@ -6,6 +6,82 @@
 
 ---
 
+## 2026-11-03 — Phase 4 implemented (dock → destination choice) + part of 6.1 pulled forward
+
+**Branch:** `feat/spawnpoint-to-new-island` · **Scope:** owner chose the **full, testable slice**, so this
+includes the WorldScene dock wiring that the plan nominally files under Phase 6.1. Result: compiles clean,
+scene wiring verified on live objects. The dock interaction + choice panel + fade + scene-swap are
+exercisable now, **but arrival onto the venue cube needs Phase 5** (the `VenueCube` spawn markers are placed
+in 5.1). Until then, `TravelTo(venue, VenueCube)` loads/swaps scenes but `PlayerSpawnPoint.Find(..., VenueCube)`
+returns null, so the avatar isn't repositioned (and WorldScene has unloaded) — don't expect a clean landing yet.
+
+### New scripts (`Assets/Script/Travel/`)
+- **`TravelChoiceUI.cs`** — reusable choice panel, built **procedurally at runtime** (own overlay Canvas,
+  sortingOrder 25000 — above HUD, below the 30000 fade), so no scene-UI authoring. Dark backdrop + centered
+  panel (VerticalLayoutGroup + ContentSizeFitter) + TMP title + one button per option + a "Batal" cancel.
+  API: `Open(string title, (string label, Action onPick)[] options, Action onCancel = null)` / `Close()`.
+  While open it locks input (`PlayerInputHub.SetPauseLocked(true)`) and suppresses the Interact button
+  (`InteractButtonUI.SetSuppressed(true)`); a pick closes first then runs the action. Singleton + `ResetStatics`.
+- **`DockTravelPoint.cs`** — `[RequireComponent(Interactable)]`. In `OnEnable` adds a listener to the
+  `Interactable.onInteract` UnityEvent; on interact opens `TravelChoiceUI` with **Dance Club** →
+  `TravelTo(DanceClub, VenueCube)` and **Rooftop Bar** → `TravelTo(RooftopBar, VenueCube)`. Serialized
+  title/labels (Indonesian defaults).
+
+### New asset
+- **`Assets/NPCAction/Travel.asset`** — `InteractionAction`, verb **"Berlayar"** (no icon; the verb carries it),
+  placed alongside the existing `Talk`/`Sit` actions.
+
+### Scene edits
+- **`MainMultiplayerScene.unity`** — added an empty **`TravelChoiceUI`** GameObject (the panel builds itself at
+  runtime). Persistent, reachable from every venue.
+- **`WorldScene.unity`** (the "pull 6.1 forward" part):
+  - **`Docks SpawnPoint`** — `PlayerSpawnPoint` venue=World, **slot=Docks**, at **(230, 22.298, 380)** facing
+    south (inland), spreadRadius 2. This is the return-from-venue spawn.
+  - **`DockTravelPoint`** — a trigger zone on the pier beside the boat: `BoxCollider` (trigger, center
+    (0,1.8,0), size 8×5×14) + `Interactable` (displayName "Dermaga", action `Travel.asset`, promptPrefab
+    `Assets/MobilePrefabs/InteractPrompt.prefab`, offset (0,2.8,0)) + `DockTravelPoint`. At (229, 22.298, 382).
+
+### Dock geometry mapping (raycast survey of WorldScene)
+The mesh **pivots are misleading**: `marina_001` pivot y=15.4, `boat_002` pivot y=21.95 are NOT the deck.
+A downward-raycast grid (x 226–246, z 356–388) found the real layout:
+- Walkable **`marina_001` deck = the west strip x≈226–232**, running north–south, **surface y≈22.30**; plus a
+  full east–west base row at z≈356 joining the land.
+- **`boat_002`** occupies x≈234–240, z≈376–388 (moored on the east side of the north end); its collider top is
+  y≈23–29 (bow/cabin taller).
+- Everything else (x≥234 south of the boat, x≥242) is the **`water`** collider at y≈21.8.
+So the player walks up the west strip to the north end next to the boat — where the trigger + Docks spawn sit.
+
+### Bug fixed during build
+`TMP_Text.enableWordWrapping` is now an **error** (CS0619) in this TMP version → switched to
+`text.textWrappingMode = TextWrappingModes.Normal`.
+
+### Verification
+- Compile clean (0 errors) after the TMP fix.
+- Live objects confirmed: `Docks SpawnPoint` serialized venue=0/slot=1; `DockTravelPoint` has
+  BoxCollider(trigger)+Interactable(wired to Travel action + InteractPrompt)+DockTravelPoint; onInteract is
+  empty in-scene (wired at runtime by `DockTravelPoint`).
+- Both scenes saved; editor restored to MainMultiplayerScene (WorldScene unloaded).
+
+### Decisions / notes
+- **Procedural `TravelChoiceUI`** (not scene-authored) — consistent with the runtime fade overlay; robust and
+  self-contained. Styling is a reasonable dark theme, not a pixel-match of the lobby; easy to restyle later.
+- **Pulled Phase 6.1's WorldScene dock wiring forward** (owner's choice) so the flow is testable now. Phase 6.1
+  still owns: confirming the CentralPlaza spawn (unchanged) and any polish; its DockTravelPoint/Docks-spawn
+  boxes are effectively done.
+- **CharacterController fires trigger events** without a Rigidbody (same as existing NPC Interactables), so the
+  dock trigger needs none.
+- **Testable now** (needs a human to drive): walk up the pier → "Berlayar" prompt appears → tap → choice panel
+  (Dance Club / Rooftop Bar / Batal) → pick → fade + venue scene loads. **Arrival onto the cube does NOT work
+  until Phase 5.1** adds the `VenueCube` `PlayerSpawnPoint` on each venue's `Cube`; without it the avatar isn't
+  placed and falls (WorldScene unloaded). Cancel/return-arm behavior is also Phase 5.
+
+### Files touched
+- **New:** `Assets/Script/Travel/TravelChoiceUI.cs`, `DockTravelPoint.cs` (+ `.meta`),
+  `Assets/NPCAction/Travel.asset` (+ `.meta`)
+- **Modified:** `Assets/Scenes/MainMultiplayerScene.unity`, `Assets/Scenes/WorldScene.unity`
+
+---
+
 ## 2026-11-03 — Phase 3 implemented (travel manager / the teleporter)
 
 **Branch:** `feat/spawnpoint-to-new-island` · **Scope:** Phase 3 only. Result: compiles clean, scene wiring
