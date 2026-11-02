@@ -7,6 +7,7 @@ using UnityEngine.UI;
 /// Pasang di root prefab Assets/Prefab/CharacterSelectCanvas.prefab. Semua tampilan (teks, warna,
 /// posisi, ukuran) adalah objek biasa di prefab itu, bebas diedit di Inspector.
 /// Daftar karakter diambil dari Assets/Resources/CharacterDatabase.asset.
+/// Di menu ini pemain juga mengisi nama (PlayerProgress.playerName) yang tampil di daftar pemain.
 /// </summary>
 public class CharacterSelectUI : MonoBehaviour {
     [Tooltip("Isi menu yang ditampilkan/disembunyikan. Canvas root tetap aktif.")]
@@ -21,6 +22,10 @@ public class CharacterSelectUI : MonoBehaviour {
     [SerializeField] private Text counterText;
     [Tooltip("Ditampilkan kalau karakter yang sedang dilihat adalah karakter yang dipakai.")]
     [SerializeField] private GameObject usedBadge;
+
+    [Header("Nama pemain")]
+    [Tooltip("Disimpan ke progres akun saat selesai mengetik, saat PILIH, dan saat menu ditutup.")]
+    [SerializeField] private InputField playerNameInput;
 
     [Header("Tombol")]
     [SerializeField] private Button previousButton;
@@ -41,6 +46,10 @@ public class CharacterSelectUI : MonoBehaviour {
         if (nextButton) nextButton.onClick.AddListener(() => Step(1));
         if (selectButton) selectButton.onClick.AddListener(SelectCurrent);
         if (backButton) backButton.onClick.AddListener(Close);
+        if (playerNameInput) {
+            playerNameInput.characterLimit = PlayerNameRules.MaxLength;
+            playerNameInput.onEndEdit.AddListener(_ => CommitPlayerName());
+        }
         if (root) root.SetActive(false);
         if (stage) stage.gameObject.SetActive(false);
     }
@@ -66,10 +75,12 @@ public class CharacterSelectUI : MonoBehaviour {
             if (previewImage) previewImage.texture = stage.Texture;
         }
         index = Mathf.Max(0, db.IndexOf(CharacterSelection.Current?.id));
+        if (playerNameInput) playerNameInput.SetTextWithoutNotify(ProgressService.Current.playerName);
         Refresh();
     }
 
     public void Close() {
+        CommitPlayerName();
         if (root) root.SetActive(false);
         if (stage) {
             stage.Clear();
@@ -87,8 +98,18 @@ public class CharacterSelectUI : MonoBehaviour {
     }
 
     private void SelectCurrent() {
+        CommitPlayerName();
         CharacterSelection.Select(CharacterDatabase.Instance[index].id);
         Refresh();
+    }
+
+    /// Simpan isi kolom nama ke progres, lalu tampilkan versi yang sudah dirapikan.
+    private void CommitPlayerName() {
+        if (!playerNameInput)
+            return;
+        string saved = ProgressService.SetPlayerName(playerNameInput.text);
+        if (playerNameInput.text != saved)
+            playerNameInput.SetTextWithoutNotify(saved);
     }
 
     private void Refresh() {

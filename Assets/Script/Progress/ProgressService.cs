@@ -30,6 +30,9 @@ public static class ProgressService {
 
     /// <summary>Dipanggil setelah LoadAsync berhasil. Pakai untuk menerapkan progres ke dunia game.</summary>
     public static event Action Loaded;
+    /// <summary>Dipanggil saat nama pemain berubah (SetPlayerName). LobbyPresence memakai ini supaya
+    /// nama baru langsung terkirim ke pemain lain di room.</summary>
+    public static event Action<string> PlayerNameChanged;
 
     private static bool _saving;
 
@@ -39,6 +42,7 @@ public static class ProgressService {
         IsLoaded = false;
         IsDirty = false;
         Loaded = null;
+        PlayerNameChanged = null;
         _saving = false;
         DialogueUI.DialogueFinished -= OnDialogueFinished;
         DialogueUI.AnswerChosen -= OnAnswerChosen;
@@ -164,6 +168,20 @@ public static class ProgressService {
         _ = SaveAsync(); // jarang terjadi, langsung simpan
     }
 
+    // ================================================================ Nama pemain
+
+    /// <summary>Simpan nama pemain (dirapikan dulu lewat PlayerNameRules). Mengembalikan nama yang disimpan.</summary>
+    public static string SetPlayerName(string playerName) {
+        string clean = PlayerNameRules.Sanitize(playerName);
+        if (Current.playerName == clean)
+            return clean;
+        Current.playerName = clean;
+        MarkDirty();
+        _ = SaveAsync(); // jarang terjadi, langsung simpan
+        PlayerNameChanged?.Invoke(clean);
+        return clean;
+    }
+
     // TODO (next develop): tambahkan helper untuk data baru di sini, misalnya:
     //   public static void AddCoins(int amount) { Current.coins += amount; MarkDirty(); }
     //   public static void MarkDistrictVisited(string districtId) { ...pola sama dengan MarkDialogueCompleted... }
@@ -175,6 +193,7 @@ public static class ProgressService {
         p.completedDialogues ??= new List<string>();
         p.dialogueAnswers ??= new List<DialogueAnswer>();
         p.characterId ??= "";
+        p.playerName = PlayerNameRules.Sanitize(p.playerName);
         // Posisi terakhir tidak dipakai lagi (spawn selalu di PlayerSpawnPoint). Kosongkan data
         // lama supaya ikut terhapus dari cloud di save berikutnya.
         p.hasLastPosition = false;
