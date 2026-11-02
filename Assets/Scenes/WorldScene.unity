@@ -21565,7 +21565,7 @@ MonoBehaviour:
   m_OverrideVoxelSize: 0
   m_VoxelSize: 0.16666667
   m_MinRegionArea: 2
-  m_NavMeshData: {fileID: 0}
+  m_NavMeshData: {fileID: 23800000, guid: 356463c5c0e0dc54bb981a29c11f5ec0, type: 2}
   m_BuildHeightMesh: 0
 --- !u!4 &788436739
 Transform:
@@ -43540,6 +43540,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6530892901930381250, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
+      propertyPath: stages.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6530892901930381250, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
+      propertyPath: 'stages.Array.data[1]'
+      value: 
+      objectReference: {fileID: 11400000, guid: 486bd51313c97264eaaf529a2fe3032d, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
