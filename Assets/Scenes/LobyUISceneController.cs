@@ -822,32 +822,6 @@ public sealed class LobyUISceneController : MonoBehaviour {
             PrefabUtility.UnloadPrefabContents(root);
         }
     }
-
-    /// <summary>
-    /// Ganti HANYA "Settings Overlay" di LobbyCanvas.prefab dengan versi terbaru dari BuildSettingsOverlay
-    /// (misalnya setelah tombol ATUR KONTROL ditambahkan). Bagian lain prefab tidak disentuh.
-    /// </summary>
-    public static void RebuildSettingsOverlayInPrefab() {
-        if (LoadCanvasPrefab(LobbyCanvasPrefabPath) == null) {
-            Debug.LogWarning($"[Lobby UI] {LobbyCanvasPrefabPath} tidak ditemukan.");
-            return;
-        }
-        GameObject root = PrefabUtility.LoadPrefabContents(LobbyCanvasPrefabPath);
-        try {
-            Transform old = FindChild(root.transform, "Settings Overlay");
-            int siblingIndex = old != null ? old.GetSiblingIndex() : root.transform.childCount;
-            if (old != null)
-                Object.DestroyImmediate(old.gameObject);
-
-            BuildSettingsOverlay(root.transform);
-            Transform rebuilt = root.transform.GetChild(root.transform.childCount - 1);
-            rebuilt.SetSiblingIndex(Mathf.Min(siblingIndex, root.transform.childCount - 1));
-            PrefabUtility.SaveAsPrefabAsset(root, LobbyCanvasPrefabPath);
-            Debug.Log("[Lobby UI] Settings Overlay di LobbyCanvas.prefab diperbarui.");
-        } finally {
-            PrefabUtility.UnloadPrefabContents(root);
-        }
-    }
 #endif
 
     private static void BuildSettingsOverlay(Transform canvas) {
@@ -1296,7 +1270,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
         if (_mainMenuInitial != null)
             _mainMenuInitial.text = greetingName.Length > 0 ? greetingName.Substring(0, 1).ToUpperInvariant() : "?";
         if (_settingsAccount != null)
-            _settingsAccount.text = "Masuk sebagai " + username;
+            // Username hanya huruf/angka/. - @ _ (AuthService), jadi aman dipakai di dalam rich text.
+            _settingsAccount.text = "Masuk sebagai  <b><color=#FFFFFF>" + username + "</color></b>";
     }
 
     private void SignOutAccount() {
