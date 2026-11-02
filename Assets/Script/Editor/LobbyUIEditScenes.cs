@@ -53,16 +53,6 @@ public static class LobbyUIEditScenes {
         LobyUISceneController.RebuildMainMenuInPrefab();
     }
 
-    [MenuItem("Go Vista/Lobby UI/Perbarui panel Pengaturan")]
-    private static void RebuildSettingsOverlay() {
-        if (!EditorUtility.DisplayDialog("Perbarui panel Pengaturan",
-                "Objek \"Settings Overlay\" di LobbyCanvas.prefab akan diganti dengan versi terbaru (termasuk " +
-                "tombol ATUR KONTROL). Editan manual di dalam Settings Overlay hilang; bagian lain prefab tidak berubah.",
-                "Perbarui", "Batal"))
-            return;
-        LobyUISceneController.RebuildSettingsOverlayInPrefab();
-    }
-
     private static void OpenScene(string path) {
         if (File.Exists(path) && EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
