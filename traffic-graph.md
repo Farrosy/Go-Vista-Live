@@ -18,6 +18,87 @@ This plan is written for multiple agents. Every task is mapped to concrete files
   end up on a dead-end branch they U-turn onto the opposite lane. No car is hidden or teleported
   to despawn.
 
+## Status & progress log (newest first)
+
+> Keep this section current. Every agent/session appends a dated entry with the exact files
+> touched so others can resume without re-deriving state.
+
+### 2026-11-02 — State audit + coworker's junction work logged (branch `feat/traffic-main-sync`)
+
+**Ground truth right now (verified against committed code, not memory):**
+
+- **T1–T4 graph files exist but are DEAD CODE.** `TrafficEdge.cs`, `TrafficNode.cs`,
+  `TrafficIntersection.cs`, `TrafficLaneGraph.cs` (+ `GraphSettings`) are committed (`999dd32`,
+  2026-10-31) and compile, but **nothing outside those files references them**
+  (`grep` for `TrafficLaneGraph|TrafficEdge|TrafficIntersection|GraphSettings` outside the graph
+  files = 0 hits). The graph was never validated in Unity (counts still unknown).
+- **The runtime still runs the OLD `TrafficRoute` system.** `TrafficNetwork.cs` +
+  `TrafficCar.cs` use `BuildRoutes`/`BuildChains`/`SelectRoutes`/`SpawnCar` and `TrafficRoute`.
+  None of T5–T12 was wired to the graph.
+- **Plan defaults NOT applied:** `maxCars = 14`, `carSpacing = 45`, `trafficRadius = 250`
+  (plan wants 40 / 25 / 300).
+- **"Disappearing" still present:** `Hide()`, `SetVisible()`, `hideTimer`, `wrapped` teleport are
+  all still in `TrafficCar.cs`. Cars still vanish/teleport at open-route ends.
+
+**Coworker update — Farrosy, commit `dbd69e8` "fix/Fork in the road" (2026-10-31 11:10).**
+This is a **separate, route-based approach to junctions that does NOT use the graph.** It makes
+the existing `TrafficRoute` system drive cars *through* intersections/forks:
+
+- **Scene:** added real junction prefabs (`Road_011/012`, which carry `RoadCross` + turn splines)
+  into `Assets/Download_Assets/Houidisoft technology/Simple water/Demo/Demo 1.unity`
+  (+1286 lines in that commit; ~26 `Road_011/012` refs). Also deleted `LobyUIScene.unity` content
+  and reverted `packages-lock.json` in the same commit.
+- **`TrafficNetwork.BuildChains`:** consecutive samples of a single spline now link
+  unconditionally (so sharp turn splines like `Road_011` `Section_1B/3B` are followed through the
+  bend), and new `ExtendThroughJunctions(...)` continues open routes through merges/diverges
+  (forks) instead of ending a chain mid-junction. `LaneSegment` gained `SplineId` + `Step`.
+- **`TrafficCar.ScanAhead`** (replaces `TryFindPlayerAhead`): still finds the player, and now also
+  physically detects cars on *other* routes via the look-ahead `OverlapBox`, counting only
+  same-direction cars (`dot ≥ k_SameDirectionDot = 0.7`). Merged/junction lanes now slow for each
+  other without crossing-traffic deadlock. **This is the "traffic for cars that go in the
+  intersections."** `carGap = min(route.GapAhead, otherCarDistance)`.
+- **Junction diagnostics:** `TrafficNetwork.TryFindJunction` (nearest `RoadCross` root within
+  `junctionLogRadius`, default 12 m), `LogJunctionRouteEnds` (warns when a route starts/ends
+  inside a junction), `TrafficCar.LogDisappearance` (warns `HILANG DI PERTIGAAN <junction>` when a
+  car vanishes near a junction, else logs a dead-end). Toggle: `logDisappearingCars` (default on).
+
+**⚠ Architecture conflict — RESOLVED 2026-11-02 by the owner (muhammadaryafattah@gmail.com).**
+The coworker's route-based junction work and this plan's graph architecture are mutually exclusive.
+**Decision: commit to the GRAPH architecture** (wire T5–T12 to `TrafficLaneGraph`, rewrite
+`TrafficCar`/`TrafficNetwork` onto it, eventually delete `TrafficRoute`). This **supersedes** the
+coworker's route-based fork/junction fix. Second decision: **keep the graph files regardless** (do
+not delete `TrafficEdge/Node/Intersection/LaneGraph.cs`). Caveat the owner attached: **the graph
+must be validated in Unity first** — it has never been run — before the destructive rewrite.
+
+→ Therefore the sequencing is **non-destructive first**: (1) make the graph validatable in Unity,
+(2) get real counts and tune T3/T4, (3) then rewrite `TrafficCar`/`TrafficNetwork` onto the graph,
+(4) delete `TrafficRoute` **last**, only once nothing references it. Do NOT delete `TrafficRoute`
+or the coworker's junction code until the graph replacement is proven and wired.
+
+**Actions taken 2026-11-02 (this session):**
+
+- Added menu item **`Go Vista/Validate Lane Graph`** in
+  `Assets/Script/Traffic/Editor/TrafficDemoSetup.cs` → calls
+  `TrafficLaneGraph.BuildAndDescribe(new GraphSettings(), SpawnPosition)` and logs the graph
+  report. The existing `Go Vista/Validate Traffic Routes` (old route builder) was left intact and
+  relabeled "(OLD route builder)". No scene changes.
+- Verified compile: `dotnet build Assembly-CSharp-Editor.csproj -v minimal` → **0 errors**
+  (29 pre-existing warnings). Graph files + new menu item build clean.
+
+**⛔ BLOCKED on Unity (next action = owner's).** UnityMCP bridge is down (`ECONNREFUSED`), so this
+session cannot drive the Editor or run the validator. **Owner: in the open Editor, run
+`Go Vista/Validate Lane Graph` on `Demo 1.unity` and paste the console report back.** Expected
+healthy signal per plan: ~105 `RoadSection`s, ~30 lane runs ≥45 m, intersections > 0 (3-/4-way),
+turn + U-turn edges present, 0 orphan nodes, no zero-length edges. If intersections = 0 or orphans
+> 0, the graph needs threshold tuning (`ClusterRadius`, `PerpendicularDot`, `CrossMaxParallelDot`,
+`MaxYDelta`, `DeadEndMatchRadius`) before any runtime rewrite.
+
+**Note for the graph builder:** the coworker added real junction prefabs (`Road_011/012` with
+`RoadCross` + turn splines) into `Demo 1.unity`. The graph builder samples ALL `RoadSection`
+splines, so those junction splines are now extra lane geometry the graph will ingest — this may
+change intersection/crossing counts vs. the plan's original "no junction prefabs" assumption.
+Watch for it when reading the validation report.
+
 ## Read these first (current implementation)
 
 | File | Current role | Notes for agents |

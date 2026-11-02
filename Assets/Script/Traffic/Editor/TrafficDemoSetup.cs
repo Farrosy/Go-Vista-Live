@@ -73,7 +73,18 @@ public static class TrafficDemoSetup
     public static void Validate()
     {
         string report = TrafficNetwork.BuildAndDescribe(2f, 1f, 0.9f, 45f, SpawnPosition);
-        Debug.Log("[Traffic Demo] Route validation:\n" + report);
+        Debug.Log("[Traffic Demo] Route validation (OLD route builder):\n" + report);
+    }
+
+    // Graph-path validation (traffic-graph.md T1-T4). Builds the new lane graph from the active
+    // scene's RoadSection splines and logs its report. The graph is not yet wired to the runtime;
+    // this is the pre-rewrite gate: confirm the graph is sane (intersections > 0, no orphans)
+    // before migrating TrafficCar/TrafficNetwork off TrafficRoute. Does NOT modify the scene.
+    [MenuItem("Go Vista/Validate Lane Graph")]
+    public static void ValidateLaneGraph()
+    {
+        string report = TrafficLaneGraph.BuildAndDescribe(new GraphSettings(), SpawnPosition);
+        Debug.Log("[Traffic Demo] Lane-graph validation (NEW graph builder):\n" + report);
     }
 
     private static TrafficNetwork EnsureNetwork(Scene scene)
