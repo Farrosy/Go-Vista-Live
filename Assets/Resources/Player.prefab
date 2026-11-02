@@ -14,6 +14,8 @@ GameObject:
   - component: {fileID: 2616443816091454554}
   - component: {fileID: 2956786972755912025}
   - component: {fileID: 3139010553364512106}
+  - component: {fileID: 3255365358486124721}
+  - component: {fileID: 2151182225554921579}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -110,6 +112,9 @@ MonoBehaviour:
   - componentID: 2
     component: {fileID: 3139010553364512106}
     isDeprecated: 0
+  - componentID: 3
+    component: {fileID: 3255365358486124721}
+    isDeprecated: 0
   _childViews: []
 --- !u!114 &2956786972755912025
 MonoBehaviour:
@@ -142,6 +147,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 709d6b8a413549e1822f98068962753b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimSync
+--- !u!114 &3255365358486124721
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5469951118779690227}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 837631caffc075844b9ce71bf0f1fc28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerVenueSync
+--- !u!114 &2151182225554921579
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5469951118779690227}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b50922f18471ae44da56e2b0e3036c73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VenueVisibilityFilter
 --- !u!1001 &2234267670862747034
 PrefabInstance:
   m_ObjectHideFlags: 0

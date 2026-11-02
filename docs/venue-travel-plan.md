@@ -1,8 +1,8 @@
 # Venue-Travel / Scene-Bridge System — Implementation Plan
 
-> **Status:** In progress. Written 2026-11-02. **Phase 0 + Phase 1 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phase 2+ not started.
+> **Status:** In progress. Written 2026-11-02. **Phases 0–2 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phase 3+ not started.
 > **Audience:** Implementing agents/devs. Follow phases top-to-bottom; each `[ ]` is a discrete, checkable task.
-> **Mode note:** This document is a plan. Phase 0 and Phase 1 have been implemented with owner go-ahead; do not start Phase 2+ until an owner says so.
+> **Mode note:** This document is a plan. Phases 0–2 have been implemented with owner go-ahead; do not start Phase 3+ until an owner says so.
 
 ---
 
@@ -84,10 +84,10 @@ These were confirmed by the project owner. Build to them.
   - [x] Keep `GetPosition(clientID)` golden-angle spread + `Rotation`.
 - [x] **1.3 Preserve initial spawn** — `PlayerManager.BeginGame()` resolves `World`/`CentralPlaza` via the new registry; keep the existing fallback-warning path. → Done; backward compat verified live (existing spawn deserialized to World/CentralPlaza, spreadRadius preserved).
 
-## Phase 2 — Venue tag sync (Normcore, one-room visibility)
-- [ ] **2.1 `PlayerVenueModel` + `PlayerVenueSync : RealtimeComponent<PlayerVenueModel>`** in `Assets/Script/Travel/`, copying the `PlayerAnimSync` / `PlayerAnimSyncModel` pattern. Synced property: `int venue` (a `VenueId`). Add to the avatar prefab(s) in `Resources` alongside `PlayerController` / `PlayerAnimSync`.
-- [ ] **2.2 Local venue state** — static `VenueTravelManager.LocalVenue` getter + `event Action VenueChanged`. The local player's `PlayerVenueSync` writes the model when a travel completes.
-- [ ] **2.3 `VenueVisibilityFilter`** on each avatar: enable renderers + colliders only when `thisAvatar.venue == LocalVenue`. Re-evaluate on (a) its own model `venue` change and (b) `VenueChanged`. The **local** avatar is always visible to itself.
+## Phase 2 — Venue tag sync (Normcore, one-room visibility) ✅ DONE 2026-11-03
+- [x] **2.1 `PlayerVenueModel` + `PlayerVenueSync : RealtimeComponent<PlayerVenueModel>`** in `Assets/Script/Travel/`, copying the `PlayerAnimSync` / `PlayerAnimSyncModel` pattern. Synced property: `int venue` (a `VenueId`). Add to the avatar prefab(s) in `Resources` alongside `PlayerController` / `PlayerAnimSync`. → Done; both scripts created. Attached to **both** `Player.prefab` and `Player Female.prefab` and **registered in each `RealtimeView._components` as componentID 3** (verified in on-disk YAML).
+- [x] **2.2 Local venue state** — static `VenueTravelManager.LocalVenue` getter + `event Action VenueChanged`. The local player's `PlayerVenueSync` writes the model when a travel completes. → Done; `VenueTravelManager` created with the Phase-2 static slice only (`LocalVenue` + `VenueChanged` + `SetLocalVenue` + `ResetStatics`). Singleton/`TravelTo` deferred to Phase 3 (same class). Local `PlayerVenueSync` mirrors its venue into `SetLocalVenue`.
+- [x] **2.3 `VenueVisibilityFilter`** on each avatar: enable renderers + colliders only when `thisAvatar.venue == LocalVenue`. Re-evaluate on (a) its own model `venue` change and (b) `VenueChanged`. The **local** avatar is always visible to itself. → Done; attached to both avatar prefabs. Toggles child `Renderer`s + `Collider`s; local avatar never hidden. (Not yet two-client runtime-tested — Phase 7.3.)
 
 ## Phase 3 — Travel manager (the teleporter)
 - [ ] **3.1 `VenueTravelManager`** — `Assets/Script/Travel/VenueTravelManager.cs`, singleton on a persistent object in `MainMultiplayerScene` (next to `PlayerManager`). Holds `CurrentVenue`.
