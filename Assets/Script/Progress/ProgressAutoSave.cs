@@ -1,17 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// Dibuat otomatis oleh ProgressService (tidak perlu dipasang di scene). Tugasnya: merekam posisi
-/// pemain secara berkala, lalu menyimpan ke cloud tiap beberapa menit dan saat app di-pause/ditutup.
+/// Dibuat otomatis oleh ProgressService (tidak perlu dipasang di scene). Tugasnya: menyimpan progres
+/// ke cloud tiap beberapa menit dan saat app di-pause/ditutup.
 /// </summary>
 public sealed class ProgressAutoSave : MonoBehaviour {
-    // Rekam posisi ke memori (gratis, tanpa network).
-    private const float RecordInterval = 5f;
     // Kirim ke Cloud Save. Jangan terlalu sering: kuota gratis 1 juta write per bulan untuk SEMUA pemain.
     // Dengan 120 detik, 1 pemain yang main 1 jam = maksimal 30 write.
     private const float SaveInterval = 120f;
 
-    private float _nextRecord;
     private float _nextSave;
 
     public static void Create() {
@@ -25,10 +22,6 @@ public sealed class ProgressAutoSave : MonoBehaviour {
 
     private void Update() {
         float now = Time.unscaledTime;
-        if (now >= _nextRecord) {
-            _nextRecord = now + RecordInterval;
-            ProgressService.RecordPlayerPosition();
-        }
         if (now >= _nextSave) {
             _nextSave = now + SaveInterval;
             if (ProgressService.IsDirty)

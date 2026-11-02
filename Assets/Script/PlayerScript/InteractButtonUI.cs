@@ -14,21 +14,15 @@ public class InteractButtonUI : MonoBehaviour
 
     private readonly List<Interactable> inRange = new List<Interactable>();
     private Interactable current;
-    private Transform player;
     private CanvasGroup group;
     private bool suppressed;
+    private bool previewing;
 
     void Awake()
     {
         Instance = this;
         group = GetComponent<CanvasGroup>();
         SetVisible(false);
-    }
-
-    void Start()
-    {
-        var pc = FindAnyObjectByType<PlayerController>();
-        if (pc) player = pc.transform;
     }
 
     public void Register(Interactable i)
@@ -48,6 +42,8 @@ public class InteractButtonUI : MonoBehaviour
 
         Interactable best = null;
         float bestDist = float.MaxValue;
+        // Avatar lokal bisa baru muncul setelah UI ini aktif (multiplayer), jadi diambil tiap frame.
+        var player = PlayerController.Local ? PlayerController.Local.transform : null;
         if (player && !suppressed)
         {
             foreach (var i in inRange)
@@ -79,8 +75,16 @@ public class InteractButtonUI : MonoBehaviour
         if (iconImage && target.action) iconImage.sprite = target.action.icon;
     }
 
+    /// Dipakai mode ATUR KONTROL: tampilkan tombol walau tidak ada target, supaya bisa diatur.
+    public void SetPreview(bool value)
+    {
+        previewing = value;
+        SetVisible(current != null);
+    }
+
     private void SetVisible(bool v)
     {
+        if (previewing) v = true;
         group.alpha = v ? 1f : 0f;
         group.interactable = v;
         group.blocksRaycasts = v;

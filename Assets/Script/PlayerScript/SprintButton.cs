@@ -3,38 +3,40 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// Pasang di SprintButton. Tidak perlu OnClick, cukup script ini.
-/// Saat sprint aktif: warna tombol digelapkan + sedikit mengecil, jadi kelihatan jelas.
-public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+/// Saat sprint aktif, warna lingkaran tombol berubah ke Pressed Color (gelap) supaya pemain tahu sedang sprint.
+/// Scale tombol tidak diubah, jadi ukuran tetap sesuai yang diatur di Inspector.
+[RequireComponent(typeof(Image))]
+public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
+    IPointerEnterHandler, IPointerExitHandler
 {
     [Tooltip("OFF = tahan tombol untuk sprint. ON = tap sekali nyala, tap lagi mati.")]
     [SerializeField] private bool toggleMode = false;
 
-    [Header("Feedback visual")]
-    [Tooltip("Kosong = otomatis pakai Image di object ini")]
-    [SerializeField] private Image buttonImage;
-    [Range(0.2f, 1f)]
-    [Tooltip("Makin kecil = makin gelap saat aktif")]
-    [SerializeField] private float activeBrightness = 0.55f;
-    [SerializeField] private float activeScale = 0.92f;
+    [Header("Feedback visual (Color Tint, sama seperti Button biasa)")]
+    [Tooltip("Kosong = otomatis pakai Image di object ini (lingkaran tombol).")]
+    [SerializeField] private Image backgroundImage;
 
-    private Color normalColor;
-    private Color activeColor;
+    [Tooltip("Normal = sprint mati. Pressed = sprint AKTIF. Highlighted = kursor di atas tombol (hanya terasa di PC). " +
+             "Selected dan Disabled tidak dipakai.")]
+    [SerializeField] private ColorBlock colors = new ColorBlock
+    {
+        normalColor      = Color.white,
+        highlightedColor = new Color(0.9f, 0.9f, 0.9f, 1f),
+        pressedColor     = new Color(0.35f, 0.35f, 0.35f, 1f), // gelap
+        selectedColor    = Color.white,
+        disabledColor    = new Color(0.78f, 0.78f, 0.78f, 0.5f),
+        colorMultiplier  = 1f,
+        fadeDuration     = 0.1f
+    };
+
     private bool active;
     private bool movedWhileActive;
+    private bool pointerInside;
 
     void Awake()
     {
-        if (!buttonImage) buttonImage = GetComponent<Image>();
-        if (buttonImage)
-        {
-            normalColor = buttonImage.color;   // pakai warna aslimu, tidak dipaksa putih
-            activeColor = new Color(
-                normalColor.r * activeBrightness,
-                normalColor.g * activeBrightness,
-                normalColor.b * activeBrightness,
-                normalColor.a);
-        }
-        Apply(false);
+        if (!backgroundImage) backgroundImage = GetComponent<Image>();
+        ApplyVisualState(true);
     }
 
     void OnDisable() => SetSprint(false);
@@ -43,8 +45,8 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     {
         if (!active || !PlayerInputHub.Instance) return;
 
-        // Keep sprint armed when selected before moving, but clear it once
-        // movement has started and the joystick returns to neutral.
+        // Sprint tetap "siap" kalau dipilih sebelum bergerak, tapi dimatikan begitu
+        // pemain sudah bergerak lalu joystick kembali ke netral.
         if (PlayerInputHub.Instance.Move.sqrMagnitude > 0.0001f)
         {
             movedWhileActive = true;
@@ -66,19 +68,39 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
         if (!toggleMode) SetSprint(false);
     }
 
+    public void OnPointerEnter(PointerEventData e)
+    {
+        pointerInside = true;
+        ApplyVisualState(false);
+    }
+
+    public void OnPointerExit(PointerEventData e)
+    {
+        pointerInside = false;
+        ApplyVisualState(false);
+    }
+
     private void SetSprint(bool value)
     {
         active = value;
         if (!value) movedWhileActive = false;
         if (PlayerInputHub.Instance) PlayerInputHub.Instance.Sprint = value;
-        Apply(value);
+        ApplyVisualState(false);
     }
 
     public void ResetSprint() => SetSprint(false);
 
-    private void Apply(bool value)
+    private void ApplyVisualState(bool instant)
     {
-        if (buttonImage) buttonImage.color = value ? activeColor : normalColor;
-        transform.localScale = Vector3.one * (value ? activeScale : 2f);
+        if (!backgroundImage) return;
+
+        Color target = active ? colors.pressedColor
+                     : pointerInside ? colors.highlightedColor
+                     : colors.normalColor;
+
+        backgroundImage.CrossFadeColor(
+            target * colors.colorMultiplier,
+            instant ? 0f : colors.fadeDuration,
+            true, true);
     }
 }

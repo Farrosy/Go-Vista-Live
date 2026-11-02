@@ -8,28 +8,79 @@ public class PlayerInputHub : MonoBehaviour
     [Header("Drag Fixed Joystick dari Hierarchy ke sini")]
     [SerializeField] private Joystick joystick;
 
+    [Header("Keyboard fallback (demo/editor)")]
+    [SerializeField] private bool keyboardFallback;
+
     private bool sprint;
     private Vector2 lookDelta;
+    private bool inputLocked;
+    private bool pauseLocked;
+    private bool ignoreJoystickUntilNeutral;
 
-    /// True saat dialog/cutscene: gerak, sprint, dan look dimatikan.
-    public bool InputLocked { get; private set; }
+    /// True saat dialog/cutscene atau menu pause: gerak, sprint, dan look dimatikan.
+    public bool InputLocked => inputLocked || pauseLocked;
 
-    public Vector2 Move => (joystick && !InputLocked)
-        ? new Vector2(joystick.Horizontal, joystick.Vertical)
-        : Vector2.zero;
+    public Vector2 Move
+    {
+        get
+        {
+            if (InputLocked) return Vector2.zero;
+
+            if (joystick)
+            {
+                if (ignoreJoystickUntilNeutral)
+                {
+                    if (joystick.Direction.sqrMagnitude > 0.0001f) return Vector2.zero;
+                    ignoreJoystickUntilNeutral = false;
+                }
+                return new Vector2(joystick.Horizontal, joystick.Vertical);
+            }
+
+            if (keyboardFallback)
+                return new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+
+            return Vector2.zero;
+        }
+    }
 
     public bool Sprint
     {
-        get => sprint && !InputLocked;
+        get => !InputLocked && (sprint || (keyboardFallback && Input.GetKey(KeyCode.LeftShift)));
         set => sprint = value;
     }
 
-    void Awake() => Instance = this;
+    void Awake()
+    {
+        // WorldScene di-load additive di atas MainMultiplayerScene. Kalau scene itu punya hub sendiri
+        // tanpa joystick (mis. dibuat TrafficDemoSetup), jangan sampai menimpa hub MobileUI yang
+        // joystick-nya terpasang — kalau tertimpa, Move selalu nol dan karakter tidak bisa gerak.
+        if (Instance && Instance != this && Instance.joystick && !joystick)
+        {
+            Debug.LogWarning($"[PlayerInputHub] Hub duplikat tanpa joystick di '{gameObject.scene.name}' diabaikan.", this);
+            Destroy(this);
+            return;
+        }
+        Instance = this;
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
 
     public void SetLocked(bool locked)
     {
-        InputLocked = locked;
-        lookDelta = Vector2.zero;
+        inputLocked = locked;
+        if (locked) ignoreJoystickUntilNeutral = true;
+        ClearPendingInput();
+    }
+
+    /// <summary>Lock terpisah supaya menutup dialog tidak membuka input ketika pause menu masih aktif.</summary>
+    public void SetPauseLocked(bool locked)
+    {
+        pauseLocked = locked;
+        if (locked) ignoreJoystickUntilNeutral = true;
+        ClearPendingInput();
     }
 
     public void AddLook(Vector2 delta)
@@ -43,5 +94,14 @@ public class PlayerInputHub : MonoBehaviour
         var d = lookDelta;
         lookDelta = Vector2.zero;
         return d;
+    }
+
+    private void ClearPendingInput()
+    {
+        sprint = false;
+        lookDelta = Vector2.zero;
+        // The joystick package exposes its reset through IPointerUpHandler.
+        // Clear it explicitly so disabling the controls canvas cannot leave movement held on resume.
+        if (joystick) joystick.OnPointerUp(null);
     }
 }

@@ -41,7 +41,7 @@ internal static class LobbyReturnCanvasBuilder {
     }
 
     private static GameObject CreateCanvasPrefab() {
-        GameObject canvasObject = new GameObject("Lobby Return Canvas", typeof(RectTransform), typeof(Canvas),
+        GameObject canvasObject = new GameObject("LobbyReturnCanvas", typeof(RectTransform), typeof(Canvas),
                                                  typeof(CanvasScaler), typeof(GraphicRaycaster));
         Canvas canvas = canvasObject.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -119,7 +119,7 @@ internal static class LobbyReturnCanvasBuilder {
         GameObject imageCanvas = null;
         bool alreadyHasCanvas = false;
         foreach (GameObject root in source.GetRootGameObjects()) {
-            if (root.name == "Lobby Return Canvas") {
+            if (root.name == prefab.name) {
                 alreadyHasCanvas = true;
                 break;
             }
@@ -146,7 +146,7 @@ internal static class LobbyReturnCanvasBuilder {
             return;
 
         foreach (GameObject root in scene.GetRootGameObjects()) {
-            if (root.name == "Lobby Return Canvas") {
+            if (root.name == prefab.name) {
                 if (openedHere)
                     EditorSceneManager.CloseScene(scene, true);
                 return;

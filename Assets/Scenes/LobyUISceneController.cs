@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Collections;
 using System.Threading.Tasks;
 using Normal.Realtime;
-using Normal.Realtime.Examples;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -14,8 +13,13 @@ using UnityEditor.SceneManagement;
 #endif
 
 /// <summary>
-/// Normcore lobby UI. Canvas objects are generated once in edit mode so they
-/// appear in the scene hierarchy and can be repositioned/styled in the Inspector.
+/// Normcore lobby UI. UI-nya ada di dua prefab yang bisa diedit bebas:
+///  - Assets/Prefab/LobbyCanvas.prefab       : edit di Assets/Scenes/Multiplayer/LobyUIScene.unity
+///  - Assets/Prefab/RoomWaitingCanvas.prefab : edit di Assets/Scenes/Multiplayer/RoomWaitingScene.unity
+/// Simpan scene edit (Ctrl+S) = perubahan di-Apply ke prefab (LobbyUIEditScenes), atau edit langsung di
+/// Prefab Mode. Kode TIDAK membangun ulang canvas yang sudah ada; Build*Contents di bawah hanya dipakai
+/// kalau canvas tidak ada sama sekali, atau lewat menu "Go Vista > Lobby UI > Reset ... ke default".
+/// Kode mencari objek UI lewat nama (FindChild), jadi jangan ganti nama objek yang dipakai di sini.
 /// Normcore doesn't expose an API to enumerate arbitrary named rooms, so the
 /// list here contains local room history plus manual and Quickmatch joins.
 /// </summary>
@@ -25,7 +29,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private const string CanvasRootName = "Loby Canvas";
     private const string WaitingCanvasRootName = "Room Waiting Canvas";
-    private const string PrefabFolderPath = "Assets/Prefab";
+    private const string WaitingCanvasPrefabRootName = "RoomWaitingCanvas";
     private const string LobbyCanvasPrefabPath = "Assets/Prefab/LobbyCanvas.prefab";
     private const string WaitingCanvasPrefabPath = "Assets/Prefab/RoomWaitingCanvas.prefab";
     private const string RecentRoomsKey = "LobyUIScene.RecentRooms";
@@ -48,9 +52,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private static readonly Color LineColor = new Color(1f, 1f, 1f, 0.12f);
 
     // Ukuran UI untuk layar HP (referensi 1920x1080). Teks < 24 atau tombol < 88 terlalu kecil untuk jari.
-    // Ganti LayoutVersion kalau mengubah layout di BuildCanvasContents/BuildWaitingCanvasContents,
-    // supaya canvas lama otomatis dibangun ulang (di prefab, scene, dan saat Play).
-    private const string LayoutVersion = "Layout v8"; // v8: semua tombol berlatar solid (tidak transparan)
+    // Penanda versi layout default yang dibuat kode (hanya informasi, tidak memicu rebuild lagi).
+    private const string LobbyLayoutVersion = "Layout v9"; // v9: tombol KARAKTER di menu utama
+    private const string WaitingCanvasLayoutVersion = "Layout v14"; // v14: kode room + SALIN di panel PEMAIN (pause)
     private const int LabelFontSize = 26;
     private const int BodyFontSize = 30;
     private const int SmallFontSize = 24;
@@ -94,23 +98,43 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private GameObject _waitingCanvas;
     private GameObject _waitingPanel;
     private Text _waitingCodeText;
+    private Text _pauseCodeText;
+    private Text _pauseCopyButtonLabel;
     private Text _waitingStatusText;
     private Text _playerCountText;
     private RectTransform _playerListContent;
+    private Text _pausePlayerCountText;
+    private RectTransform _pausePlayerListContent;
+    private ScrollRect _pausePlayerScroll;
+    private GameObject _pauseButton;
+    private GameObject _pauseOverlay;
+    private GameObject _pauseMainPanel;
+    private GameObject _pausePlayersPanel;
+    private GameObject _pauseSettingsPanel;
+    private GameObject _pauseLeaveConfirmPanel;
+    private Slider _pauseSensitivitySlider;
+    private Text _pauseSensitivityValue;
+    private InGameMenuPage _inGameMenuPage;
     private Text _copyButtonLabel;
     private Coroutine _copyFeedbackRoutine;
+    private Coroutine _pauseCopyFeedbackRoutine;
     private Coroutine _guestSignOutConfirmRoutine;
-    private string _rosterSignature;
+    private string _waitingRosterSignature;
+    private string _pauseRosterSignature;
     private Button _waitingJoinButton;
     private Button _waitingRosterToggleButton;
     private Coroutine _playerListRoutine;
     private bool _roomFullDisconnectRequested;
     private bool _startingGame;
+    private bool _gameplayStarted;
+    private bool _leaveRoomPending;
     private bool _worldLoading;
     private bool _unloadWorldWhenReady;
     private AsyncOperation _worldUnloadOperation;
     private bool _returnToLobbyOnDisconnect;
     private const string WorldSceneName = "WorldScene";
+
+    private enum InGameMenuPage { Closed, Main, Players, Settings, LeaveConfirm, ControlLayout }
 
     private void OnEnable() {
 #if UNITY_EDITOR
@@ -136,6 +160,29 @@ public sealed class LobyUISceneController : MonoBehaviour {
         realtime.didConnectToRoom -= DidConnectToRoom;
         realtime.didDisconnectFromRoom -= DidDisconnectFromRoom;
         realtime.didDisconnectFromRoomWithEvent -= DidDisconnectFromRoomWithEvent;
+    }
+
+    private void Update() {
+        if (!Application.isPlaying || !_gameplayStarted || _leaveRoomPending ||
+            !Input.GetKeyDown(KeyCode.Escape))
+            return;
+
+        switch (_inGameMenuPage) {
+            case InGameMenuPage.Closed:
+                OpenPauseMenu();
+                break;
+            case InGameMenuPage.Main:
+                ClosePauseMenu();
+                break;
+            case InGameMenuPage.Players:
+            case InGameMenuPage.Settings:
+            case InGameMenuPage.LeaveConfirm:
+                ReturnToPauseMenu();
+                break;
+            case InGameMenuPage.ControlLayout:
+                FindControlLayoutEditor()?.Cancel();
+                break;
+        }
     }
 
     private void InitializeRuntime() {
@@ -166,6 +213,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         AddClickListener("Lobby Close Button", ShowMainMenu);
         AddClickListener("Lobby Sign Out Button", SignOutAccount);
         AddClickListener("Main Menu Play Button", OpenLobby);
+        AddClickListener("Main Menu Character Button", OpenCharacterSelect);
         AddClickListener("Main Menu Settings Button", OpenSettings);
         AddClickListener("Main Menu Quit Button", OpenExitConfirm);
         AddClickListener("Settings Close Button", CloseSettings);
@@ -193,58 +241,26 @@ public sealed class LobyUISceneController : MonoBehaviour {
         EnsureCanvasInEditor();
     }
 
+    // Scene edit LobbyCanvas. RoomWaitingCanvas diedit terpisah di RoomWaitingScene.
     private static bool IsLobbyScene(UnityEngine.SceneManagement.Scene scene) {
-        return scene.IsValid() && (scene.name == "LobyUIScene" || scene.name == "MainScene");
+        return scene.IsValid() && scene.name == "LobyUIScene";
     }
 
+    /// <summary>
+    /// Pastikan LobyUIScene punya instance prefab LobbyCanvas (kalau terhapus). Canvas yang sudah ada
+    /// tidak pernah dibangun ulang, dan scene tidak disimpan otomatis.
+    /// </summary>
     internal void EnsureCanvasInEditor() {
-        if (this == null || Application.isPlaying || !IsLobbyScene(gameObject.scene))
+        if (this == null || Application.isPlaying || !IsLobbyScene(gameObject.scene) || FindCanvasInScene() != null)
             return;
-
-        if (HasCompleteCanvas()) {
-            GameObject sceneCanvas = FindCanvasInScene();
-            bool changed = false;
-            // Canvas yang di-unpack di scene ini dibangun ulang di tempat; instance prefab ikut lewat UpgradeCanvasPrefabs.
-            if (!PrefabUtility.IsPartOfPrefabInstance(sceneCanvas) && !IsCurrentLayout(sceneCanvas.transform)) {
-                RebuildInPlace(sceneCanvas.transform, BuildCanvasContents);
-                changed = true;
-            }
-            changed |= EnsureLobbyCanvasPrefabInEditor();
-            GameObject waitingCanvas = FindWaitingCanvas();
-            if (waitingCanvas != null && !PrefabUtility.IsPartOfPrefabInstance(waitingCanvas))
-                changed |= EnsureWaitingCanvasControls(waitingCanvas.transform);
-            changed |= EnsureWaitingCanvasInEditor();
-            if (changed) {
-                EditorSceneManager.MarkSceneDirty(gameObject.scene);
-                if (gameObject.scene.path == "Assets/Scenes/MainScene.unity" ||
-                    gameObject.scene.path == "Assets/Scenes/Multiplayer/LobyUIScene.unity")
-                    EditorSceneManager.SaveScene(gameObject.scene);
-            }
+        GameObject prefab = LoadCanvasPrefab(LobbyCanvasPrefabPath);
+        if (prefab == null)
             return;
-        }
-
-        RemoveIncompleteCanvas();
-        GameObject lobbyPrefab = LoadCanvasPrefab(LobbyCanvasPrefabPath);
-        if (lobbyPrefab != null) {
-            PrefabUtility.InstantiatePrefab(lobbyPrefab, gameObject.scene);
-        } else {
-            Canvas canvas = CreateCanvas();
-            BuildCanvasContents(canvas.transform);
-            EnsureLobbyCanvasPrefabInEditor();
-        }
-        EnsureWaitingCanvasInEditor();
+        var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, gameObject.scene);
+        instance.name = CanvasRootName;
         EnsureEventSystem();
         EditorSceneManager.MarkSceneDirty(gameObject.scene);
-        if (gameObject.scene.path == "Assets/Scenes/MainScene.unity" ||
-            gameObject.scene.path == "Assets/Scenes/Multiplayer/LobyUIScene.unity")
-            EditorSceneManager.SaveScene(gameObject.scene);
-    }
-#endif
-
-#if UNITY_EDITOR
-    private static void EnsurePrefabFolderExists() {
-        if (!AssetDatabase.IsValidFolder(PrefabFolderPath))
-            AssetDatabase.CreateFolder("Assets", "Prefab");
+        Debug.Log("[Lobby UI] LobbyCanvas ditambahkan ke LobyUIScene, silakan Ctrl+S.");
     }
 
     private static GameObject LoadCanvasPrefab(string path) {
@@ -252,102 +268,47 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     /// <summary>
-    /// Bangun ulang isi prefab LobbyCanvas/RoomWaitingCanvas kalau layout-nya masih versi lama.
-    /// Root prefab dipertahankan, jadi instance di MainMultiplayerScene/LobbyReturnScene tetap tersambung.
+    /// Bangun ulang isi prefab dari kode (layout default). Semua editan manual di prefab itu hilang.
+    /// Hanya lewat menu "Go Vista > Lobby UI > Reset ... ke default".
     /// </summary>
-    internal static void UpgradeCanvasPrefabs() {
-        if (EditorApplication.isPlayingOrWillChangePlaymode)
-            return;
-        UpgradePrefab(LobbyCanvasPrefabPath, BuildCanvasContents);
-        UpgradePrefab(WaitingCanvasPrefabPath, BuildWaitingCanvasContents);
-    }
-
-    private static void UpgradePrefab(string path, System.Action<Transform> build) {
+    public static void ResetCanvasPrefabToDefault(bool waitingCanvas) {
+        string path = waitingCanvas ? WaitingCanvasPrefabPath : LobbyCanvasPrefabPath;
         if (LoadCanvasPrefab(path) == null)
             return;
         GameObject root = PrefabUtility.LoadPrefabContents(path);
         try {
-            if (IsCurrentLayout(root.transform))
-                return;
-            RebuildInPlace(root.transform, build);
+            RebuildInPlace(root.transform, waitingCanvas
+                ? (System.Action<Transform>)BuildWaitingCanvasContents
+                : BuildCanvasContents);
             PrefabUtility.SaveAsPrefabAsset(root, path);
-            Debug.Log($"[Lobby UI] {path} diperbarui ke {LayoutVersion}.");
+            Debug.Log($"[Lobby UI] {path} di-reset ke layout default.");
         } finally {
             PrefabUtility.UnloadPrefabContents(root);
         }
     }
-
-    private bool EnsureLobbyCanvasPrefabInEditor() {
-        GameObject lobbyCanvas = FindCanvasInScene();
-        if (lobbyCanvas == null) {
-            GameObject prefab = LoadCanvasPrefab(LobbyCanvasPrefabPath);
-            if (prefab == null)
-                return false;
-            return PrefabUtility.InstantiatePrefab(prefab, gameObject.scene) != null;
-        }
-
-        if (PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(lobbyCanvas) == LobbyCanvasPrefabPath)
-            return false;
-
-        EnsurePrefabFolderExists();
-        PrefabUtility.SaveAsPrefabAssetAndConnect(lobbyCanvas, LobbyCanvasPrefabPath,
-                                                  InteractionMode.AutomatedAction);
-        return true;
-    }
 #endif
 
+    // Canvas di scene (instance prefab) dipakai apa adanya. Layout default dari kode hanya dibuat
+    // kalau scene sama sekali tidak punya canvas, supaya editan di prefab tidak pernah tertimpa.
     private void EnsureCanvasExists() {
-        if (HasCompleteCanvas()) {
-            Transform lobbyCanvas = FindCanvasInScene().transform;
-            if (!IsCurrentLayout(lobbyCanvas))
-                RebuildInPlace(lobbyCanvas, BuildCanvasContents);
-            EnsureWaitingCanvasExists();
-            return;
+        if (FindCanvasInScene() == null) {
+            Canvas canvas = CreateCanvas();
+            BuildCanvasContents(canvas.transform);
+            EnsureEventSystem();
+        } else if (!HasCompleteCanvas()) {
+            Debug.LogWarning("[Lobby UI] LobbyCanvas tidak lengkap: objek \"Lobby Panel\", \"Lobby Room Input\", " +
+                             "\"Lobby Code Input\", atau \"Lobby Status\" tidak ditemukan. Jangan ganti nama objek " +
+                             "yang dicari kode di LobyUISceneController.");
         }
-
-        RemoveIncompleteCanvas();
-        Canvas canvas = CreateCanvas();
-        BuildCanvasContents(canvas.transform);
         EnsureWaitingCanvasExists();
-        EnsureEventSystem();
     }
 
     private void EnsureWaitingCanvasExists() {
-        GameObject waitingCanvas = FindWaitingCanvas();
-        if (waitingCanvas != null) {
-            EnsureWaitingCanvasControls(waitingCanvas.transform);
+        if (FindWaitingCanvas() != null)
             return;
-        }
         Canvas canvas = CreateCanvas(WaitingCanvasRootName, 51);
         BuildWaitingCanvasContents(canvas.transform);
         canvas.gameObject.SetActive(false);
-    }
-
-    private bool EnsureWaitingCanvasInEditor() {
-        GameObject waitingCanvas = FindWaitingCanvas();
-        if (waitingCanvas == null) {
-            GameObject prefab = LoadCanvasPrefab(WaitingCanvasPrefabPath);
-            if (prefab != null) {
-                waitingCanvas = PrefabUtility.InstantiatePrefab(prefab, gameObject.scene) as GameObject;
-                if (waitingCanvas != null)
-                    waitingCanvas.SetActive(false);
-                return waitingCanvas != null;
-            }
-
-            Canvas createdCanvas = CreateCanvas(WaitingCanvasRootName, 51);
-            BuildWaitingCanvasContents(createdCanvas.transform);
-            waitingCanvas = createdCanvas.gameObject;
-            waitingCanvas.SetActive(false);
-        }
-
-        string instancePath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(waitingCanvas);
-        if (instancePath == WaitingCanvasPrefabPath)
-            return false;
-
-        EnsurePrefabFolderExists();
-        PrefabUtility.SaveAsPrefabAssetAndConnect(waitingCanvas, WaitingCanvasPrefabPath,
-                                                  InteractionMode.AutomatedAction);
-        return true;
     }
 
     // Layout mengikuti desain "Room Lobby". Koordinat = jarak dari kiri/atas panel (lihat Place).
@@ -402,17 +363,120 @@ public sealed class LobyUISceneController : MonoBehaviour {
         Button rosterToggle = CreateButton("Waiting Roster Toggle Button", safeArea, "PEMAIN", PrimaryColor);
         PlaceTopRight(rosterToggle.GetComponent<RectTransform>(), 30f, 30f, 220f, 88f);
         rosterToggle.gameObject.SetActive(false);
-        AddLayoutMarker(canvas);
+
+        BuildInGamePauseContents(canvas, safeArea);
+        AddLayoutMarker(canvas, WaitingCanvasLayoutVersion);
+    }
+
+    private static void BuildInGamePauseContents(Transform canvas, RectTransform safeArea) {
+        Button pauseButton = CreateButton("Pause Button", safeArea, "", PrimaryColor);
+        RectTransform pauseButtonRect = pauseButton.GetComponent<RectTransform>();
+        PlaceTopRight(pauseButtonRect, 30f, 30f, 96f, 96f);
+        RectTransform leftPauseBarRect = Place(CreateRect("Pause Icon Left Bar", pauseButtonRect, Vector2.zero),
+                                                32f, 28f, 12f, 40f);
+        RectTransform rightPauseBarRect = Place(CreateRect("Pause Icon Right Bar", pauseButtonRect, Vector2.zero),
+                                                 52f, 28f, 12f, 40f);
+        Image leftPauseBar = leftPauseBarRect.gameObject.AddComponent<Image>();
+        Image rightPauseBar = rightPauseBarRect.gameObject.AddComponent<Image>();
+        leftPauseBar.color = rightPauseBar.color = Color.white;
+        leftPauseBar.raycastTarget = false;
+        rightPauseBar.raycastTarget = false;
+        pauseButton.gameObject.SetActive(false);
+
+        RectTransform overlay = CreateModalOverlay("Pause Overlay", canvas);
+        RectTransform pauseSafeArea = CreateSafeArea("Pause Safe Area", overlay);
+
+        RectTransform main = CreateResponsivePanel("Pause Main Panel", pauseSafeArea, new Vector2(860f, 750f));
+        AddShape(main.gameObject, PanelColor, cornerScale: 1.8f);
+        AddOutline(main, LineColor, cornerScale: 1.8f);
+        Place(CreateText("Pause Title", main, "JEDA", 52, FontStyle.Bold, TextAnchor.MiddleCenter,
+                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 48f, 38f, 764f, 72f);
+        Place(CreateButton("Pause Resume Button", main, "LANJUTKAN", PrimaryColor, 34).GetComponent<RectTransform>(),
+              64f, 142f, 732f, 96f);
+        Place(CreateButton("Pause Players Button", main, "PEMAIN", CardColor, 32).GetComponent<RectTransform>(),
+              64f, 258f, 732f, 96f);
+        Place(CreateButton("Pause Settings Button", main, "PENGATURAN", CardColor, 32).GetComponent<RectTransform>(),
+              64f, 374f, 732f, 96f);
+        Place(CreateButton("Pause Leave Room Button", main, "KELUAR ROOM", DangerTextColor, 30, true)
+                  .GetComponent<RectTransform>(), 64f, 490f, 732f, 96f);
+
+        RectTransform players = CreateResponsivePanel("Pause Players Panel", pauseSafeArea, new Vector2(1200f, 910f));
+        AddShape(players.gameObject, PanelColor, cornerScale: 1.8f);
+        AddOutline(players, LineColor, cornerScale: 1.8f);
+        Place(CreateText("Pause Players Title", players, "PEMAIN", 52, FontStyle.Bold, TextAnchor.MiddleLeft,
+                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 52f, 42f, 660f, 72f);
+        RectTransform count = Place(CreateRect("Pause Player Count Pill", players, Vector2.zero),
+                                    780f, 52f, 252f, 56f);
+        AddShape(count.gameObject, CardColor, cornerScale: 1.8f);
+        Stretch(CreateText("Pause Player Count", count, "0 / 10 pemain", LabelFontSize, FontStyle.Bold,
+                           TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f);
+        // Kode/nama room supaya bisa mengajak teman walau sudah di dalam world.
+        Place(CreateText("Pause Share Label", players, "BAGIKAN KE TEMAN", LabelFontSize, FontStyle.Bold,
+                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform, 52f, 134f, 800f, 34f);
+        RectTransform pauseCodeBox = Place(CreateRect("Pause Room Code Box", players, Vector2.zero), 52f, 176f, 795f, 88f);
+        AddShape(pauseCodeBox.gameObject, InputColor);
+        AddOutline(pauseCodeBox, new Color(1f, 1f, 1f, 0.25f), "ui-dashed");
+        Stretch(CreateText("Pause Room Code", pauseCodeBox, "-", 40, FontStyle.Bold, TextAnchor.MiddleLeft,
+                           Vector2.zero, Vector2.zero, SuccessTextColor).rectTransform, 28f);
+        Place(CreateButton("Pause Copy Code Button", players, "SALIN", SuccessColor).GetComponent<RectTransform>(),
+              869f, 176f, 279f, 88f);
+        RectTransform list = Place(CreateRect("Pause Player Box", players, Vector2.zero),
+                                   52f, 288f, 1096f, 504f);
+        AddShape(list.gameObject, ListColor);
+        list.gameObject.AddComponent<RectMask2D>();
+        ScrollRect scroll = list.gameObject.AddComponent<ScrollRect>();
+        scroll.horizontal = false;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 28f;
+        scroll.viewport = list;
+        RectTransform content = CreateRect("Pause Player List Content", list, new Vector2(0f, 504f));
+        content.anchorMin = new Vector2(0f, 1f);
+        content.anchorMax = new Vector2(1f, 1f);
+        scroll.content = content;
+        Place(CreateButton("Pause Players Back Button", players, "KEMBALI", PrimaryColor)
+                  .GetComponent<RectTransform>(), 400f, 814f, 400f, 88f);
+        players.gameObject.SetActive(false);
+
+        RectTransform settings = CreateResponsivePanel("Pause Settings Panel", pauseSafeArea, new Vector2(960f, 620f));
+        AddShape(settings.gameObject, PanelColor, cornerScale: 1.8f);
+        AddOutline(settings, LineColor, cornerScale: 1.8f);
+        Place(CreateText("Pause Settings Title", settings, "PENGATURAN", 48, FontStyle.Bold,
+                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              56f, 40f, 780f, 68f);
+        Place(CreateText("Pause Sensitivity Label", settings, "SENSITIVITAS KAMERA", LabelFontSize,
+                         FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
+              56f, 164f, 500f, 40f);
+        Place(CreateText("Pause Sensitivity Value", settings, "1.0x", BodyFontSize, FontStyle.Bold,
+                         TextAnchor.MiddleRight, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              704f, 164f, 200f, 40f);
+        Place(CreateSlider("Pause Sensitivity Slider", settings, GameSettings.MinCameraSensitivity,
+                           GameSettings.MaxCameraSensitivity).GetComponent<RectTransform>(), 56f, 220f, 848f, 72f);
+        Place(CreateButton("Pause Controls Button", settings, "ATUR KONTROL", CardColor)
+                  .GetComponent<RectTransform>(), 56f, 316f, 848f, 88f);
+        Place(CreateButton("Pause Settings Back Button", settings, "KEMBALI", PrimaryColor)
+                  .GetComponent<RectTransform>(), 56f, 424f, 848f, 96f);
+        settings.gameObject.SetActive(false);
+
+        RectTransform confirm = CreateResponsivePanel("Pause Leave Confirm Panel", pauseSafeArea, new Vector2(820f, 440f));
+        AddShape(confirm.gameObject, PanelColor, cornerScale: 1.8f);
+        AddOutline(confirm, LineColor, cornerScale: 1.8f);
+        Place(CreateText("Pause Leave Confirm Title", confirm, "Keluar dari room?", 42, FontStyle.Bold,
+                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              56f, 48f, 708f, 64f);
+        Place(CreateText("Pause Leave Confirm Body", confirm,
+                         "Kamu akan meninggalkan permainan dan kembali ke lobby.", BodyFontSize,
+                         FontStyle.Normal, TextAnchor.UpperLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
+              56f, 132f, 708f, 92f);
+        Place(CreateButton("Pause Leave Cancel Button", confirm, "BATAL", CardColor)
+                  .GetComponent<RectTransform>(), 56f, 280f, 342f, 96f);
+        Place(CreateButton("Pause Leave Confirm Button", confirm, "KELUAR ROOM", DangerTextColor, 26, true)
+                  .GetComponent<RectTransform>(), 422f, 280f, 342f, 96f);
+        confirm.gameObject.SetActive(false);
+
+        overlay.gameObject.SetActive(false);
     }
 
     /// <summary>Pastikan canvas ruang tunggu memakai layout terbaru. Mengembalikan true kalau ada perubahan.</summary>
-    internal static bool EnsureWaitingCanvasControls(Transform canvas) {
-        if (IsCurrentLayout(canvas))
-            return false;
-        RebuildInPlace(canvas, BuildWaitingCanvasContents);
-        return true;
-    }
-
     private bool HasCompleteCanvas() {
         GameObject canvas = FindCanvasInScene();
         if (canvas == null)
@@ -426,12 +490,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
                FindChild(root, "Lobby Status") != null;
     }
 
-    private static bool IsCurrentLayout(Transform canvas) {
-        return canvas.Find(LayoutVersion) != null;
-    }
-
-    private static void AddLayoutMarker(Transform canvas) {
-        var marker = new GameObject(LayoutVersion, typeof(RectTransform));
+    private static void AddLayoutMarker(Transform canvas, string layoutVersion) {
+        var marker = new GameObject(layoutVersion, typeof(RectTransform));
         marker.transform.SetParent(canvas, false);
         marker.SetActive(false);
     }
@@ -440,19 +500,6 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private static void RebuildInPlace(Transform canvas, System.Action<Transform> build) {
         ClearChildren(canvas);
         build(canvas);
-    }
-
-    private void RemoveIncompleteCanvas() {
-        GameObject incomplete = FindCanvasInScene();
-        if (incomplete == null)
-            return;
-
-        if (Application.isPlaying) {
-            incomplete.name = "Loby Canvas (Rebuilding)";
-            Destroy(incomplete);
-        } else {
-            DestroyImmediate(incomplete);
-        }
     }
 
     private GameObject FindCanvasInScene() {
@@ -467,9 +514,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private GameObject FindWaitingCanvas() {
         if (!gameObject.scene.IsValid())
-            return GameObject.Find(WaitingCanvasRootName);
+            return GameObject.Find(WaitingCanvasRootName) ?? GameObject.Find(WaitingCanvasPrefabRootName);
         foreach (GameObject root in gameObject.scene.GetRootGameObjects()) {
-            if (root.name == WaitingCanvasRootName)
+            if (root.name == WaitingCanvasRootName || root.name == WaitingCanvasPrefabRootName)
                 return root;
         }
         return null;
@@ -567,16 +614,17 @@ public sealed class LobyUISceneController : MonoBehaviour {
         BuildMainMenu(safeArea);
         BuildSettingsOverlay(canvas);
         BuildExitConfirmOverlay(canvas);
-        AddLayoutMarker(canvas);
+        AddLayoutMarker(canvas, LobbyLayoutVersion);
     }
 
     /// <summary>
     /// Menu utama setelah login: kartu di kanan (kiri dibiarkan untuk logo dan karakter di background).
-    /// MAIN membuka panel lobby, PENGATURAN membuka overlay pengaturan, KELUAR GAME minta konfirmasi dulu.
+    /// MAIN membuka panel lobby, KARAKTER membuka CharacterSelectCanvas (prefab terpisah),
+    /// PENGATURAN membuka overlay pengaturan, KELUAR GAME minta konfirmasi dulu.
     /// </summary>
     private static void BuildMainMenu(RectTransform safeArea) {
         RectTransform menu = Stretch(CreateRect("Main Menu", safeArea, Vector2.zero), 0f);
-        RectTransform card = CreateRect("Main Menu Card", menu, new Vector2(640f, 532f));
+        RectTransform card = CreateRect("Main Menu Card", menu, new Vector2(640f, 660f));
         card.anchorMin = card.anchorMax = card.pivot = new Vector2(1f, 0.5f);
         card.anchoredPosition = new Vector2(-100f, -40f);
         AddShape(card.gameObject, PanelColor, cornerScale: 1.8f);
@@ -587,11 +635,13 @@ public sealed class LobyUISceneController : MonoBehaviour {
               40f, 40f, 560f, 44f);
         Place(CreateButton("Main Menu Play Button", card, "MAIN", PrimaryColor, 44).GetComponent<RectTransform>(),
               40f, 108f, 560f, 128f);
-        Place(CreateButton("Main Menu Settings Button", card, "PENGATURAN", CardColor).GetComponent<RectTransform>(),
+        Place(CreateButton("Main Menu Character Button", card, "KARAKTER", CardColor).GetComponent<RectTransform>(),
               40f, 260f, 560f, 104f);
+        Place(CreateButton("Main Menu Settings Button", card, "PENGATURAN", CardColor).GetComponent<RectTransform>(),
+              40f, 388f, 560f, 104f);
         // Aksi keluar dibuat outline merah supaya jelas berbeda dari PENGATURAN.
         Place(CreateButton("Main Menu Quit Button", card, "KELUAR GAME", DangerTextColor, ButtonFontSize, true)
-                  .GetComponent<RectTransform>(), 40f, 388f, 560f, 104f);
+                  .GetComponent<RectTransform>(), 40f, 516f, 560f, 104f);
     }
 
     private static void BuildSettingsOverlay(Transform canvas) {
@@ -949,17 +999,45 @@ public sealed class LobyUISceneController : MonoBehaviour {
             Transform waitingRoot = _waitingCanvas.transform;
             _waitingPanel = FindChild(waitingRoot, "Room Waiting Panel")?.gameObject;
             _waitingCodeText = FindChild(waitingRoot, "Waiting Room Code")?.GetComponent<Text>();
+            _pauseCodeText = FindChild(waitingRoot, "Pause Room Code")?.GetComponent<Text>();
+            _pauseCopyButtonLabel = FindChild(waitingRoot, "Pause Copy Code Button Label")?.GetComponent<Text>();
             _waitingStatusText = FindChild(waitingRoot, "Waiting Status")?.GetComponent<Text>();
             _playerCountText = FindChild(waitingRoot, "Waiting Player Count")?.GetComponent<Text>();
             _playerListContent = FindChild(waitingRoot, "Waiting Player List Content") as RectTransform;
+            _pausePlayerCountText = FindChild(waitingRoot, "Pause Player Count")?.GetComponent<Text>();
+            _pausePlayerListContent = FindChild(waitingRoot, "Pause Player List Content") as RectTransform;
+            _pausePlayerScroll = FindChild(waitingRoot, "Pause Player Box")?.GetComponent<ScrollRect>();
             _copyButtonLabel = FindChild(waitingRoot, "Waiting Copy Code Button Label")?.GetComponent<Text>();
             _waitingJoinButton = FindChild(waitingRoot, "Waiting Join Game Button")?.GetComponent<Button>();
             _waitingRosterToggleButton = FindChild(waitingRoot, "Waiting Roster Toggle Button")?.GetComponent<Button>();
+            _pauseButton = FindChild(waitingRoot, "Pause Button")?.gameObject;
+            _pauseOverlay = FindChild(waitingRoot, "Pause Overlay")?.gameObject;
+            _pauseMainPanel = FindChild(waitingRoot, "Pause Main Panel")?.gameObject;
+            _pausePlayersPanel = FindChild(waitingRoot, "Pause Players Panel")?.gameObject;
+            _pauseSettingsPanel = FindChild(waitingRoot, "Pause Settings Panel")?.gameObject;
+            _pauseLeaveConfirmPanel = FindChild(waitingRoot, "Pause Leave Confirm Panel")?.gameObject;
+            _pauseSensitivitySlider = FindChild(waitingRoot, "Pause Sensitivity Slider")?.GetComponent<Slider>();
+            _pauseSensitivityValue = FindChild(waitingRoot, "Pause Sensitivity Value")?.GetComponent<Text>();
+            if (_pauseSensitivitySlider != null) {
+                _pauseSensitivitySlider.onValueChanged.RemoveListener(OnPauseSensitivityChanged);
+                _pauseSensitivitySlider.onValueChanged.AddListener(OnPauseSensitivityChanged);
+            }
             AddClickListenerIn(_waitingCanvas, "Waiting Join Game Button", BeginGame);
             AddClickListenerIn(_waitingCanvas, "Waiting Disconnect Button", Disconnect);
             AddClickListenerIn(_waitingCanvas, "Waiting Copy Code Button", CopyQuickmatchCode);
+            AddClickListenerIn(_waitingCanvas, "Pause Copy Code Button", CopyPauseRoomCode);
             AddClickListenerIn(_waitingCanvas, "Waiting Close Roster Button", CloseWaitingRoster);
             AddClickListenerIn(_waitingCanvas, "Waiting Roster Toggle Button", ToggleWaitingRoster);
+            AddClickListenerIn(_waitingCanvas, "Pause Button", OpenPauseMenu);
+            AddClickListenerIn(_waitingCanvas, "Pause Resume Button", ClosePauseMenu);
+            AddClickListenerIn(_waitingCanvas, "Pause Players Button", OpenPausePlayers);
+            AddClickListenerIn(_waitingCanvas, "Pause Settings Button", OpenPauseSettings);
+            AddClickListenerIn(_waitingCanvas, "Pause Players Back Button", ReturnToPauseMenu);
+            AddClickListenerIn(_waitingCanvas, "Pause Settings Back Button", ClosePauseSettings);
+            AddClickListenerIn(_waitingCanvas, "Pause Controls Button", OpenControlLayoutEditor);
+            AddClickListenerIn(_waitingCanvas, "Pause Leave Room Button", OpenLeaveRoomConfirm);
+            AddClickListenerIn(_waitingCanvas, "Pause Leave Cancel Button", ReturnToPauseMenu);
+            AddClickListenerIn(_waitingCanvas, "Pause Leave Confirm Button", Disconnect);
         }
     }
 
@@ -1120,13 +1198,19 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private void DidConnectToRoom(Realtime connectedRealtime) {
         _busy = false;
         _roomFullDisconnectRequested = false;
+        _leaveRoomPending = false;
+        ResetInGameMenu();
         string roomCode = connectedRealtime.room != null ? connectedRealtime.room.quickmatchRoomCode : null;
         SetStatus("Terhubung.", StatusKind.Success);
-        _rosterSignature = null;
+        _waitingRosterSignature = null;
+        _pauseRosterSignature = null;
         SpawnPresence(connectedRealtime);
         // Yang dibagikan ke teman: kode Quickmatch kalau ada, kalau tidak nama room.
+        string shareCode = !string.IsNullOrEmpty(roomCode) ? roomCode : connectedRealtime.roomName;
         if (_waitingCodeText != null)
-            _waitingCodeText.text = !string.IsNullOrEmpty(roomCode) ? roomCode : connectedRealtime.roomName;
+            _waitingCodeText.text = shareCode;
+        if (_pauseCodeText != null)
+            _pauseCodeText.text = shareCode;
         SetWaitingStatus(!string.IsNullOrEmpty(roomCode)
             ? "Teman bisa masuk lewat GABUNG DENGAN KODE."
             : "Teman bisa masuk dengan mengetik nama room ini lalu GABUNG.");
@@ -1156,6 +1240,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private void DidDisconnectFromRoom(Realtime disconnectedRealtime) {
         _busy = false;
+        ResetInGameMenu();
+        _leaveRoomPending = false;
         if (ReturnToLobbyIfRequested())
             return;
         if (_worldLoading)
@@ -1220,6 +1306,16 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _panel.SetActive(true);
     }
 
+    private void OpenCharacterSelect() {
+        CharacterSelectUI characterSelect = FindFirstObjectByType<CharacterSelectUI>(FindObjectsInactive.Include);
+        if (characterSelect == null) {
+            Debug.LogWarning("[CharacterSelect] CharacterSelectCanvas tidak ada di scene. " +
+                             "Jalankan Go Vista > Setup Pilih Karakter.");
+            return;
+        }
+        characterSelect.Open();
+    }
+
     private void OpenSettings() {
         // SetValueWithoutNotify supaya membuka panel tidak dianggap mengubah pengaturan.
         if (_sensitivitySlider != null)
@@ -1280,7 +1376,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
                 if (presence.ClientID >= 0)
                     players[presence.ClientID] = false;
             }
-            foreach (HoverbirdPlayer player in FindObjectsByType<HoverbirdPlayer>(FindObjectsSortMode.None)) {
+            foreach (PlayerController player in FindObjectsByType<PlayerController>(FindObjectsSortMode.None)) {
                 RealtimeView view = player.GetComponent<RealtimeView>();
                 if (view != null && view.ownerIDSelf >= 0)
                     players[view.ownerIDSelf] = true;
@@ -1316,17 +1412,28 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private void RefreshPlayerRows(SortedDictionary<int, bool> players) {
         if (_playerCountText != null)
             _playerCountText.text = players.Count + " / " + MaxRoomPlayers + " pemain";
-        if (_playerListContent == null)
-            return;
+        if (_pausePlayerCountText != null)
+            _pausePlayerCountText.text = players.Count + " / " + MaxRoomPlayers + " pemain";
 
         var signature = new System.Text.StringBuilder();
         foreach (KeyValuePair<int, bool> player in players)
             signature.Append(player.Key).Append(player.Value ? '+' : '-');
-        if (signature.ToString() == _rosterSignature)
-            return;
-        _rosterSignature = signature.ToString();
+        string currentSignature = signature.ToString();
+        if (_waitingRosterSignature != currentSignature) {
+            _waitingRosterSignature = currentSignature;
+            PopulatePlayerRows(_playerListContent, players);
+        }
+        if (_pauseRosterSignature != currentSignature) {
+            _pauseRosterSignature = currentSignature;
+            PopulatePlayerRows(_pausePlayerListContent, players);
+        }
+    }
 
-        ClearChildren(_playerListContent);
+    private void PopulatePlayerRows(RectTransform content, SortedDictionary<int, bool> players) {
+        if (content == null)
+            return;
+
+        ClearChildren(content);
         const float inset = 16f;
         int hostId = -1;
         foreach (int id in players.Keys) {
@@ -1336,7 +1443,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
         int index = 0;
         foreach (KeyValuePair<int, bool> player in players) {
-            RectTransform row = CreateListRow(_playerListContent, "Player Row " + player.Key, index++,
+            RectTransform row = CreateListRow(content, "Player Row " + player.Key, index++,
                                               PlayerRowHeight, PlayerRowSpacing, inset);
             bool isLocal = player.Key == realtime.clientID;
             AddShape(row.gameObject, isLocal ? CardColor : new Color(CardColor.r, CardColor.g, CardColor.b, 0.6f));
@@ -1370,7 +1477,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         // Slot kosong supaya jelas masih ada tempat (kapasitas MaxRoomPlayers).
         int emptySlots = Mathf.Min(EmptySlotsShown, MaxRoomPlayers - players.Count);
         for (int i = 0; i < emptySlots; i++) {
-            RectTransform row = CreateListRow(_playerListContent, "Empty Slot " + i, index++,
+            RectTransform row = CreateListRow(content, "Empty Slot " + i, index++,
                                               PlayerRowHeight, PlayerRowSpacing, inset);
             AddShape(row.gameObject, new Color(1f, 1f, 1f, 0.18f), "ui-dashed");
             AddShape(PlaceInRow(CreateRect("Avatar", row, Vector2.zero), 20f, 60f, 60f).gameObject,
@@ -1380,16 +1487,16 @@ public sealed class LobyUISceneController : MonoBehaviour {
                        104f, 560f, 60f);
         }
 
-        _playerListContent.sizeDelta = new Vector2(0f, 2f * inset + index * PlayerRowHeight +
-                                                       Mathf.Max(0, index - 1) * PlayerRowSpacing);
+        content.sizeDelta = new Vector2(0f, 2f * inset + index * PlayerRowHeight +
+                                            Mathf.Max(0, index - 1) * PlayerRowSpacing);
     }
 
     private void BeginGame() {
         if (_startingGame)
             return;
-        HoverbirdPlayerManager playerManager = FindFirstObjectByType<HoverbirdPlayerManager>();
+        PlayerManager playerManager = FindFirstObjectByType<PlayerManager>();
         if (playerManager == null) {
-            SetStatus("Hoverbird Player Manager tidak ditemukan.", StatusKind.Error);
+            SetStatus("Player Manager tidak ditemukan.", StatusKind.Error);
             return;
         }
 
@@ -1477,7 +1584,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _worldUnloadOperation = SceneManager.UnloadSceneAsync(worldScene);
     }
 
-    private IEnumerator LoadWorldAndBeginGame(HoverbirdPlayerManager playerManager) {
+    private IEnumerator LoadWorldAndBeginGame(PlayerManager playerManager) {
         _startingGame = true;
         SetStatus("Memuat world…", StatusKind.Busy);
 
@@ -1498,11 +1605,17 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
         playerManager.BeginGame();
         _startingGame = false;
+        _gameplayStarted = true;
         SetWaitingJoinButtonJoined(true);
         if (_waitingPanel != null)
             _waitingPanel.SetActive(false);
         if (_waitingRosterToggleButton != null)
-            _waitingRosterToggleButton.gameObject.SetActive(true);
+            _waitingRosterToggleButton.gameObject.SetActive(false);
+        if (_pauseButton != null)
+            _pauseButton.SetActive(true);
+        if (_pauseOverlay != null)
+            _pauseOverlay.SetActive(false);
+        _inGameMenuPage = InGameMenuPage.Closed;
         if (_panel != null)
             _panel.SetActive(false);
     }
@@ -1522,6 +1635,168 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _waitingRosterToggleButton.gameObject.SetActive(true);
     }
 
+    private void OpenPauseMenu() {
+        if (!_gameplayStarted || _inGameMenuPage != InGameMenuPage.Closed)
+            return;
+        if (DialogueUI.Instance != null && DialogueUI.Instance.IsActive)
+            return;
+
+        PlayerInputHub input = PlayerInputHub.Instance;
+        if (input != null && input.InputLocked)
+            return;
+
+        if (input != null)
+            input.SetPauseLocked(true);
+        MobileControls.SetVisible(false);
+        ShowInGameMenuPage(InGameMenuPage.Main);
+    }
+
+    private void ClosePauseMenu() {
+        if (!_gameplayStarted || _inGameMenuPage != InGameMenuPage.Main)
+            return;
+
+        GameSettings.Save();
+        ShowInGameMenuPage(InGameMenuPage.Closed);
+        if (PlayerInputHub.Instance != null)
+            PlayerInputHub.Instance.SetPauseLocked(false);
+        MobileControls.SetVisible(true);
+    }
+
+    private void OpenPausePlayers() {
+        if (_inGameMenuPage != InGameMenuPage.Main)
+            return;
+        ShowInGameMenuPage(InGameMenuPage.Players);
+        if (_pausePlayerScroll != null)
+            _pausePlayerScroll.verticalNormalizedPosition = 1f;
+    }
+
+    private void OpenPauseSettings() {
+        if (_inGameMenuPage != InGameMenuPage.Main)
+            return;
+        if (_pauseSensitivitySlider != null)
+            _pauseSensitivitySlider.SetValueWithoutNotify(GameSettings.CameraSensitivity);
+        UpdatePauseSensitivityLabel();
+        ShowInGameMenuPage(InGameMenuPage.Settings);
+    }
+
+    private void OnPauseSensitivityChanged(float value) {
+        GameSettings.CameraSensitivity = value;
+        UpdatePauseSensitivityLabel();
+    }
+
+    private void UpdatePauseSensitivityLabel() {
+        if (_pauseSensitivityValue != null)
+            _pauseSensitivityValue.text = GameSettings.CameraSensitivity.ToString("0.0") + "x";
+    }
+
+    private void ClosePauseSettings() {
+        if (_inGameMenuPage != InGameMenuPage.Settings)
+            return;
+        GameSettings.Save();
+        ReturnToPauseMenu();
+    }
+
+    private static ControlLayoutEditor FindControlLayoutEditor() {
+        return FindFirstObjectByType<ControlLayoutEditor>(FindObjectsInactive.Include);
+    }
+
+    // Pause > Pengaturan > ATUR KONTROL. Input tetap terkunci (pause lock) selama mengatur,
+    // jadi joystick/tombol tidak menggerakkan karakter.
+    private void OpenControlLayoutEditor() {
+        if (_inGameMenuPage != InGameMenuPage.Settings)
+            return;
+        ControlLayoutEditor editor = FindControlLayoutEditor();
+        if (editor == null) {
+            Debug.LogWarning("[ControlLayout] Control Layout Editor tidak ada di MobileUI.");
+            return;
+        }
+
+        GameSettings.Save();
+        ShowInGameMenuPage(InGameMenuPage.ControlLayout);
+        if (_pauseButton != null)
+            _pauseButton.SetActive(false);
+        MobileControls.SetVisible(true);
+        editor.Open(OnControlLayoutEditorClosed);
+    }
+
+    private void OnControlLayoutEditorClosed() {
+        if (!_gameplayStarted || _inGameMenuPage != InGameMenuPage.ControlLayout)
+            return;
+        MobileControls.SetVisible(false);
+        if (_pauseButton != null)
+            _pauseButton.SetActive(true);
+        ShowInGameMenuPage(InGameMenuPage.Settings);
+    }
+
+    private void OpenLeaveRoomConfirm() {
+        if (_inGameMenuPage == InGameMenuPage.Main)
+            ShowInGameMenuPage(InGameMenuPage.LeaveConfirm);
+    }
+
+    private void ReturnToPauseMenu() {
+        if (!_gameplayStarted || _leaveRoomPending || _inGameMenuPage == InGameMenuPage.Closed)
+            return;
+        if (_inGameMenuPage == InGameMenuPage.Settings)
+            GameSettings.Save();
+        ShowInGameMenuPage(InGameMenuPage.Main);
+    }
+
+    private void ShowInGameMenuPage(InGameMenuPage page) {
+        _inGameMenuPage = page;
+        if (_pauseOverlay != null)
+            _pauseOverlay.SetActive(page != InGameMenuPage.Closed && page != InGameMenuPage.ControlLayout);
+        if (_pauseMainPanel != null)
+            _pauseMainPanel.SetActive(page == InGameMenuPage.Main);
+        if (_pausePlayersPanel != null)
+            _pausePlayersPanel.SetActive(page == InGameMenuPage.Players);
+        if (_pauseSettingsPanel != null)
+            _pauseSettingsPanel.SetActive(page == InGameMenuPage.Settings);
+        if (_pauseLeaveConfirmPanel != null)
+            _pauseLeaveConfirmPanel.SetActive(page == InGameMenuPage.LeaveConfirm);
+    }
+
+    private void ResetInGameMenu() {
+        _gameplayStarted = false;
+        if (ControlLayoutEditor.IsOpen)
+            FindControlLayoutEditor()?.Cancel();
+        _inGameMenuPage = InGameMenuPage.Closed;
+        _leaveRoomPending = false;
+        if (_pauseOverlay != null)
+            _pauseOverlay.SetActive(false);
+        if (_pauseButton != null)
+            _pauseButton.SetActive(false);
+        if (_pauseMainPanel != null)
+            _pauseMainPanel.SetActive(true);
+        if (_pausePlayersPanel != null)
+            _pausePlayersPanel.SetActive(false);
+        if (_pauseSettingsPanel != null)
+            _pauseSettingsPanel.SetActive(false);
+        if (_pauseLeaveConfirmPanel != null)
+            _pauseLeaveConfirmPanel.SetActive(false);
+        Button confirmButton = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Confirm Button")?.GetComponent<Button>()
+            : null;
+        if (confirmButton != null) {
+            confirmButton.interactable = true;
+            Text label = confirmButton.GetComponentInChildren<Text>(true);
+            if (label != null)
+                label.text = "KELUAR ROOM";
+        }
+        Button cancelButton = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Cancel Button")?.GetComponent<Button>()
+            : null;
+        if (cancelButton != null)
+            cancelButton.interactable = true;
+        Text confirmBody = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Confirm Body")?.GetComponent<Text>()
+            : null;
+        if (confirmBody != null)
+            confirmBody.text = "Kamu akan meninggalkan permainan dan kembali ke lobby.";
+        if (PlayerInputHub.Instance != null)
+            PlayerInputHub.Instance.SetPauseLocked(false);
+        MobileControls.SetVisible(false);
+    }
+
     private void SetWaitingJoinButtonJoined(bool joined) {
         if (_waitingJoinButton == null)
             return;
@@ -1534,8 +1809,33 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void Disconnect() {
+        if (_leaveRoomPending)
+            return;
+
+        _leaveRoomPending = true;
         _returnToLobbyOnDisconnect = true;
         s_openLobbyOnNextLoad = true;
+        GameSettings.Save();
+        Button confirmButton = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Confirm Button")?.GetComponent<Button>()
+            : null;
+        if (confirmButton != null) {
+            confirmButton.interactable = false;
+            Text label = confirmButton.GetComponentInChildren<Text>(true);
+            if (label != null)
+                label.text = "KELUAR…";
+        }
+        Button cancelButton = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Cancel Button")?.GetComponent<Button>()
+            : null;
+        if (cancelButton != null)
+            cancelButton.interactable = false;
+        Text confirmBody = _pauseLeaveConfirmPanel != null
+            ? FindChild(_pauseLeaveConfirmPanel.transform, "Pause Leave Confirm Body")?.GetComponent<Text>()
+            : null;
+        if (confirmBody != null)
+            confirmBody.text = "Sedang meninggalkan room…";
+        SetWaitingStatus("Meninggalkan room…");
         if (realtime != null && realtime.connected)
             realtime.Disconnect();
         else
@@ -1551,26 +1851,42 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void CopyQuickmatchCode() {
-        if (realtime == null || !realtime.connected) {
+        if (!TryCopyRoomCode(out bool hasCode)) {
             SetWaitingStatus("Belum terhubung ke room.");
             return;
         }
-        string code = realtime.room != null ? realtime.room.quickmatchRoomCode : null;
-        bool hasCode = !string.IsNullOrEmpty(code);
-        GUIUtility.systemCopyBuffer = hasCode ? code : realtime.roomName;
         SetWaitingStatus(hasCode ? "Kode room disalin. Kirim ke temanmu." : "Nama room disalin. Kirim ke temanmu.");
         if (_copyFeedbackRoutine != null)
             StopCoroutine(_copyFeedbackRoutine);
-        _copyFeedbackRoutine = StartCoroutine(ShowCopiedFeedback());
+        _copyFeedbackRoutine = StartCoroutine(ShowCopiedFeedback(_copyButtonLabel));
     }
 
-    private IEnumerator ShowCopiedFeedback() {
-        if (_copyButtonLabel != null)
-            _copyButtonLabel.text = "TERSALIN";
+    // Tombol SALIN di Pause > PEMAIN. Tidak ada teks status di panel itu, jadi feedback lewat label tombol.
+    private void CopyPauseRoomCode() {
+        if (!TryCopyRoomCode(out _))
+            return;
+        if (_pauseCopyFeedbackRoutine != null)
+            StopCoroutine(_pauseCopyFeedbackRoutine);
+        _pauseCopyFeedbackRoutine = StartCoroutine(ShowCopiedFeedback(_pauseCopyButtonLabel));
+    }
+
+    /// <summary>Salin kode Quickmatch (kalau ada) atau nama room ke clipboard.</summary>
+    private bool TryCopyRoomCode(out bool hasCode) {
+        hasCode = false;
+        if (realtime == null || !realtime.connected)
+            return false;
+        string code = realtime.room != null ? realtime.room.quickmatchRoomCode : null;
+        hasCode = !string.IsNullOrEmpty(code);
+        GUIUtility.systemCopyBuffer = hasCode ? code : realtime.roomName;
+        return true;
+    }
+
+    private static IEnumerator ShowCopiedFeedback(Text label) {
+        if (label != null)
+            label.text = "TERSALIN";
         yield return new WaitForSeconds(2f);
-        if (_copyButtonLabel != null)
-            _copyButtonLabel.text = "SALIN";
-        _copyFeedbackRoutine = null;
+        if (label != null)
+            label.text = "SALIN";
     }
 
     /// <summary>Status bar lobby: titik + teks berubah warna sesuai kondisi.</summary>
@@ -1680,140 +1996,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
 #if UNITY_EDITOR
 [InitializeOnLoad]
 internal static class LobyUISceneCanvasBootstrap {
-    private const string RoomWaitingScenePath = "Assets/Scenes/Multiplayer/RoomWaitingScene.unity";
-    private static bool _isEnsuringRoomWaitingAssets;
-
     static LobyUISceneCanvasBootstrap() {
         EditorSceneManager.sceneOpened += OnSceneOpened;
-        EditorSceneManager.sceneSaved += OnSceneSaved;
         EditorApplication.delayCall += BuildForOpenScenes;
-    }
-
-    private static void OnSceneSaved(UnityEngine.SceneManagement.Scene scene) {
-        if (_isEnsuringRoomWaitingAssets || EditorApplication.isPlayingOrWillChangePlaymode ||
-            scene.path != RoomWaitingScenePath)
-            return;
-
-        GameObject canvas = null;
-        foreach (GameObject root in scene.GetRootGameObjects()) {
-            if (root.name == "Room Waiting Canvas") {
-                canvas = root;
-                break;
-            }
-        }
-        if (canvas == null || canvas.GetComponent<Canvas>() == null)
-            return;
-
-        bool canvasWasActive = canvas.activeSelf;
-        if (canvasWasActive)
-            canvas.SetActive(false);
-        PrefabUtility.SaveAsPrefabAsset(canvas, "Assets/Prefab/RoomWaitingCanvas.prefab");
-        if (canvasWasActive)
-            canvas.SetActive(true);
-    }
-
-    private static void EnsureRoomWaitingSceneAndPrefab() {
-        if (_isEnsuringRoomWaitingAssets || EditorApplication.isPlayingOrWillChangePlaymode)
-            return;
-
-        _isEnsuringRoomWaitingAssets = true;
-        try {
-            EnsureRoomWaitingSceneAndPrefabInternal();
-        } finally {
-            _isEnsuringRoomWaitingAssets = false;
-        }
-    }
-
-    private static void EnsureRoomWaitingSceneAndPrefabInternal() {
-
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/RoomWaitingCanvas.prefab");
-        if (prefab == null)
-            return;
-
-        UnityEngine.SceneManagement.Scene originalActiveScene =
-            UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-        bool openedHere = false;
-        UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetSceneByPath(RoomWaitingScenePath);
-        if (!scene.IsValid() || !scene.isLoaded) {
-            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(RoomWaitingScenePath) != null) {
-                scene = EditorSceneManager.OpenScene(RoomWaitingScenePath, OpenSceneMode.Additive);
-                openedHere = true;
-            } else {
-                scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-                openedHere = true;
-            }
-        }
-
-        if (!scene.IsValid() || !scene.isLoaded)
-            return;
-
-        bool sceneChanged = openedHere;
-        GameObject canvas = null;
-        foreach (GameObject root in scene.GetRootGameObjects()) {
-            if (root.name == "Room Waiting Canvas") {
-                canvas = root;
-                break;
-            }
-        }
-
-        if (canvas == null) {
-            canvas = PrefabUtility.InstantiatePrefab(prefab, scene) as GameObject;
-            if (canvas != null)
-                canvas.SetActive(true);
-            sceneChanged = true;
-        }
-        if (canvas == null)
-            return;
-
-        if (canvas.name != "Room Waiting Canvas") {
-            canvas.name = "Room Waiting Canvas";
-            sceneChanged = true;
-        }
-        if (PrefabUtility.IsPartOfPrefabInstance(canvas)) {
-            PrefabUtility.UnpackPrefabInstance(canvas, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
-            sceneChanged = true;
-        }
-
-        if (canvas.GetComponent<Canvas>() == null) {
-            if (openedHere)
-                EditorSceneManager.CloseScene(scene, true);
-            return;
-        }
-
-        if (LobyUISceneController.EnsureWaitingCanvasControls(canvas.transform))
-            sceneChanged = true;
-
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene() != scene)
-            UnityEngine.SceneManagement.SceneManager.SetActiveScene(scene);
-        bool sceneHasEventSystem = false;
-        foreach (GameObject root in scene.GetRootGameObjects()) {
-            if (root.GetComponentInChildren<EventSystem>(true) != null) {
-                sceneHasEventSystem = true;
-                break;
-            }
-        }
-        if (!sceneHasEventSystem) {
-            new GameObject("Room Waiting EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-            sceneChanged = true;
-        }
-
-        bool canvasWasActive = canvas.activeSelf;
-        if (canvasWasActive)
-            canvas.SetActive(false);
-        PrefabUtility.SaveAsPrefabAsset(canvas, "Assets/Prefab/RoomWaitingCanvas.prefab");
-        if (canvasWasActive) {
-            canvas.SetActive(true);
-            sceneChanged = true;
-        }
-        if (sceneChanged) {
-            EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene, RoomWaitingScenePath);
-        }
-
-        if (openedHere)
-            EditorSceneManager.CloseScene(scene, true);
-        if (originalActiveScene.IsValid() && originalActiveScene.isLoaded)
-            UnityEngine.SceneManagement.SceneManager.SetActiveScene(originalActiveScene);
     }
 
     private static void OnSceneOpened(UnityEngine.SceneManagement.Scene scene, OpenSceneMode mode) {
@@ -1821,14 +2006,12 @@ internal static class LobyUISceneCanvasBootstrap {
     }
 
     private static void BuildForOpenScenes() {
-        EnsureRoomWaitingSceneAndPrefab();
-        LobyUISceneController.UpgradeCanvasPrefabs();
         for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
             BuildForScene(UnityEngine.SceneManagement.SceneManager.GetSceneAt(i));
     }
 
     private static void BuildForScene(UnityEngine.SceneManagement.Scene scene) {
-        if (!scene.IsValid() || !scene.isLoaded || (scene.name != "MainScene" && scene.name != "LobyUIScene"))
+        if (!scene.IsValid() || !scene.isLoaded || scene.name != "LobyUIScene")
             return;
 
         foreach (GameObject root in scene.GetRootGameObjects()) {
