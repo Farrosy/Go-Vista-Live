@@ -441,8 +441,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
@@ -485,7 +485,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9cb897de27295d343b4ac360dd964ce3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraOrbit
   target: {fileID: 0}
   pivotOffset: {x: 0, y: 1.6, z: 0}
@@ -539,7 +539,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4f231c4fb786f3946a6b90b886c48677, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.StandaloneInputModule
   m_SendPointerHoverToParent: 1
   m_HorizontalAxis: Horizontal
@@ -559,7 +559,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 76c392e42b5098c458856cdf6ecaaaa1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.EventSystem
   m_FirstSelected: {fileID: 0}
   m_sendNavigationEvents: 1
@@ -589,7 +589,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 7606531919527334309, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
       propertyPath: _camera
-      value:
+      value: 
       objectReference: {fileID: 565050213}
     - target: {fileID: 7606531919527334328, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
       propertyPath: m_Name
@@ -645,7 +645,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7606531919527334331, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
       propertyPath: _normcoreAppSettings
-      value:
+      value: 
       objectReference: {fileID: 11400000, guid: 50d8664c3fb250b5da3822d8ea319515, type: 2}
     - target: {fileID: 7606531919527334331, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
       propertyPath: _joinRoomOnStartOptions._mode
@@ -677,14 +677,71 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b7d24508d5334cb29908cc870cc31587, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   realtime: {fileID: 0}
 --- !u!1 &1340728035 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7606531919527334328, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
   m_PrefabInstance: {fileID: 1340728033}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1729086562
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5769882575371457614, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5782346036346511245, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
+      propertyPath: m_Name
+      value: CharacterSelectCanvas
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2586716e33e475f28b9b926bdcb4a41c, type: 3}
 --- !u!1001 &1810142199
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -736,7 +793,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
@@ -1214,17 +1271,8 @@ SceneRoots:
   - {fileID: 1340728033}
   - {fileID: 5101399399131607755}
   - {fileID: 1066204857}
-  - {fileID: 1419644770981385784}
-  - {fileID: 722965845}
-  - {fileID: 2107791051}
-  - {fileID: 1024337328}
-  - {fileID: 560546198}
   - {fileID: 95429459}
-  - {fileID: 1588487538}
-  - {fileID: 928542059}
-  - {fileID: 1354985695}
-  - {fileID: 985244392}
-  - {fileID: 215597947}
   - {fileID: 901329300}
   - {fileID: 2160233073280113650}
   - {fileID: 472808706}
+  - {fileID: 1729086562}

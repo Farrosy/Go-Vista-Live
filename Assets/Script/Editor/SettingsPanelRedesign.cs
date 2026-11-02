@@ -4,52 +4,107 @@ using UnityEngine.UI;
 using static RedesignUiKit;
 
 /// <summary>
-/// Desain baru dialog PENGATURAN di lobby (Assets/Prefab/LobbyCanvas.prefab).
-/// Menu: Go Vista > Desain Baru > Panel Pengaturan.
+/// Desain dialog PENGATURAN. Menu: Go Vista > Desain Baru > Panel Pengaturan.
 ///
-/// Yang diganti hanya ISI "Settings Dialog" (di dalam "Settings Overlay"). Objek dialognya sendiri
-/// (ResponsivePanel, posisi) tetap. Nama objek yang dicari LobyUISceneController dipertahankan:
-///   Settings Close Button, Settings Sensitivity Slider, Settings Sensitivity Value,
-///   Settings Controls Button, Settings Account, Settings Done Button
-/// jadi LobyUISceneController TIDAK perlu diubah.
-///
-/// Catatan: menu lama "Go Vista > Lobby UI > Perbarui panel Pengaturan" dan "Reset LobbyCanvas ke default"
-/// membangun versi lama dari kode. Kalau tidak sengaja dipakai, jalankan menu ini lagi.
+/// Membangun SATU prefab, Assets/Resources/UI/SettingsPanel.prefab (komponen SettingsPanel), lalu
+/// memasangnya sebagai nested prefab di dua tempat:
+///   - LobbyCanvas.prefab       : "Settings Overlay/Settings Dialog" (menu utama lobby)
+///   - RoomWaitingCanvas.prefab : "Pause Settings Panel" (menu pause di dalam game)
+/// Jadi lobby dan in-game selalu memakai dialog yang sama. Untuk mengubah tampilan, edit
+/// SettingsPanel.prefab langsung, atau ubah Build() di bawah lalu jalankan menu ini lagi.
 /// </summary>
 public static class SettingsPanelRedesign {
-    private const string PrefabPath = "Assets/Prefab/LobbyCanvas.prefab";
+    private const string PanelPrefabPath = "Assets/Resources/UI/SettingsPanel.prefab";
+    private const string LobbyCanvasPath = "Assets/Prefab/LobbyCanvas.prefab";
+    private const string WaitingCanvasPath = "Assets/Prefab/RoomWaitingCanvas.prefab";
     private const float Width = 860f;
+    private const float Height = 840f;
     private const float Pad = 44f;
     private const float Inner = Width - Pad * 2f; // 772
 
     [MenuItem("Go Vista/Desain Baru/Panel Pengaturan")]
-    private static void Apply() {
+    private static void ApplyFromMenu() {
         if (!EditorUtility.DisplayDialog("Desain baru panel Pengaturan",
-                "Isi \"Settings Dialog\" di LobbyCanvas.prefab akan diganti dengan desain baru. " +
-                "Editan manual di dalam dialog itu hilang; bagian lain prefab tidak berubah.", "Pasang", "Batal"))
+                "SettingsPanel.prefab akan dibangun ulang (editan manual di prefab itu hilang), lalu dipasang di " +
+                "LobbyCanvas (menu utama) dan RoomWaitingCanvas (menu pause). Bagian lain kedua prefab tidak berubah.",
+                "Pasang", "Batal"))
             return;
+        Apply();
+    }
 
-        GameObject root = PrefabUtility.LoadPrefabContents(PrefabPath);
+    /// <summary>Bangun prefab panel lalu pasang di lobby dan menu pause.</summary>
+    public static void Apply() {
+        GameObject panelPrefab = BuildPanelPrefab();
+        string lobby = Install(panelPrefab, LobbyCanvasPath, "Settings Overlay", "Settings Dialog");
+        string pause = Install(panelPrefab, WaitingCanvasPath, null, "Pause Settings Panel");
+        Debug.Log($"[Desain Baru] {PanelPrefabPath} dibuat.\nLobbyCanvas: {lobby}\nRoomWaitingCanvas: {pause}");
+    }
+
+    private static GameObject BuildPanelPrefab() {
+        var root = new GameObject("Settings Panel", typeof(RectTransform));
         try {
-            Transform overlay = FindDeep(root.transform, "Settings Overlay");
-            Transform dialog = overlay != null ? FindDeep(overlay, "Settings Dialog") : null;
-            if (dialog == null) {
-                Debug.LogWarning("[Desain Baru] \"Settings Overlay/Settings Dialog\" tidak ditemukan di " + PrefabPath +
-                                 ". Jalankan dulu Go Vista > Lobby UI > Perbarui panel Pengaturan, lalu ulangi.");
-                return;
-            }
-            Build((RectTransform)dialog);
-            SetLayerRecursive(dialog, overlay.gameObject.layer);
-            PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
-            Debug.Log("[Desain Baru] Panel Pengaturan di LobbyCanvas.prefab sudah diganti ke desain baru.");
+            var rect = (RectTransform)root.transform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            root.AddComponent<ResponsivePanel>();
+            Build(rect);
+
+            var panel = root.AddComponent<SettingsPanel>();
+            panel.Init(Find<Slider>(rect, "Settings Sensitivity Slider"), Find<Text>(rect, "Settings Sensitivity Value"),
+                       Find<Text>(rect, "Settings Account"), Find<Button>(rect, "Settings Controls Button"),
+                       Find<Button>(rect, "Settings Done Button"), Find<Button>(rect, "Settings Close Button"));
+            SetLayerRecursive(rect, LayerMask.NameToLayer("UI"));
+            root.SetActive(false); // dibuka lewat SettingsPanel.Open()
+            return PrefabUtility.SaveAsPrefabAsset(root, PanelPrefabPath);
+        } finally {
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    /// <summary>
+    /// Ganti objek <paramref name="targetName"/> di prefab canvas dengan instance SettingsPanel.prefab
+    /// (nama, parent, urutan, dan posisi tengah dipertahankan).
+    /// </summary>
+    private static string Install(GameObject panelPrefab, string canvasPath, string parentName, string targetName) {
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(canvasPath) == null)
+            return "tidak ditemukan, dilewati";
+        GameObject root = PrefabUtility.LoadPrefabContents(canvasPath);
+        try {
+            Transform searchRoot = parentName != null ? FindDeep(root.transform, parentName) : root.transform;
+            Transform old = searchRoot != null ? FindDeep(searchRoot, targetName) : null;
+            if (old == null)
+                return $"\"{targetName}\" tidak ditemukan, dilewati";
+
+            Transform parent = old.parent;
+            int siblingIndex = old.GetSiblingIndex();
+            int layer = old.gameObject.layer;
+            Object.DestroyImmediate(old.gameObject);
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(panelPrefab, parent);
+            instance.name = targetName; // nama lama dipertahankan supaya mudah dicari di Hierarchy
+            var rect = (RectTransform)instance.transform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.SetSiblingIndex(siblingIndex);
+            SetLayerRecursive(rect, layer);
+            instance.SetActive(false);
+            PrefabUtility.SaveAsPrefabAsset(root, canvasPath);
+            return "dipasang";
         } finally {
             PrefabUtility.UnloadPrefabContents(root);
         }
     }
 
+    private static T Find<T>(Transform root, string name) where T : Component {
+        Transform found = FindDeep(root, name);
+        T component = found != null ? found.GetComponent<T>() : null;
+        if (component == null)
+            Debug.LogWarning($"[Desain Baru] {typeof(T).Name} \"{name}\" tidak ditemukan di panel Pengaturan.");
+        return component;
+    }
+
     private static void Build(RectTransform dialog) {
         ClearChildren(dialog);
-        dialog.sizeDelta = new Vector2(Width, 840f);
+        dialog.sizeDelta = new Vector2(Width, Height);
         Shape(dialog.gameObject, CardColor, cornerScale: 1.8f);
         AddOutline(dialog, LineColor, cornerScale: 1.8f);
         Image accent = Place(NewRect("Settings Accent Line", dialog), 70f, 0f, Width - 140f, 3f)

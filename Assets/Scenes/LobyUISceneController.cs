@@ -76,9 +76,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private Canvas _lobbyCanvas;
     private bool _lobbyControlLayoutOpen;
     private GameObject _exitOverlay;
-    private Slider _sensitivitySlider;
-    private Text _sensitivityValue;
-    private Text _settingsAccount;
+    private SettingsPanel _settingsPanel;
     private Text _exitConfirmLabel;
     private bool _quitting;
     // Keluar room memuat ulang scene; setelah itu pemain kembali ke panel lobby, bukan ke menu utama.
@@ -114,10 +112,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private GameObject _pauseOverlay;
     private GameObject _pauseMainPanel;
     private GameObject _pausePlayersPanel;
-    private GameObject _pauseSettingsPanel;
+    private SettingsPanel _pauseSettingsPanel;
     private GameObject _pauseLeaveConfirmPanel;
-    private Slider _pauseSensitivitySlider;
-    private Text _pauseSensitivityValue;
     private InGameMenuPage _inGameMenuPage;
     private Text _copyButtonLabel;
     private Coroutine _copyFeedbackRoutine;
@@ -174,6 +170,12 @@ public sealed class LobyUISceneController : MonoBehaviour {
             FindControlLayoutEditor()?.Cancel();
             return;
         }
+        // Tombol Back HP saat PENGATURAN lobby terbuka = SELESAI.
+        if (Application.isPlaying && !_gameplayStarted && _settingsPanel != null && _settingsPanel.IsOpen &&
+            Input.GetKeyDown(KeyCode.Escape)) {
+            _settingsPanel.Close();
+            return;
+        }
         if (!Application.isPlaying || !_gameplayStarted || _leaveRoomPending ||
             !Input.GetKeyDown(KeyCode.Escape))
             return;
@@ -185,8 +187,14 @@ public sealed class LobyUISceneController : MonoBehaviour {
             case InGameMenuPage.Main:
                 ClosePauseMenu();
                 break;
-            case InGameMenuPage.Players:
             case InGameMenuPage.Settings:
+                // Sama dengan SELESAI: simpan, lalu callback kembali ke menu pause.
+                if (_pauseSettingsPanel != null)
+                    _pauseSettingsPanel.Close();
+                else
+                    ReturnToPauseMenu();
+                break;
+            case InGameMenuPage.Players:
             case InGameMenuPage.LeaveConfirm:
                 ReturnToPauseMenu();
                 break;
@@ -227,9 +235,6 @@ public sealed class LobyUISceneController : MonoBehaviour {
         AddClickListener("Main Menu Character Button", OpenCharacterSelect);
         AddClickListener("Main Menu Settings Button", OpenSettings);
         AddClickListener("Main Menu Quit Button", OpenExitConfirm);
-        AddClickListener("Settings Close Button", CloseSettings);
-        AddClickListener("Settings Done Button", CloseSettings);
-        AddClickListener("Settings Controls Button", OpenLobbyControlLayoutEditor);
         AddClickListener("Exit Cancel Button", CloseExitConfirm);
         AddClickListener("Exit Confirm Button", QuitGame);
         LoginUIController.AccountChanged -= OnAccountChanged;
@@ -452,25 +457,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
                   .GetComponent<RectTransform>(), 400f, 814f, 400f, 88f);
         players.gameObject.SetActive(false);
 
-        RectTransform settings = CreateResponsivePanel("Pause Settings Panel", pauseSafeArea, new Vector2(960f, 620f));
-        AddShape(settings.gameObject, PanelColor, cornerScale: 1.8f);
-        AddOutline(settings, LineColor, cornerScale: 1.8f);
-        Place(CreateText("Pause Settings Title", settings, "PENGATURAN", 48, FontStyle.Bold,
-                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
-              56f, 40f, 780f, 68f);
-        Place(CreateText("Pause Sensitivity Label", settings, "SENSITIVITAS KAMERA", LabelFontSize,
-                         FontStyle.Bold, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
-              56f, 164f, 500f, 40f);
-        Place(CreateText("Pause Sensitivity Value", settings, "1.0x", BodyFontSize, FontStyle.Bold,
-                         TextAnchor.MiddleRight, Vector2.zero, Vector2.zero, Color.white).rectTransform,
-              704f, 164f, 200f, 40f);
-        Place(CreateSlider("Pause Sensitivity Slider", settings, GameSettings.MinCameraSensitivity,
-                           GameSettings.MaxCameraSensitivity).GetComponent<RectTransform>(), 56f, 220f, 848f, 72f);
-        Place(CreateButton("Pause Controls Button", settings, "ATUR KONTROL", CardColor)
-                  .GetComponent<RectTransform>(), 56f, 316f, 848f, 88f);
-        Place(CreateButton("Pause Settings Back Button", settings, "KEMBALI", PrimaryColor)
-                  .GetComponent<RectTransform>(), 56f, 424f, 848f, 96f);
-        settings.gameObject.SetActive(false);
+        // Dialog PENGATURAN yang sama dengan lobby (SettingsPanel.prefab).
+        InstantiateSettingsPanel(pauseSafeArea, "Pause Settings Panel");
 
         RectTransform confirm = CreateResponsivePanel("Pause Leave Confirm Panel", pauseSafeArea, new Vector2(820f, 440f));
         AddShape(confirm.gameObject, PanelColor, cornerScale: 1.8f);
@@ -826,33 +814,35 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     private static void BuildSettingsOverlay(Transform canvas) {
         RectTransform overlay = CreateModalOverlay("Settings Overlay", canvas);
-        RectTransform dialog = CreateResponsivePanel("Settings Dialog", overlay, new Vector2(960f, 632f));
-        AddShape(dialog.gameObject, PanelColor, cornerScale: 1.8f);
-        AddOutline(dialog, LineColor, cornerScale: 1.8f);
-
-        Place(CreateText("Settings Title", dialog, "PENGATURAN", 52, FontStyle.Bold, TextAnchor.MiddleLeft,
-                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 56f, 44f, 700f, 72f);
-        Place(CreateButton("Settings Close Button", dialog, "×", CardColor, 48).GetComponent<RectTransform>(),
-              816f, 36f, 88f, 88f);
-
-        // TODO (next develop): tambahkan slider VOLUME di sini setelah game punya audio.
-        Place(CreateText("Settings Sensitivity Label", dialog, "SENSITIVITAS KAMERA", LabelFontSize, FontStyle.Bold,
-                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
-              56f, 170f, 500f, 40f);
-        Place(CreateText("Settings Sensitivity Value", dialog, "1.0x", BodyFontSize, FontStyle.Bold,
-                         TextAnchor.MiddleRight, Vector2.zero, Vector2.zero, Color.white).rectTransform,
-              704f, 170f, 200f, 40f);
-        Place(CreateSlider("Settings Sensitivity Slider", dialog, GameSettings.MinCameraSensitivity,
-                           GameSettings.MaxCameraSensitivity).GetComponent<RectTransform>(), 56f, 222f, 848f, 72f);
-
-        // Sama seperti Pause > Pengaturan > ATUR KONTROL, supaya tata letak kontrol bisa diatur sebelum main.
-        Place(CreateButton("Settings Controls Button", dialog, "ATUR KONTROL", CardColor).GetComponent<RectTransform>(),
-              56f, 318f, 848f, 88f);
-        Place(CreateText("Settings Account", dialog, "", SmallFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
-                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 56f, 430f, 848f, 40f);
-        Place(CreateButton("Settings Done Button", dialog, "SELESAI", PrimaryColor).GetComponent<RectTransform>(),
-              56f, 500f, 848f, 96f);
+        // Dialog PENGATURAN yang sama dengan menu pause (SettingsPanel.prefab).
+        InstantiateSettingsPanel(overlay, "Settings Dialog");
         overlay.gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// Pasang dialog PENGATURAN bersama (Assets/Resources/UI/SettingsPanel.prefab). Di Editor dipasang sebagai
+    /// nested prefab, jadi perubahan di SettingsPanel.prefab ikut ke lobby dan menu pause.
+    /// </summary>
+    private static void InstantiateSettingsPanel(Transform parent, string name) {
+        GameObject prefab = Resources.Load<GameObject>(SettingsPanel.ResourcePath);
+        if (prefab == null) {
+            Debug.LogWarning($"[Lobby UI] Resources/{SettingsPanel.ResourcePath}.prefab tidak ada. " +
+                             "Jalankan Go Vista > Desain Baru > Panel Pengaturan.");
+            return;
+        }
+        GameObject instance;
+#if UNITY_EDITOR
+        instance = !Application.isPlaying
+            ? (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent)
+            : Instantiate(prefab, parent, false);
+#else
+        instance = Instantiate(prefab, parent, false);
+#endif
+        instance.name = name;
+        var rect = (RectTransform)instance.transform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = Vector2.zero;
+        instance.SetActive(false);
     }
 
     private static void BuildExitConfirmOverlay(Transform canvas) {
@@ -879,49 +869,6 @@ public sealed class LobyUISceneController : MonoBehaviour {
         RectTransform overlay = Stretch(CreateRect(name, canvas, Vector2.zero), 0f);
         overlay.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.65f);
         return overlay;
-    }
-
-    private static Slider CreateSlider(string name, Transform parent, float min, float max) {
-        RectTransform root = CreateRect(name, parent, Vector2.zero);
-        Slider slider = root.gameObject.AddComponent<Slider>();
-
-        RectTransform track = CreateRect("Track", root, Vector2.zero);
-        track.anchorMin = new Vector2(0f, 0.5f);
-        track.anchorMax = new Vector2(1f, 0.5f);
-        track.pivot = new Vector2(0.5f, 0.5f);
-        track.anchoredPosition = Vector2.zero;
-        track.sizeDelta = new Vector2(0f, 16f);
-        AddShape(track.gameObject, InputColor, cornerScale: 0.5f);
-
-        RectTransform fillArea = CreateRect("Fill Area", track, Vector2.zero);
-        Stretch(fillArea, 0f);
-        RectTransform fill = Stretch(CreateRect("Fill", fillArea, Vector2.zero), 0f);
-        AddShape(fill.gameObject, PrimaryColor, cornerScale: 0.5f);
-
-        // Slider meregangkan handle setinggi area gesernya (anchor Y dipaksa 0..1), jadi area geser dibuat
-        // persis setinggi handle supaya handle tetap bulat. Lebarnya dikurangi satu handle supaya tidak
-        // keluar dari ujung track.
-        const float handleSize = 56f;
-        RectTransform handleArea = CreateRect("Handle Slide Area", root, Vector2.zero);
-        handleArea.anchorMin = new Vector2(0f, 0.5f);
-        handleArea.anchorMax = new Vector2(1f, 0.5f);
-        handleArea.pivot = new Vector2(0.5f, 0.5f);
-        handleArea.anchoredPosition = Vector2.zero;
-        handleArea.sizeDelta = new Vector2(-handleSize, handleSize);
-        RectTransform handle = CreateRect("Handle", handleArea, Vector2.zero);
-        handle.pivot = new Vector2(0.5f, 0.5f);
-        handle.sizeDelta = new Vector2(handleSize, 0f);
-        Image handleImage = AddShape(handle.gameObject, Color.white, "ui-circle");
-        handleImage.preserveAspect = true;
-
-        slider.fillRect = fill;
-        slider.handleRect = handle;
-        slider.targetGraphic = handleImage;
-        slider.direction = Slider.Direction.LeftToRight;
-        slider.minValue = min;
-        slider.maxValue = max;
-        slider.colors = PressTint();
-        return slider;
     }
 
     // ---------------------------------------------------------------- Helper UI
@@ -1168,14 +1115,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
         _settingsOverlay = FindChild(canvas, "Settings Overlay")?.gameObject;
         _lobbyCanvas = canvasObject.GetComponent<Canvas>();
         _exitOverlay = FindChild(canvas, "Exit Confirm Overlay")?.gameObject;
-        _sensitivitySlider = FindChild(canvas, "Settings Sensitivity Slider")?.GetComponent<Slider>();
-        _sensitivityValue = FindChild(canvas, "Settings Sensitivity Value")?.GetComponent<Text>();
-        _settingsAccount = FindChild(canvas, "Settings Account")?.GetComponent<Text>();
+        // Dialog PENGATURAN = SettingsPanel.prefab (sama dengan menu pause). Isi dialog diurus SettingsPanel.
+        _settingsPanel = _settingsOverlay != null ? _settingsOverlay.GetComponentInChildren<SettingsPanel>(true) : null;
         _exitConfirmLabel = FindChild(canvas, "Exit Confirm Button Label")?.GetComponent<Text>();
-        if (_sensitivitySlider != null) {
-            _sensitivitySlider.onValueChanged.RemoveListener(OnSensitivityChanged);
-            _sensitivitySlider.onValueChanged.AddListener(OnSensitivityChanged);
-        }
         // Apple melarang tombol keluar aplikasi di iOS; pemain menutup app lewat sistem.
         if (Application.platform == RuntimePlatform.IPhonePlayer)
             FindChild(canvas, "Main Menu Quit Button")?.gameObject.SetActive(false);
@@ -1200,14 +1142,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _pauseOverlay = FindChild(waitingRoot, "Pause Overlay")?.gameObject;
             _pauseMainPanel = FindChild(waitingRoot, "Pause Main Panel")?.gameObject;
             _pausePlayersPanel = FindChild(waitingRoot, "Pause Players Panel")?.gameObject;
-            _pauseSettingsPanel = FindChild(waitingRoot, "Pause Settings Panel")?.gameObject;
+            _pauseSettingsPanel = waitingRoot.GetComponentInChildren<SettingsPanel>(true);
             _pauseLeaveConfirmPanel = FindChild(waitingRoot, "Pause Leave Confirm Panel")?.gameObject;
-            _pauseSensitivitySlider = FindChild(waitingRoot, "Pause Sensitivity Slider")?.GetComponent<Slider>();
-            _pauseSensitivityValue = FindChild(waitingRoot, "Pause Sensitivity Value")?.GetComponent<Text>();
-            if (_pauseSensitivitySlider != null) {
-                _pauseSensitivitySlider.onValueChanged.RemoveListener(OnPauseSensitivityChanged);
-                _pauseSensitivitySlider.onValueChanged.AddListener(OnPauseSensitivityChanged);
-            }
             AddClickListenerIn(_waitingCanvas, "Waiting Join Game Button", BeginGame);
             AddClickListenerIn(_waitingCanvas, "Waiting Disconnect Button", Disconnect);
             AddClickListenerIn(_waitingCanvas, "Waiting Copy Code Button", CopyQuickmatchCode);
@@ -1219,8 +1155,6 @@ public sealed class LobyUISceneController : MonoBehaviour {
             AddClickListenerIn(_waitingCanvas, "Pause Players Button", OpenPausePlayers);
             AddClickListenerIn(_waitingCanvas, "Pause Settings Button", OpenPauseSettings);
             AddClickListenerIn(_waitingCanvas, "Pause Players Back Button", ReturnToPauseMenu);
-            AddClickListenerIn(_waitingCanvas, "Pause Settings Back Button", ClosePauseSettings);
-            AddClickListenerIn(_waitingCanvas, "Pause Controls Button", OpenControlLayoutEditor);
             AddClickListenerIn(_waitingCanvas, "Pause Leave Room Button", OpenLeaveRoomConfirm);
             AddClickListenerIn(_waitingCanvas, "Pause Leave Cancel Button", ReturnToPauseMenu);
             AddClickListenerIn(_waitingCanvas, "Pause Leave Confirm Button", Disconnect);
@@ -1269,9 +1203,6 @@ public sealed class LobyUISceneController : MonoBehaviour {
         }
         if (_mainMenuInitial != null)
             _mainMenuInitial.text = greetingName.Length > 0 ? greetingName.Substring(0, 1).ToUpperInvariant() : "?";
-        if (_settingsAccount != null)
-            // Username hanya huruf/angka/. - @ _ (AuthService), jadi aman dipakai di dalam rich text.
-            _settingsAccount.text = "Masuk sebagai  <b><color=#FFFFFF>" + username + "</color></b>";
     }
 
     private void SignOutAccount() {
@@ -1520,17 +1451,20 @@ public sealed class LobyUISceneController : MonoBehaviour {
         characterSelect.Open();
     }
 
+    // Menu utama > PENGATURAN. Isi dialog (sensitivitas, akun, simpan) diurus SettingsPanel; di sini hanya
+    // yang khusus lobby: overlay gelap di belakangnya dan ATUR KONTROL versi lobby.
     private void OpenSettings() {
-        // SetValueWithoutNotify supaya membuka panel tidak dianggap mengubah pengaturan.
-        if (_sensitivitySlider != null)
-            _sensitivitySlider.SetValueWithoutNotify(GameSettings.CameraSensitivity);
-        UpdateSettingsLabels();
+        if (_settingsPanel == null) {
+            Debug.LogWarning("[Lobby UI] SettingsPanel tidak ada di \"Settings Overlay\". " +
+                             "Jalankan Go Vista > Desain Baru > Panel Pengaturan.");
+            return;
+        }
         if (_settingsOverlay != null)
             _settingsOverlay.SetActive(true);
+        _settingsPanel.Open(OpenLobbyControlLayoutEditor, OnSettingsClosed);
     }
 
-    private void CloseSettings() {
-        GameSettings.Save();
+    private void OnSettingsClosed() {
         if (_settingsOverlay != null)
             _settingsOverlay.SetActive(false);
     }
@@ -1546,7 +1480,6 @@ public sealed class LobyUISceneController : MonoBehaviour {
             return;
         }
 
-        GameSettings.Save();
         _lobbyControlLayoutOpen = true;
         if (_lobbyCanvas != null)
             _lobbyCanvas.enabled = false;
@@ -1561,16 +1494,6 @@ public sealed class LobyUISceneController : MonoBehaviour {
         MobileControls.SetVisible(false);
         if (_lobbyCanvas != null)
             _lobbyCanvas.enabled = true;
-    }
-
-    private void OnSensitivityChanged(float value) {
-        GameSettings.CameraSensitivity = value;
-        UpdateSettingsLabels();
-    }
-
-    private void UpdateSettingsLabels() {
-        if (_sensitivityValue != null)
-            _sensitivityValue.text = GameSettings.CameraSensitivity.ToString("0.0") + "x";
     }
 
     private void OpenExitConfirm() {
@@ -1903,30 +1826,17 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _pausePlayerScroll.verticalNormalizedPosition = 1f;
     }
 
+    // Pause > PENGATURAN: dialog yang sama dengan lobby (SettingsPanel). Ditutup = kembali ke menu pause.
     private void OpenPauseSettings() {
-        if (_inGameMenuPage != InGameMenuPage.Main)
+        if (_inGameMenuPage != InGameMenuPage.Main || _pauseSettingsPanel == null)
             return;
-        if (_pauseSensitivitySlider != null)
-            _pauseSensitivitySlider.SetValueWithoutNotify(GameSettings.CameraSensitivity);
-        UpdatePauseSensitivityLabel();
         ShowInGameMenuPage(InGameMenuPage.Settings);
+        _pauseSettingsPanel.Open(OpenControlLayoutEditor, OnPauseSettingsClosed);
     }
 
-    private void OnPauseSensitivityChanged(float value) {
-        GameSettings.CameraSensitivity = value;
-        UpdatePauseSensitivityLabel();
-    }
-
-    private void UpdatePauseSensitivityLabel() {
-        if (_pauseSensitivityValue != null)
-            _pauseSensitivityValue.text = GameSettings.CameraSensitivity.ToString("0.0") + "x";
-    }
-
-    private void ClosePauseSettings() {
-        if (_inGameMenuPage != InGameMenuPage.Settings)
-            return;
-        GameSettings.Save();
-        ReturnToPauseMenu();
+    private void OnPauseSettingsClosed() {
+        if (_inGameMenuPage == InGameMenuPage.Settings)
+            ShowInGameMenuPage(InGameMenuPage.Main);
     }
 
     private static ControlLayoutEditor FindControlLayoutEditor() {
@@ -1983,7 +1893,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         if (_pausePlayersPanel != null)
             _pausePlayersPanel.SetActive(page == InGameMenuPage.Players);
         if (_pauseSettingsPanel != null)
-            _pauseSettingsPanel.SetActive(page == InGameMenuPage.Settings);
+            _pauseSettingsPanel.gameObject.SetActive(page == InGameMenuPage.Settings);
         if (_pauseLeaveConfirmPanel != null)
             _pauseLeaveConfirmPanel.SetActive(page == InGameMenuPage.LeaveConfirm);
     }
@@ -2003,7 +1913,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         if (_pausePlayersPanel != null)
             _pausePlayersPanel.SetActive(false);
         if (_pauseSettingsPanel != null)
-            _pauseSettingsPanel.SetActive(false);
+            _pauseSettingsPanel.Hide();
         if (_pauseLeaveConfirmPanel != null)
             _pauseLeaveConfirmPanel.SetActive(false);
         Button confirmButton = _pauseLeaveConfirmPanel != null
