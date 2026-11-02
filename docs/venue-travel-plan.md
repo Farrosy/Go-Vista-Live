@@ -1,0 +1,162 @@
+# Venue-Travel / Scene-Bridge System — Implementation Plan
+
+> **Status:** Planned, not started. Written 2026-11-02.
+> **Audience:** Implementing agents/devs. Follow phases top-to-bottom; each `[ ]` is a discrete, checkable task.
+> **Mode note:** This document is a plan only. Do not modify game code or scenes until an owner says to start implementation.
+
+---
+
+## 0. Locked decisions (do not re-litigate)
+
+These were confirmed by the project owner. Build to them.
+
+| Decision | Choice |
+|---|---|
+| **Multiplayer model** | **One Normcore room for everything.** Each avatar carries a synced `venue` value; a player only sees/collides with avatars in the *same* venue. Friends can travel together and meet up when co-located. |
+| **Where the venue is chosen** | **At the docks.** Player interacts at the dock/boat in WorldScene → prompt offers the two venues → loads straight into the chosen venue's cube. No intermediate "island hub" scene. |
+| **Who travels on Switch/Return** | **Only the player who picks.** Others standing on the same pad stay put. |
+| **Prompt cancel behavior** | **Stays closed until re-enter.** If a player opens the cube prompt and cancels while still on the pad, it stays closed until they step off and step back on. |
+| **Walkable-area polish** | **In core** (not a later phase). The placeholder cube must become a proper-feeling walkable pad as part of the main work. |
+
+### ⚠️ Scene-naming warnings (read carefully — easy to get wrong)
+- The two travel venues are **`Demo_DanceClub_01`** (the dance club) and **`Demo_RooftopBar_01`**.
+- **`Demo_NightClub_01` is NOT used.** It appeared in the original request by mistake. Do not wire it.
+- `Demo_DanceClub_01` is also the scene **currently open in the editor** — be careful not to confuse editor state with build wiring.
+
+---
+
+## 1. Architecture context every agent must read first
+
+- **Networking = Normcore (Normal Realtime), room-based.** `MainMultiplayerScene` permanently holds `Realtime`, `PlayerManager`, `LobyUISceneController`, and the single gameplay **Camera**. World/venue scenes are loaded **additively** on top.
+- **The local avatar** is `Realtime.Instantiate`d into `MainMultiplayerScene` (owned by the local client, ownership-takeover prevented) and **persists across additive scene swaps**. Travel = swap the additive scene and **reposition the same avatar** — do NOT destroy/respawn it.
+- **Spawn today:** a single static `PlayerSpawnPoint.Active`, read once in `PlayerManager.SpawnLocalPlayer()` at `BeginGame()`. `WorldSceneName = "WorldScene"` is **hardcoded** in `LobyUISceneController`. Only WorldScene currently has a spawn point.
+
+### Existing systems to REUSE (do not reinvent)
+| Need | Reuse |
+|---|---|
+| Trigger zone + interact button + floating prompt | `Assets/Script/PlayerScript/Interactable.cs`, `InteractButtonUI.cs`, `InteractPromptWorld.cs` |
+| Local-player trigger filtering | `Interactable.IsLocalPlayer()` pattern → `PlayerController.Local` |
+| Normcore synced property on the avatar | `Assets/Script/Multiplayer/PlayerAnimSync.cs` + `PlayerAnimSyncModel.cs` (`RealtimeComponent<Model>`) — copy this pattern for the venue tag |
+| Disable cameras/audio on an additive scene | `DisableWorldCameras()` in `LobyUISceneController.cs` (~line 1569) |
+| Input lock during transitions | `PlayerInputHub.SetPauseLocked(bool)` |
+| Additive world load/unload reference | `LoadWorldAndBeginGame` / `UnloadWorldScene` in `LobyUISceneController.cs` (~lines 1587, 1578) |
+
+### Venue map (authoritative)
+| Venue | Scene path | Spawn slot on arrival |
+|---|---|---|
+| `World` | `Assets/Scenes/WorldScene.unity` | `CentralPlaza` (first spawn) / `Docks` (return) |
+| `DanceClub` | `Assets/Download_Assets/PolygonNightclubs/Scenes/Demo_DanceClub_01.unity` | `VenueCube` |
+| `RooftopBar` | `Assets/Download_Assets/PolygonNightclubs/Scenes/Demo_RooftopBar_01.unity` | `VenueCube` |
+
+### Known in-scene objects
+- WorldScene contains the dock **`marina_001`** and boat **`boat_002`** (already placed).
+- `Demo_DanceClub_01` and `Demo_RooftopBar_01` each contain an object named **`Cube`** — likely the placeholder spawn markers. Inspect and reuse/replace rather than blindly adding new ones.
+
+---
+
+## 2. Full required flow (acceptance criteria)
+
+1. Player enters game → spawns at **CentralPlaza** in WorldScene.
+2. Player walks to the dock (`marina_001` / `boat_002`) → interacts → prompt offers **DanceClub** or **RooftopBar**.
+3. Choosing a venue → load that venue additively, set it active, unload WorldScene, reposition the existing avatar onto the venue's **cube**, set `venue` tag. Player spawns **on the cube**.
+4. The cube's travel prompt is **disarmed** at spawn (standing on it does nothing).
+5. Player must **step off** the cube, then **step back on**, to **arm** the prompt.
+6. On armed re-entry, prompt shows **two choices**: *Switch to the other venue* and *Return to main island*.
+7. *Switch* → load the other venue, spawn on its cube (again disarmed until step-away).
+8. *Return to main island* → load WorldScene, spawn at the **Docks** (NOT CentralPlaza), `venue = World`.
+9. In the shared room, a player only sees/collides with others in their current venue; co-located players see each other.
+10. If a player opens any travel prompt and cancels while still on the pad, it stays closed until they step off and back on.
+11. Only the picking player travels on Switch/Return; others on the pad are unaffected.
+
+---
+
+## Phase 0 — Pre-flight (no code)
+- [ ] **0.1 Add venue scenes to Build Settings:** `Demo_DanceClub_01`, `Demo_RooftopBar_01` (both must be loadable by name; WorldScene already is).
+- [ ] **0.2 Inspect `marina_001` / `boat_002`** in WorldScene: record transforms; pick the interact position and a nearby open spot for the `Docks` return spawn.
+- [ ] **0.3 Inspect the `Cube` object** in each venue scene: confirm it's a placeholder spawn marker, decide reuse-vs-replace, record its transform.
+
+## Phase 1 — Core data & spawn refactor
+- [ ] **1.1 `VenueId` + scene map** — `Assets/Script/Travel/VenueId.cs`: `enum VenueId { World, DanceClub, RooftopBar }` with static `SceneName(VenueId)` and `FromScene(string)`.
+- [ ] **1.2 Multi-spawn support** — extend `PlayerSpawnPoint` (keep backward compat) or add a sibling:
+  - Add a slot id: `enum SpawnSlot { CentralPlaza, Docks, VenueCube }`.
+  - Replace the single `Active` static with a **registry** keyed by `(VenueId, SpawnSlot)`, populated in `OnEnable`, cleared in `OnDisable`.
+  - Add `static PlayerSpawnPoint Find(VenueId venue, SpawnSlot slot)`.
+  - Keep `GetPosition(clientID)` golden-angle spread + `Rotation`.
+- [ ] **1.3 Preserve initial spawn** — `PlayerManager.BeginGame()` resolves `World`/`CentralPlaza` via the new registry; keep the existing fallback-warning path.
+
+## Phase 2 — Venue tag sync (Normcore, one-room visibility)
+- [ ] **2.1 `PlayerVenueModel` + `PlayerVenueSync : RealtimeComponent<PlayerVenueModel>`** in `Assets/Script/Travel/`, copying the `PlayerAnimSync` / `PlayerAnimSyncModel` pattern. Synced property: `int venue` (a `VenueId`). Add to the avatar prefab(s) in `Resources` alongside `PlayerController` / `PlayerAnimSync`.
+- [ ] **2.2 Local venue state** — static `VenueTravelManager.LocalVenue` getter + `event Action VenueChanged`. The local player's `PlayerVenueSync` writes the model when a travel completes.
+- [ ] **2.3 `VenueVisibilityFilter`** on each avatar: enable renderers + colliders only when `thisAvatar.venue == LocalVenue`. Re-evaluate on (a) its own model `venue` change and (b) `VenueChanged`. The **local** avatar is always visible to itself.
+
+## Phase 3 — Travel manager (the teleporter)
+- [ ] **3.1 `VenueTravelManager`** — `Assets/Script/Travel/VenueTravelManager.cs`, singleton on a persistent object in `MainMultiplayerScene` (next to `PlayerManager`). Holds `CurrentVenue`.
+- [ ] **3.2 `TravelTo(VenueId target, SpawnSlot slot)` coroutine:**
+  1. Guard against re-entry while a travel is in progress.
+  2. `PlayerInputHub.SetPauseLocked(true)`, hide mobile controls, **run the transition's "cover" step** (fade to black today — see 3.4). Await it before loading.
+  3. Load target scene additive if not already loaded; `yield`.
+  4. **Disable the target scene's cameras + AudioListeners** (reuse `DisableWorldCameras` pattern — the only live camera is in MainMultiplayerScene).
+  5. `SceneManager.SetActiveScene(target)` so its lighting/skybox/reflection (and NavMesh for NPCs) apply.
+  6. Unload the previous venue scene.
+  7. Resolve spawn via `PlayerSpawnPoint.Find(target, slot)`; **safely teleport the existing avatar**: disable CharacterController/physics, set position+rotation (golden-angle spread for multiplayer), zero velocity, re-enable.
+  8. Set local player's `venue` via `PlayerVenueSync` → fires `VenueChanged`.
+  9. Keep the `CameraOrbit` target on the same avatar; **run the transition's "reveal" step** (fade in); unlock input; restore mobile controls.
+- [ ] **3.3 Transition abstraction (fade-to-black now, loading screen later) — REQUIRED.** A loading scene is planned for a later milestone, so the fade must NOT be hard-coded inline in `VenueTravelManager`. Build it behind a small seam so the loading screen can drop in with no change to `TravelTo`:
+  - Define an interface, e.g. `ISceneTransition { IEnumerator Cover(); IEnumerator Reveal(); }` (or an async equivalent). `TravelTo` only ever calls `Cover()` before unload/load and `Reveal()` after the avatar is placed — it never touches a `CanvasGroup` or fade timing directly.
+  - Ship a `FadeToBlackTransition : ISceneTransition` implementation now (full-screen `CanvasGroup` on the persistent MainMultiplayerScene UI, sits above all gameplay/venue UI, starts transparent & non-blocking).
+  - Resolve the active transition via a single accessor (serialized field or a `VenueTravelManager.Transition` property defaulting to the fade) so the future `LoadingScreenTransition` can replace it in one place.
+  - Keep `Cover`/`Reveal` able to **hold black across the full load/unload** (not a fixed-duration tween that ends early), and let `Reveal` optionally wait on a "ready" signal — the loading screen will need that hook to stay up until the target scene is ready.
+- [ ] **3.4 Integrate with `LobyUISceneController`** — set `CurrentVenue = World` after the existing first-spawn load, register the already-loaded WorldScene with the manager, and route all subsequent hops through `VenueTravelManager`. Keep churn minimal; pause-menu "Leave Room" → lobby stays unchanged.
+
+## Phase 4 — Dock → destination choice (at the docks)
+- [ ] **4.1 `TravelChoiceUI`** — reusable choice panel (title + 2–3 buttons), styled like the lobby/dialogue panels. API: `Open(string title, (string label, Action onPick)[] options)` / `Close()`. (The existing `InteractButtonUI` is single-verb only, so a dedicated multi-choice panel is needed.) Likely lives on the persistent MainMultiplayerScene UI.
+- [ ] **4.2 `DockTravelPoint`** on `marina_001` / `boat_002`: an `Interactable` (trigger + on-screen Interact button). `onInteract` → `TravelChoiceUI.Open("Travel to the second island", { "Dance Club" → TravelTo(DanceClub, VenueCube), "Rooftop Bar" → TravelTo(RooftopBar, VenueCube) })`.
+
+## Phase 5 — Venue cube: spawn pad + switch zone + re-arm rule
+- [ ] **5.1 `TravelPad`** — `Assets/Script/Travel/TravelPad.cs` on the cube in each venue (reuse/replace the existing `Cube`). Serialized: `VenueId thisVenue`.
+  - Trigger volume = the walkable pad. Also hosts the `VenueCube` spawn marker (attach `PlayerSpawnPoint` with slot `VenueCube`).
+  - On every travel-arrival it starts **disarmed** (`_armed = false`).
+  - Local-player `OnTriggerExit` → `_armed = true`.
+  - Local-player `OnTriggerEnter` while `_armed` → open `TravelChoiceUI` with **dynamic options**:
+    - DanceClub pad → *Switch to Rooftop Bar* `TravelTo(RooftopBar, VenueCube)` + *Return to main island* `TravelTo(World, Docks)`.
+    - RooftopBar pad → *Switch to Dance Club* `TravelTo(DanceClub, VenueCube)` + *Return to main island* `TravelTo(World, Docks)`.
+  - Use the `PlayerController.Local` check so remote avatars never trigger it.
+  - **Cancel rule:** cancelling the panel sets a `_consumedUntilExit = true` flag; the prompt will not reopen until an `OnTriggerExit` clears it (step off + back on).
+  - Only the local picker travels (per locked decision) — the pad never force-moves other players.
+- [ ] **5.2 Walkable-area polish (required):** turn the raw cube into a proper **ground pad** — flat collider pad + emissive/glow ring material or projected decal, a subtle upward light beam or particles, and a floating `InteractPromptWorld`-style label ("Travel"). Add on-enter visual/audio feedback. The zone must read as an obviously walkable area, not a floating box.
+
+## Phase 6 — Scene wiring
+- [ ] **6.1 WorldScene:** keep the `CentralPlaza` spawn; add a `Docks` spawn point beside `marina_001`; add `DockTravelPoint` to `marina_001` / `boat_002`.
+- [ ] **6.2 `Demo_DanceClub_01`:** put `TravelPad(thisVenue = DanceClub)` + `VenueCube` spawn on its `Cube`; ensure a Camera + Directional Light exist (per Unity-MCP scene rules) but the camera stays disabled at runtime (manager handles it).
+- [ ] **6.3 `Demo_RooftopBar_01`:** same with `thisVenue = RooftopBar`.
+- [ ] **6.4 Avatar prefab(s) in `Resources`:** add `PlayerVenueSync` + `VenueVisibilityFilter`; verify they still carry `RealtimeView` / `RealtimeTransform` / `PlayerController` / `PlayerAnimSync`.
+- [ ] **6.5 Persistent UI:** ensure one `TravelChoiceUI` (+ the existing `InteractButtonUI`) is reachable from every venue — put it on MainMultiplayerScene UI, not per-venue.
+
+## Phase 7 — Verify (via Unity MCP, with owner's go-ahead)
+- [ ] **7.1** Compile clean: `read_console` after each script create/edit; wait for domain reload (`editor/state → compilation.is_compiling == false`).
+- [ ] **7.2** Single client: CentralPlaza → dock choice → DanceClub cube (disarmed) → step off/on → switch to Rooftop → step off/on → return → **spawns at Docks, not CentralPlaza**.
+- [ ] **7.3** Two clients: venue visibility filter (see each other only when co-located), no ghost avatars, no pad overlap, only-picker-travels holds.
+- [ ] **7.4** Edge cases: spam-interact during fade; cancel-then-stay-on-pad stays closed until exit; leaving room mid-venue returns to lobby cleanly; per-venue lighting/skybox correct; teleport doesn't fling the CharacterController.
+
+---
+
+## New files (concrete targets)
+`Assets/Script/Travel/`
+- `VenueId.cs`
+- `VenueTravelManager.cs`
+- `PlayerVenueSync.cs`
+- `PlayerVenueModel.cs`
+- `VenueVisibilityFilter.cs`
+- `TravelPad.cs`
+- `TravelChoiceUI.cs`
+- `DockTravelPoint.cs`
+- `ISceneTransition.cs` + `FadeToBlackTransition.cs` (the swappable fade; a `LoadingScreenTransition` drops in here later)
+
+Edits to: `PlayerSpawnPoint.cs`, `PlayerManager.cs`, `LobyUISceneController.cs`, and the avatar prefab(s) in `Resources`.
+
+---
+
+## Residual design notes
+- **Screen fade** during transitions prevents a one-frame flash of the wrong scene/position. **Build it behind the `ISceneTransition` seam (Phase 3.3), not inline** — a dedicated loading scene is planned for a later milestone, and it must be able to replace the fade with zero changes to `VenueTravelManager.TravelTo`. The fade implementation must be able to hold black across the entire load/unload and reveal only on a "ready" signal, so the loading screen can reuse the same `Cover()`/`Reveal()` contract. Put the full-screen `CanvasGroup` on the persistent MainMultiplayerScene UI, above all gameplay/venue UI.
+- **Spawn spread:** keep the golden-angle spread on the venue cube so multiple co-located players don't stack on the pad.
+- **NavMesh/NPCs:** if a venue has NPCs, setting the venue scene active (step 3.2.5) is required for its NavMesh to be the active one.
