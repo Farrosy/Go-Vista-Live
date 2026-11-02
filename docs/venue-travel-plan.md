@@ -1,8 +1,8 @@
 # Venue-Travel / Scene-Bridge System — Implementation Plan
 
-> **Status:** In progress. Written 2026-11-02. **Phases 0–2 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phase 3+ not started.
+> **Status:** In progress. Written 2026-11-02. **Phases 0–3 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phase 4+ not started. Phase 3 is wired but not yet runtime-tested (no `TravelTo` caller until Phase 4/5).
 > **Audience:** Implementing agents/devs. Follow phases top-to-bottom; each `[ ]` is a discrete, checkable task.
-> **Mode note:** This document is a plan. Phases 0–2 have been implemented with owner go-ahead; do not start Phase 3+ until an owner says so.
+> **Mode note:** This document is a plan. Phases 0–3 have been implemented with owner go-ahead; do not start Phase 4+ until an owner says so.
 
 ---
 
@@ -89,9 +89,9 @@ These were confirmed by the project owner. Build to them.
 - [x] **2.2 Local venue state** — static `VenueTravelManager.LocalVenue` getter + `event Action VenueChanged`. The local player's `PlayerVenueSync` writes the model when a travel completes. → Done; `VenueTravelManager` created with the Phase-2 static slice only (`LocalVenue` + `VenueChanged` + `SetLocalVenue` + `ResetStatics`). Singleton/`TravelTo` deferred to Phase 3 (same class). Local `PlayerVenueSync` mirrors its venue into `SetLocalVenue`.
 - [x] **2.3 `VenueVisibilityFilter`** on each avatar: enable renderers + colliders only when `thisAvatar.venue == LocalVenue`. Re-evaluate on (a) its own model `venue` change and (b) `VenueChanged`. The **local** avatar is always visible to itself. → Done; attached to both avatar prefabs. Toggles child `Renderer`s + `Collider`s; local avatar never hidden. (Not yet two-client runtime-tested — Phase 7.3.)
 
-## Phase 3 — Travel manager (the teleporter)
-- [ ] **3.1 `VenueTravelManager`** — `Assets/Script/Travel/VenueTravelManager.cs`, singleton on a persistent object in `MainMultiplayerScene` (next to `PlayerManager`). Holds `CurrentVenue`.
-- [ ] **3.2 `TravelTo(VenueId target, SpawnSlot slot)` coroutine:**
+## Phase 3 — Travel manager (the teleporter) ✅ DONE 2026-11-03 (wired, not yet runtime-tested)
+- [x] **3.1 `VenueTravelManager`** — `Assets/Script/Travel/VenueTravelManager.cs`, singleton on a persistent object in `MainMultiplayerScene` (next to `PlayerManager`). Holds `CurrentVenue`. → Done; empty `VenueTravelManager` GameObject added to `MainMultiplayerScene` (verified on disk), deps resolved at runtime (no inspector wiring).
+- [x] **3.2 `TravelTo(VenueId target, SpawnSlot slot)` coroutine:** → Done; all 9 steps implemented, re-entry guarded, load-failure reveals/unlocks (no soft-lock).
   1. Guard against re-entry while a travel is in progress.
   2. `PlayerInputHub.SetPauseLocked(true)`, hide mobile controls, **run the transition's "cover" step** (fade to black today — see 3.4). Await it before loading.
   3. Load target scene additive if not already loaded; `yield`.
@@ -101,12 +101,12 @@ These were confirmed by the project owner. Build to them.
   7. Resolve spawn via `PlayerSpawnPoint.Find(target, slot)`; **safely teleport the existing avatar**: disable CharacterController/physics, set position+rotation (golden-angle spread for multiplayer), zero velocity, re-enable.
   8. Set local player's `venue` via `PlayerVenueSync` → fires `VenueChanged`.
   9. Keep the `CameraOrbit` target on the same avatar; **run the transition's "reveal" step** (fade in); unlock input; restore mobile controls.
-- [ ] **3.3 Transition abstraction (fade-to-black now, loading screen later) — REQUIRED.** A loading scene is planned for a later milestone, so the fade must NOT be hard-coded inline in `VenueTravelManager`. Build it behind a small seam so the loading screen can drop in with no change to `TravelTo`:
+- [x] **3.3 Transition abstraction (fade-to-black now, loading screen later) — REQUIRED.** → Done; `ISceneTransition` seam (`Cover`/`Reveal`) + `FadeToBlackTransition` (runtime-built full-screen overlay). `TravelTo` only calls `Cover()`/`Reveal()`; swap point is `_transitionComponent` / the `Transition` accessor. A loading scene is planned for a later milestone, so the fade must NOT be hard-coded inline in `VenueTravelManager`. Build it behind a small seam so the loading screen can drop in with no change to `TravelTo`:
   - Define an interface, e.g. `ISceneTransition { IEnumerator Cover(); IEnumerator Reveal(); }` (or an async equivalent). `TravelTo` only ever calls `Cover()` before unload/load and `Reveal()` after the avatar is placed — it never touches a `CanvasGroup` or fade timing directly.
   - Ship a `FadeToBlackTransition : ISceneTransition` implementation now (full-screen `CanvasGroup` on the persistent MainMultiplayerScene UI, sits above all gameplay/venue UI, starts transparent & non-blocking).
   - Resolve the active transition via a single accessor (serialized field or a `VenueTravelManager.Transition` property defaulting to the fade) so the future `LoadingScreenTransition` can replace it in one place.
   - Keep `Cover`/`Reveal` able to **hold black across the full load/unload** (not a fixed-duration tween that ends early), and let `Reveal` optionally wait on a "ready" signal — the loading screen will need that hook to stay up until the target scene is ready.
-- [ ] **3.4 Integrate with `LobyUISceneController`** — set `CurrentVenue = World` after the existing first-spawn load, register the already-loaded WorldScene with the manager, and route all subsequent hops through `VenueTravelManager`. Keep churn minimal; pause-menu "Leave Room" → lobby stays unchanged.
+- [x] **3.4 Integrate with `LobyUISceneController`** — set `CurrentVenue = World` after the existing first-spawn load, register the already-loaded WorldScene with the manager, and route all subsequent hops through `VenueTravelManager`. Keep churn minimal; pause-menu "Leave Room" → lobby stays unchanged. → Done; one call `VenueTravelManager.Instance?.AdoptInitialVenue(VenueId.World)` after `BeginGame()`. Subsequent hops routed via `TravelTo` (wired from Phase 4/5 callers). "Leave Room" untouched.
 
 ## Phase 4 — Dock → destination choice (at the docks)
 - [ ] **4.1 `TravelChoiceUI`** — reusable choice panel (title + 2–3 buttons), styled like the lobby/dialogue panels. API: `Open(string title, (string label, Action onPick)[] options)` / `Close()`. (The existing `InteractButtonUI` is single-verb only, so a dedicated multi-choice panel is needed.) Likely lives on the persistent MainMultiplayerScene UI.

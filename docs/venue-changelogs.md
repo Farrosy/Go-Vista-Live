@@ -6,6 +6,78 @@
 
 ---
 
+## 2026-11-03 — Phase 3 implemented (travel manager / the teleporter)
+
+**Branch:** `feat/spawnpoint-to-new-island` · **Scope:** Phase 3 only. Result: compiles clean, scene wiring
+verified on disk. **Not yet runtime-tested** — `TravelTo` has no caller until Phase 4/5 (dock + pad).
+
+### New scripts (`Assets/Script/Travel/`)
+- **`ISceneTransition.cs`** — seam with `IEnumerator Cover()` / `IEnumerator Reveal()`. `TravelTo` only calls
+  `Cover()` before load/unload and `Reveal()` after the avatar is placed; it never touches a CanvasGroup or
+  fade timing. This lets a future `LoadingScreenTransition` drop in with zero changes to `TravelTo`. Contract:
+  `Cover()` holds the screen covered until `Reveal()`; `Reveal()` is called only once the target is ready, so a
+  loading screen can treat that call as its "ready" signal.
+- **`FadeToBlackTransition.cs`** — default `ISceneTransition`. Builds its **own** full-screen black overlay
+  Canvas at runtime (ScreenSpaceOverlay, `sortingOrder 30000` above all UI, starts transparent &
+  non-blocking) — so **no scene UI authoring is required**. `Cover()` fades alpha→1 and blocks raycasts;
+  `Reveal()` fades →0 and unblocks. Black is held between the two calls by construction.
+
+### Rewritten script
+- **`VenueTravelManager.cs`** — keeps the Phase 2 static venue state; now also the Phase 3 teleporter:
+  - Singleton (`Instance`), `VenueId CurrentVenue` (loaded venue scene), `bool IsTraveling`.
+  - `ISceneTransition Transition` accessor: serialized `_transitionComponent` override, else an attached
+    `FadeToBlackTransition`, else (runtime only) lazily adds one. Single swap point for the future loading screen.
+  - `AdoptInitialVenue(VenueId)` — called by `LobyUISceneController` after first spawn to register World.
+  - `TravelTo(VenueId, SpawnSlot)` → guarded coroutine implementing all 9 plan steps: input lock + hide mobile
+    controls + `Cover()`; load target additive; disable target cameras/AudioListeners (same pattern as
+    `DisableWorldCameras`); `SetActiveScene(target)`; unload the previous venue scene (skipped if
+    `previous == target`; MainMultiplayerScene never unloaded); safe avatar teleport (disable
+    CharacterController → `SetPositionAndRotation` at `PlayerSpawnPoint.Find(target, slot)` with golden-angle
+    spread → `Physics.SyncTransforms()` → re-enable CC); `PlayerVenueSync.SetVenue(target)` (fires
+    `VenueChanged`, re-evaluates visibility while black); re-assert `CameraOrbit` target; `Reveal()` + unlock +
+    restore controls. Re-entry guarded; a load failure reveals + unlocks so it can't soft-lock on black.
+  - Dependencies resolved at runtime (`PlayerController.Local`, `FindAnyObjectByType<Realtime>/<CameraOrbit>`),
+    so the scene GameObject needs no inspector wiring.
+
+### Scene / integration edits
+- **`MainMultiplayerScene.unity`** — added an empty `VenueTravelManager` GameObject (root, next to
+  `PlayerManager`) with the `VenueTravelManager` component. Verified on disk: GameObject `m_Name:
+  VenueTravelManager` → MonoBehaviour guid `3e866188eefa6114da8dc4ce2132cf4b`. The fade is created at runtime,
+  so nothing else was added to the scene.
+- **`LobyUISceneController.cs`** — one hook in `LoadWorldAndBeginGame` right after `playerManager.BeginGame()`:
+  `VenueTravelManager.Instance?.AdoptInitialVenue(VenueId.World)`. "Leave Room" → lobby path left unchanged.
+
+### Bug caught & fixed during wiring
+The first `Transition` getter did `AddComponent<FadeToBlackTransition>()` unconditionally — a **mutating side
+effect in a property getter**. Inspecting the component via MCP (which reads properties) triggered it and added
+a stray `FadeToBlackTransition` to the scene in **edit mode**. Fixed: the getter now only creates the fade when
+`Application.isPlaying`; in edit mode it returns the serialized/attached one or null, never mutates. Removed the
+stray component and re-verified the scene has only the manager.
+
+### Verification
+- Compile clean (0 errors) after each step.
+- Scene saved; on-disk `MainMultiplayerScene.unity` confirmed to reference the manager script and nothing else.
+- Live editor: `VenueTravelManager` reports `CurrentVenue = World (0)`, `IsTraveling = false`, `Transition =
+  null` in edit mode (no edit-mode pollution).
+
+### Decisions / notes
+- **Runtime-created fade overlay** (not scene-authored) — avoids fragile scene-UI edits and guarantees it sits
+  above everything; self-contained and swappable.
+- **Avatar velocity:** relying on CharacterController disable→move→enable (+ `Physics.SyncTransforms`) to avoid
+  a fling; did not add a `PlayerController.ResetMotion()` since `cc.isGrounded` self-corrects `verticalVel`
+  next frame. Revisit in Phase 7.4 if teleport-fling shows up.
+- **Initial WorldScene stays non-active** (unchanged from today's first-spawn flow); a round-trip via
+  `TravelTo(World, Docks)` will `SetActiveScene(WorldScene)`. Minor inconsistency, kept to minimize churn.
+- `TravelTo` is the entry point Phase 4 (`DockTravelPoint`) and Phase 5 (`TravelPad`) will call:
+  `VenueTravelManager.Instance.TravelTo(venue, slot)`.
+
+### Files touched
+- **New:** `Assets/Script/Travel/ISceneTransition.cs`, `FadeToBlackTransition.cs` (+ `.meta`)
+- **Modified:** `Assets/Script/Travel/VenueTravelManager.cs`, `Assets/Scenes/LobyUISceneController.cs`,
+  `Assets/Scenes/MainMultiplayerScene.unity`
+
+---
+
 ## 2026-11-03 — Phase 2 implemented (venue tag sync, one-room visibility)
 
 **Branch:** `feat/spawnpoint-to-new-island` · **Scope:** Phase 2 only. Result: compiles clean, prefab wiring
