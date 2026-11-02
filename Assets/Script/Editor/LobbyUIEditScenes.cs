@@ -43,6 +43,26 @@ public static class LobbyUIEditScenes {
     [MenuItem("Go Vista/Lobby UI/Reset RoomWaitingCanvas ke default")]
     private static void ResetWaiting() => ConfirmReset(WaitingPrefabPath, waitingCanvas: true);
 
+    [MenuItem("Go Vista/Lobby UI/Pasang desain baru menu utama")]
+    private static void RebuildMainMenu() {
+        if (!EditorUtility.DisplayDialog("Pasang desain baru menu utama",
+                "Objek \"Main Menu\" di LobbyCanvas.prefab akan diganti dengan desain baru (tombol MAIN, " +
+                "KARAKTER, PENGATURAN, KELUAR GAME). Editan manual di dalam Main Menu hilang; bagian lain " +
+                "prefab (panel lobby, overlay) tidak berubah.", "Pasang", "Batal"))
+            return;
+        LobyUISceneController.RebuildMainMenuInPrefab();
+    }
+
+    [MenuItem("Go Vista/Lobby UI/Perbarui panel Pengaturan")]
+    private static void RebuildSettingsOverlay() {
+        if (!EditorUtility.DisplayDialog("Perbarui panel Pengaturan",
+                "Objek \"Settings Overlay\" di LobbyCanvas.prefab akan diganti dengan versi terbaru (termasuk " +
+                "tombol ATUR KONTROL). Editan manual di dalam Settings Overlay hilang; bagian lain prefab tidak berubah.",
+                "Perbarui", "Batal"))
+            return;
+        LobyUISceneController.RebuildSettingsOverlayInPrefab();
+    }
+
     private static void OpenScene(string path) {
         if (File.Exists(path) && EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
