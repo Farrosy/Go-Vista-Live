@@ -70,12 +70,24 @@ public class PlayerController : MonoBehaviour
         if (!animator) animator = GetComponentInChildren<Animator>();
         if (animator) animator.applyRootMotion = false;   // gerak dikendalikan script, bukan animasi
         lastGroundedTime = Time.time;
+
+        // Mode offline (mis. prefab Player dipakai di DevScene tanpa Realtime): matikan komponen
+        // Normcore supaya tidak error "none exist in the scene", dan avatar dianggap pemain lokal.
+        if (IsOffline)
+        {
+            var rt = GetComponent<RealtimeTransform>();
+            if (rt) rt.enabled = false;
+            var view = GetComponent<RealtimeView>();
+            if (view) view.enabled = false;
+        }
     }
+
+    private bool IsOffline => FindAnyObjectByType<Realtime>() == null;
 
     void Start()
     {
         var view = GetComponent<RealtimeView>();
-        IsLocal = view == null || view.isOwnedLocallyInHierarchy;
+        IsLocal = view == null || !view.enabled || IsOffline || view.isOwnedLocallyInHierarchy;
 
         if (!IsLocal)
         {
@@ -86,7 +98,7 @@ public class PlayerController : MonoBehaviour
         }
 
         var realtimeTransform = GetComponent<RealtimeTransform>();
-        if (realtimeTransform) realtimeTransform.RequestOwnership();
+        if (realtimeTransform && realtimeTransform.enabled) realtimeTransform.RequestOwnership();
 
         Local = this;
     }
