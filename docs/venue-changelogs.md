@@ -1,0 +1,124 @@
+# Venue-Travel / Scene-Bridge — Changelog & Findings
+
+> Companion to [`venue-travel-plan.md`](./venue-travel-plan.md). This file records what was actually
+> done per phase, the data gathered during inspection, decisions made, and anything that deviated
+> from the plan. Newest entries on top.
+
+---
+
+## 2026-11-03 — Phase 0 + Phase 1 implemented
+
+**Branch:** `feat/spawnpoint-to-new-island`
+**Unity:** 6000.6.6f1 · **Editor instance:** `Go-Vista-Live@12411e9c3aee10d2`
+**Scope:** Phase 0 (pre-flight) and Phase 1 (core data & spawn refactor) only. No scenes were modified or
+saved (scene wiring is Phase 6). Result: compiles clean.
+
+### Phase 0 — Pre-flight
+
+#### 0.1 Build Settings
+Added both venue scenes (enabled) via an idempotent append that preserved the existing entries and their
+enabled flags — importantly, `GameScene` stayed **disabled**. Flushed to disk (`AssetDatabase.SaveAssets()`),
+so `ProjectSettings/EditorBuildSettings.asset` is modified.
+
+Final build scene list (6):
+
+| # | Scene | Enabled |
+|---|---|---|
+| 0 | `Assets/Scenes/MainMultiplayerScene.unity` | ✅ |
+| 1 | `Assets/Scenes/WorldScene.unity` | ✅ |
+| 2 | `Assets/Scenes/DevScene/GameScene.unity` | ⬜ (left disabled) |
+| 3 | `Assets/Scenes/Multiplayer/LobbyReturnScene.unity` | ✅ |
+| 4 | `Assets/Download_Assets/PolygonNightclubs/Scenes/Demo_DanceClub_01.unity` | ✅ (new) |
+| 5 | `Assets/Download_Assets/PolygonNightclubs/Scenes/Demo_RooftopBar_01.unity` | ✅ (new) |
+
+#### 0.2 Dock inspection (WorldScene)
+All top-level objects, rotation `(0,0,0)`, scale `(1,1,1)`:
+
+| Object | World position | Components | Notes |
+|---|---|---|---|
+| `marina_001` | (233.906, 15.403, 364.859) | Transform, MeshFilter, MeshRenderer, MeshCollider | The L-shaped pier/dock |
+| `boat_002` | (236.983, 21.953, 385.805) | Transform, MeshFilter, MeshRenderer, MeshCollider | Moored at the north end of the pier |
+| `PlayerSpawnPoint` (existing CentralPlaza) | (247.5, 23.2, 158.74) | Transform, PlayerSpawnPoint | Plaza walkable ground ≈ y 23.2; `spreadRadius` = 10 |
+
+Visual check (temp camera above the dock): the pier is an **L-shape** with the boat moored at the north
+end and open deck to the south — plenty of room for a return-spawn.
+
+**Recommendation for the Phase 6.1 `Docks` return spawn:** place it on the open pier deck a few metres
+south of `boat_002` (≈ x 234, z 378), facing inland (south, toward the island). Set the exact **Y by a
+ground raycast at wiring time** — the mesh pivots (marina 15.4, boat 21.95) are *not* the walkable deck
+height, so don't copy them directly.
+
+#### 0.3 Venue `Cube` inspection
+Each venue scene has a clean, **root-level, axis-aligned default `Cube`** (Unity default cube mesh, URP Lit
+material, 1×1×1 `BoxCollider`, non-trigger). Good anchor to reuse as the `VenueCube` spawn marker in Phase 6.
+
+| Venue scene | `Cube` local/world pos | Rotation | Floor base (pos.y − 0.5) |
+|---|---|---|---|
+| `Demo_DanceClub_01` | (-11.352, -14.611, 14.032) | (0,0,0) | ≈ y -15.11 |
+| `Demo_RooftopBar_01` | (11.153, 0.745, 3.916) | (0,0,0) | ≈ y 0.25 |
+
+**Reuse vs replace:** reuse the existing `Cube` as the anchor (position + collider are fine). Phase 5.2 still
+requires turning it into a proper-looking walkable pad (glow ring / beam / label), but there's no need to add
+a brand-new object — attach `TravelPad` + `PlayerSpawnPoint(slot = VenueCube)` to it.
+
+### Phase 1 — Core data & spawn refactor
+
+#### 1.1 `Assets/Script/Travel/VenueId.cs` (new)
+- `enum VenueId { World = 0, DanceClub = 1, RooftopBar = 2 }` — explicit numeric values with a "don't
+  reorder/renumber" note, because these get serialized on components and synced over Normcore in Phase 2.
+- `static class VenueMap`:
+  - `string SceneName(VenueId)` → `"WorldScene"` / `"Demo_DanceClub_01"` / `"Demo_RooftopBar_01"` (by name,
+    since scenes load additively and must be in Build Settings).
+  - `VenueId? FromScene(string)` → accepts a scene name **or** a full asset path (strips folders + `.unity`);
+    returns `null` for an unknown scene.
+  - Scene-name constants exposed as `WorldSceneName` / `DanceClubSceneName` / `RooftopBarSceneName`.
+
+#### 1.2 `Assets/Script/PlayerScript/PlayerSpawnPoint.cs` (extended — chose **extend**, not a sibling)
+- Added `enum SpawnSlot { CentralPlaza = 0, Docks = 1, VenueCube = 2 }`.
+- Added serialized fields `venue` (default `World`) and `slot` (default `CentralPlaza`), plus `Venue`/`Slot`
+  getters.
+- Replaced the single `static Active` with a `static Dictionary<(VenueId, SpawnSlot), PlayerSpawnPoint>`
+  registry — populated in `OnEnable`, removed in `OnDisable`, warns on duplicate `(venue, slot)` keys.
+- Added `static PlayerSpawnPoint Find(VenueId venue, SpawnSlot slot)` (null if none loaded).
+- Kept `GetPosition(clientID)` golden-angle spread and `Rotation` unchanged.
+
+#### 1.3 `Assets/Script/Multiplayer/PlayerManager.cs` (edited)
+- `SpawnLocalPlayer()` now resolves the first spawn via
+  `PlayerSpawnPoint.Find(VenueId.World, SpawnSlot.CentralPlaza)` instead of `PlayerSpawnPoint.Active`.
+- Kept the existing fallback-warning scatter path (message updated to name World/CentralPlaza).
+
+### Verification
+- **Compile:** clean. Only console output after the final forced recompile + domain reload was a transient
+  MCP WebSocket warning (`WebSocket is not initialised`) from the reload itself — unrelated to this code.
+- **Backward compat confirmed live:** the pre-existing WorldScene spawn point deserialized to
+  `venue = World (0)` / `slot = CentralPlaza (0)` and preserved its `spreadRadius = 10`. So
+  `Find(World, CentralPlaza)` resolves it at runtime with no re-setup needed.
+- **Blast radius of dropping `Active`:** the only code reference was `PlayerManager` (now updated); all other
+  mentions are comments.
+
+### Decisions made
+- **Phase 1.2 — extend vs sibling:** chose to **extend `PlayerSpawnPoint`**. The default enum values
+  (`0/0 = World/CentralPlaza`) give backward compatibility for free, and the plan's sub-bullets describe
+  modifying `PlayerSpawnPoint` directly.
+- **`SpawnSlot` location:** defined in `PlayerSpawnPoint.cs` (tightly coupled to the spawn component), while
+  `VenueId` lives in `Travel/VenueId.cs`. No asmdefs in the project — everything is `Assembly-CSharp`, global
+  namespace — so cross-folder references need no wiring.
+
+### Gotchas worth remembering
+- **`find_gameobjects` searches only the ACTIVE scene**, not all loaded scenes. An additively-loaded venue's
+  objects won't appear until you `set_active_scene` to it. This briefly made the venue `Cube`s look missing.
+- **WorldScene also has an object named `Cube`** at the dock — but it's a *tilted* child of a leftover
+  `Main Camera` (`Main Camera/Cube`, world ≈ (230.6, 22.8, 379.4), rotation ≈ (5.6, 356.7, 8.6)). It is **not**
+  a spawn marker; don't confuse it with the venue cubes.
+- The plan's note that "`Demo_DanceClub_01` is the scene currently open in the editor" was stale — the active
+  scene at implementation time was `WorldScene`.
+
+### Files touched
+- **New:** `Assets/Script/Travel/VenueId.cs` (+ `.meta`), `Assets/Script/Travel.meta`
+- **Modified:** `Assets/Script/PlayerScript/PlayerSpawnPoint.cs`,
+  `Assets/Script/Multiplayer/PlayerManager.cs`, `ProjectSettings/EditorBuildSettings.asset`
+- **Not modified:** any `.unity` scene (scene wiring deferred to Phase 6)
+
+### Loose ends
+- Two inspection screenshots were generated under `Assets/Screenshots/` during 0.2 and could not be auto-removed
+  (filesystem delete was denied by the permission layer). They're untracked — remove manually if unwanted.

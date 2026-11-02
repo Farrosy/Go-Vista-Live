@@ -1,20 +1,64 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-/// Taruh di scene world (mis. WorldScene), cukup satu per scene. Saat pemain menekan MULAI, avatar selalu spawn di sini
-/// (bukan di posisi terakhir). Arah biru (forward) objek ini = arah hadap pemain saat spawn.
+/// Slot pemunculan di dalam sebuah venue. Satu venue bisa punya beberapa slot
+/// (mis. WorldScene punya CentralPlaza untuk spawn awal dan Docks untuk kembali dari venue).
+public enum SpawnSlot
+{
+    CentralPlaza = 0,
+    Docks = 1,
+    VenueCube = 2,
+}
+
+/// Taruh di scene venue (WorldScene, Demo_DanceClub_01, Demo_RooftopBar_01). Setiap titik menandai
+/// satu (Venue, Slot). Saat travel/MULAI, avatar dipindah ke titik yang cocok. Arah biru (forward)
+/// objek ini = arah hadap pemain saat spawn.
+///
+/// Kompatibel mundur: titik lama tanpa data (field baru default ke World/CentralPlaza) tetap jadi
+/// spawn awal WorldScene seperti sebelumnya.
 public class PlayerSpawnPoint : MonoBehaviour
 {
+    [Tooltip("Venue tempat titik ini berada.")]
+    [SerializeField] private VenueId venue = VenueId.World;
+
+    [Tooltip("Slot pemunculan di dalam venue (spawn awal, kembali ke dermaga, cube venue, dst.).")]
+    [SerializeField] private SpawnSlot slot = SpawnSlot.CentralPlaza;
+
     [Tooltip("Pemain disebar melingkar di sekitar titik ini supaya tidak saling tumpuk (meter). 0 = semua di titik yang sama.")]
     [SerializeField] private float spreadRadius = 2f;
 
-    /// Spawn point yang aktif saat ini (scene world di-load additive, jadi dicari lewat static).
-    public static PlayerSpawnPoint Active { get; private set; }
+    public VenueId Venue => venue;
+    public SpawnSlot Slot => slot;
 
-    void OnEnable() => Active = this;
+    /// Registry semua titik spawn yang sedang aktif, dikunci lewat (Venue, Slot).
+    /// Scene di-load additive, jadi titik dicari lewat static ini, bukan referensi langsung.
+    private static readonly Dictionary<(VenueId, SpawnSlot), PlayerSpawnPoint> Registry =
+        new Dictionary<(VenueId, SpawnSlot), PlayerSpawnPoint>();
+
+    void OnEnable()
+    {
+        var key = (venue, slot);
+        if (Registry.TryGetValue(key, out var existing) && existing != null && existing != this)
+        {
+            Debug.LogWarning(
+                $"[PlayerSpawnPoint] Titik spawn ganda untuk {venue}/{slot} di '{name}'. Menimpa '{existing.name}'.",
+                this);
+        }
+        Registry[key] = this;
+    }
 
     void OnDisable()
     {
-        if (Active == this) Active = null;
+        var key = (venue, slot);
+        if (Registry.TryGetValue(key, out var current) && current == this)
+            Registry.Remove(key);
+    }
+
+    /// Cari titik spawn aktif untuk (venue, slot) tertentu. Null kalau tidak ada yang ter-load.
+    public static PlayerSpawnPoint Find(VenueId venue, SpawnSlot slot)
+    {
+        Registry.TryGetValue((venue, slot), out var spawnPoint);
+        return spawnPoint;
     }
 
     /// Posisi spawn untuk client tertentu, disebar pakai golden angle supaya tiap client dapat tempat sendiri.

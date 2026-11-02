@@ -94,14 +94,14 @@ public class PlayerManager : MonoBehaviour {
         int clientID = Mathf.Max(0, realtime.clientID);
         Vector3 spawnPosition;
         Quaternion spawnRotation;
-        // Selalu spawn di PlayerSpawnPoint scene world (posisi terakhir tidak disimpan).
-        PlayerSpawnPoint spawnPoint = PlayerSpawnPoint.Active;
+        // Spawn awal selalu di titik World/CentralPlaza scene world (posisi terakhir tidak disimpan).
+        PlayerSpawnPoint spawnPoint = PlayerSpawnPoint.Find(VenueId.World, SpawnSlot.CentralPlaza);
         if (spawnPoint != null) {
             spawnPosition = spawnPoint.GetPosition(clientID);
             spawnRotation = spawnPoint.Rotation;
         } else {
             // Tanpa spawn point, sebar melingkar di sekitar (0, 0, 0) supaya avatar tidak tumpuk.
-            Debug.LogWarning("[Spawn] PlayerSpawnPoint tidak ada di scene world, spawn di sekitar (0, 0, 0).");
+            Debug.LogWarning("[Spawn] PlayerSpawnPoint World/CentralPlaza tidak ada di scene world, spawn di sekitar (0, 0, 0).");
             float angle = clientID * 2.39996323f;
             float radius = 3.0f + Mathf.Sqrt(clientID) * 0.5f;
             spawnPosition = new Vector3(Mathf.Cos(angle) * radius, 0.0f, Mathf.Sin(angle) * radius);

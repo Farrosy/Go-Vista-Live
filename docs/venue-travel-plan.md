@@ -1,8 +1,8 @@
 # Venue-Travel / Scene-Bridge System — Implementation Plan
 
-> **Status:** Planned, not started. Written 2026-11-02.
+> **Status:** In progress. Written 2026-11-02. **Phase 0 + Phase 1 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phase 2+ not started.
 > **Audience:** Implementing agents/devs. Follow phases top-to-bottom; each `[ ]` is a discrete, checkable task.
-> **Mode note:** This document is a plan only. Do not modify game code or scenes until an owner says to start implementation.
+> **Mode note:** This document is a plan. Phase 0 and Phase 1 have been implemented with owner go-ahead; do not start Phase 2+ until an owner says so.
 
 ---
 
@@ -70,19 +70,19 @@ These were confirmed by the project owner. Build to them.
 
 ---
 
-## Phase 0 — Pre-flight (no code)
-- [ ] **0.1 Add venue scenes to Build Settings:** `Demo_DanceClub_01`, `Demo_RooftopBar_01` (both must be loadable by name; WorldScene already is).
-- [ ] **0.2 Inspect `marina_001` / `boat_002`** in WorldScene: record transforms; pick the interact position and a nearby open spot for the `Docks` return spawn.
-- [ ] **0.3 Inspect the `Cube` object** in each venue scene: confirm it's a placeholder spawn marker, decide reuse-vs-replace, record its transform.
+## Phase 0 — Pre-flight (no code) ✅ DONE 2026-11-03
+- [x] **0.1 Add venue scenes to Build Settings:** `Demo_DanceClub_01`, `Demo_RooftopBar_01` (both must be loadable by name; WorldScene already is). → Added as enabled (GameScene left disabled); saved to disk.
+- [x] **0.2 Inspect `marina_001` / `boat_002`** in WorldScene: record transforms; pick the interact position and a nearby open spot for the `Docks` return spawn. → `marina_001` (233.91,15.40,364.86), `boat_002` (236.98,21.95,385.81); L-shaped pier; proposed Docks spawn ≈ (234,?,378) facing inland, Y via ground raycast. See changelog.
+- [x] **0.3 Inspect the `Cube` object** in each venue scene: confirm it's a placeholder spawn marker, decide reuse-vs-replace, record its transform. → Clean root-level 1×1×1 default cubes w/ BoxCollider: DanceClub (-11.35,-14.61,14.03), RooftopBar (11.15,0.745,3.92). Decision: **reuse** as the spawn anchor.
 
-## Phase 1 — Core data & spawn refactor
-- [ ] **1.1 `VenueId` + scene map** — `Assets/Script/Travel/VenueId.cs`: `enum VenueId { World, DanceClub, RooftopBar }` with static `SceneName(VenueId)` and `FromScene(string)`.
-- [ ] **1.2 Multi-spawn support** — extend `PlayerSpawnPoint` (keep backward compat) or add a sibling:
-  - Add a slot id: `enum SpawnSlot { CentralPlaza, Docks, VenueCube }`.
-  - Replace the single `Active` static with a **registry** keyed by `(VenueId, SpawnSlot)`, populated in `OnEnable`, cleared in `OnDisable`.
-  - Add `static PlayerSpawnPoint Find(VenueId venue, SpawnSlot slot)`.
-  - Keep `GetPosition(clientID)` golden-angle spread + `Rotation`.
-- [ ] **1.3 Preserve initial spawn** — `PlayerManager.BeginGame()` resolves `World`/`CentralPlaza` via the new registry; keep the existing fallback-warning path.
+## Phase 1 — Core data & spawn refactor ✅ DONE 2026-11-03
+- [x] **1.1 `VenueId` + scene map** — `Assets/Script/Travel/VenueId.cs`: `enum VenueId { World, DanceClub, RooftopBar }` with static `SceneName(VenueId)` and `FromScene(string)`. → Done; statics live on `static class VenueMap`; `FromScene` returns `VenueId?` and accepts name-or-path.
+- [x] **1.2 Multi-spawn support** — extend `PlayerSpawnPoint` (keep backward compat) or add a sibling: → Chose **extend**.
+  - [x] Add a slot id: `enum SpawnSlot { CentralPlaza, Docks, VenueCube }`.
+  - [x] Replace the single `Active` static with a **registry** keyed by `(VenueId, SpawnSlot)`, populated in `OnEnable`, cleared in `OnDisable`.
+  - [x] Add `static PlayerSpawnPoint Find(VenueId venue, SpawnSlot slot)`.
+  - [x] Keep `GetPosition(clientID)` golden-angle spread + `Rotation`.
+- [x] **1.3 Preserve initial spawn** — `PlayerManager.BeginGame()` resolves `World`/`CentralPlaza` via the new registry; keep the existing fallback-warning path. → Done; backward compat verified live (existing spawn deserialized to World/CentralPlaza, spreadRadius preserved).
 
 ## Phase 2 — Venue tag sync (Normcore, one-room visibility)
 - [ ] **2.1 `PlayerVenueModel` + `PlayerVenueSync : RealtimeComponent<PlayerVenueModel>`** in `Assets/Script/Travel/`, copying the `PlayerAnimSync` / `PlayerAnimSyncModel` pattern. Synced property: `int venue` (a `VenueId`). Add to the avatar prefab(s) in `Resources` alongside `PlayerController` / `PlayerAnimSync`.
