@@ -26,6 +26,7 @@ public static class ControlEditorRedesign {
     private const float ToolbarHeight = 214f;
     private static readonly Color DimColor = new Color32(4, 6, 16, 120);
     private const float GridAlpha = 0.06f;
+    private const string BackdropName = "Control Edit Backdrop";
 
     [MenuItem("Go Vista/Desain Baru/Atur Kontrol")]
     private static void Apply() {
@@ -56,16 +57,20 @@ public static class ControlEditorRedesign {
         var editorRect = (RectTransform)editor.transform;
         ClearChildren(editorRect);
 
-        // Latar: gelap tipis + grid. Image di objek ini tetap Raycast Target ON (menangkap sentuhan).
-        Image dim = editorRect.GetComponent<Image>();
-        if (dim == null)
-            dim = editorRect.gameObject.AddComponent<Image>();
-        dim.sprite = null;
-        dim.color = DimColor;
-        dim.raycastTarget = true;
-        // Garis di ui-grid.png buram penuh (alpha 255), jadi tipisnya diatur lewat alpha warna ini.
-        Image grid = Shape(Stretch(NewRect("Edit Grid", editorRect)).gameObject, new Color(1f, 1f, 1f, GridAlpha), "ui-grid");
-        grid.raycastTarget = false;
+        // Objek editor (child terakhir canvas) tetap menangkap semua sentuhan, tapi transparan: latar gelap + grid
+        // ada di objek terpisah DI BELAKANG tombol (EditModeBackdrop), supaya tombol tetap terang saat diatur.
+        Image catcher = editorRect.GetComponent<Image>();
+        if (catcher == null)
+            catcher = editorRect.gameObject.AddComponent<Image>();
+        catcher.sprite = null;
+        catcher.color = Color.clear;
+        catcher.raycastTarget = true;
+
+        GameObject backdrop = BuildBackdrop((RectTransform)editorRect.parent);
+        EditModeBackdrop backdropScript = editor.GetComponent<EditModeBackdrop>();
+        if (backdropScript == null)
+            backdropScript = editor.gameObject.AddComponent<EditModeBackdrop>();
+        backdropScript.Init(backdrop);
 
         RectTransform rings = Stretch(NewRect("Edit Rings", editorRect));
         RectTransform frame = BuildSelectionFrame(editorRect, out Text frameTag);
@@ -90,6 +95,24 @@ public static class ControlEditorRedesign {
         so.FindProperty("saveButton").objectReferenceValue = save;
         so.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(editor);
+    }
+
+    /// <summary>Latar mode edit (gelap tipis + grid) sebagai child PERTAMA canvas, di belakang semua tombol.</summary>
+    private static GameObject BuildBackdrop(RectTransform canvas) {
+        Transform old = canvas.Find(BackdropName);
+        if (old != null)
+            Object.DestroyImmediate(old.gameObject);
+
+        RectTransform backdrop = Stretch(NewRect(BackdropName, canvas));
+        backdrop.SetAsFirstSibling();
+        Image dim = backdrop.gameObject.AddComponent<Image>();
+        dim.color = DimColor;
+        dim.raycastTarget = false;
+        // Garis di ui-grid.png buram penuh (alpha 255), jadi tipisnya diatur lewat alpha warna ini.
+        Image grid = Shape(Stretch(NewRect("Edit Grid", backdrop)).gameObject, new Color(1f, 1f, 1f, GridAlpha), "ui-grid");
+        grid.raycastTarget = false;
+        backdrop.gameObject.SetActive(false); // dimunculkan EditModeBackdrop saat editor dibuka
+        return backdrop.gameObject;
     }
 
     /// <summary>Bingkai pilihan. Ukuran & posisinya diatur ControlLayoutEditor saat runtime.</summary>

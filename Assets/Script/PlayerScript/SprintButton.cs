@@ -3,7 +3,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// Pasang di SprintButton. Tidak perlu OnClick, cukup script ini.
-/// Saat sprint aktif, warna lingkaran tombol berubah ke Pressed Color (gelap) supaya pemain tahu sedang sprint.
+/// Saat sprint aktif, tombol memakai Active Sprite (kalau diisi) dan/atau warna Pressed Color,
+/// supaya pemain tahu sedang sprint.
 /// Scale tombol tidak diubah, jadi ukuran tetap sesuai yang diatur di Inspector.
 [RequireComponent(typeof(Image))]
 public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
@@ -15,6 +16,9 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     [Header("Feedback visual (Color Tint, sama seperti Button biasa)")]
     [Tooltip("Kosong = otomatis pakai Image di object ini (lingkaran tombol).")]
     [SerializeField] private Image backgroundImage;
+
+    [Tooltip("Opsional. Sprite saat sprint AKTIF (misalnya btn-run-pressed). Kosong = hanya warna yang berubah.")]
+    [SerializeField] private Sprite activeSprite;
 
     [Tooltip("Normal = sprint mati. Pressed = sprint AKTIF. Highlighted = kursor di atas tombol (hanya terasa di PC). " +
              "Selected dan Disabled tidak dipakai.")]
@@ -29,13 +33,14 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
         fadeDuration     = 0.1f
     };
 
+    private Sprite normalSprite;
     private bool active;
     private bool movedWhileActive;
     private bool pointerInside;
 
     void Awake()
     {
-        if (!backgroundImage) backgroundImage = GetComponent<Image>();
+        CacheBackground();
         ApplyVisualState(true);
     }
 
@@ -90,9 +95,20 @@ public class SprintButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
 
     public void ResetSprint() => SetSprint(false);
 
+    private void CacheBackground()
+    {
+        if (!backgroundImage) backgroundImage = GetComponent<Image>();
+        if (!normalSprite && backgroundImage && backgroundImage.sprite != activeSprite)
+            normalSprite = backgroundImage.sprite;
+    }
+
     private void ApplyVisualState(bool instant)
     {
+        // MobileControls.Awake bisa memanggil ResetSprint sebelum Awake tombol ini, jadi cache di sini juga.
+        CacheBackground();
         if (!backgroundImage) return;
+
+        if (activeSprite && normalSprite) backgroundImage.sprite = active ? activeSprite : normalSprite;
 
         Color target = active ? colors.pressedColor
                      : pointerInside ? colors.highlightedColor

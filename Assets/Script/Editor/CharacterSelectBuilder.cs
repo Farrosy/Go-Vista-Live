@@ -12,7 +12,8 @@ using UnityEngine.UI;
 ///  2. Assets/Resources/CharacterDatabase.asset : daftar karakter (Laki-laki, Perempuan).
 ///  3. Assets/Prefab/CharacterSelectCanvas.prefab : UI menu KARAKTER + panggung preview 3D.
 ///     Prefab lama yang belum punya kolom NAMA PEMAIN ditambahkan kolomnya (sisanya tidak diubah).
-///  4. Instance CharacterSelectCanvas di MainMultiplayerScene.
+///  4. Instance CharacterSelectCanvas di semua scene lobby (LobbyScenePaths): MainMultiplayerScene dan
+///     LobbyReturnScene (scene lobby setelah keluar room). Tanpa ini tombol KARAKTER tidak membuka apa-apa.
 ///
 /// Setelah dibuat, semuanya aset biasa: edit bebas di Inspector / Prefab Mode. Builder hanya membuat
 /// yang belum ada. Menu "Go Vista > Setup Pilih Karakter" menjalankan ulang pengecekan yang sama.
@@ -25,7 +26,11 @@ public static class CharacterSelectBuilder {
     private const string FemaleControllerPath = "Assets/Characters/Animation/AnimationController/FemaleAnimationController.controller";
     private const string DatabasePath = "Assets/Resources/CharacterDatabase.asset";
     private const string CanvasPrefabPath = "Assets/Prefab/CharacterSelectCanvas.prefab";
-    private const string MainScenePath = "Assets/Scenes/MainMultiplayerScene.unity";
+    // Semua scene yang punya menu utama (tombol KARAKTER). LobbyReturnScene dimuat setelah keluar room.
+    private static readonly string[] LobbyScenePaths = {
+        "Assets/Scenes/MainMultiplayerScene.unity",
+        "Assets/Scenes/Multiplayer/LobbyReturnScene.unity",
+    };
 
     // Sama dengan setup di DevScene/femaleCharacterControl.unity.
     private static readonly Vector3 FemaleModelPosition = new Vector3(0f, -0.5906249f, 0f);
@@ -80,7 +85,7 @@ public static class CharacterSelectBuilder {
 
     private static bool IsSetupComplete() {
         return File.Exists(FemaleAvatarPath) && File.Exists(DatabasePath) && File.Exists(CanvasPrefabPath) &&
-               PrefabHasNameInput() && SceneHasCanvas();
+               PrefabHasNameInput() && AllScenesHaveCanvas();
     }
 
     private static string Setup() {
@@ -89,7 +94,8 @@ public static class CharacterSelectBuilder {
         EnsureDatabase(female, log);
         GameObject canvasPrefab = EnsureCanvasPrefab(log);
         if (canvasPrefab != null)
-            log.Add("MainMultiplayerScene: " + EnsureCanvasInMainScene(canvasPrefab));
+            foreach (string scenePath in LobbyScenePaths)
+                log.Add(Path.GetFileNameWithoutExtension(scenePath) + ": " + EnsureCanvasInScene(canvasPrefab, scenePath));
         string summary = string.Join("\n", log);
         Debug.Log("[CharacterSelect] Setup selesai.\n" + summary);
         return summary;
@@ -428,26 +434,34 @@ public static class CharacterSelectBuilder {
         return stageGo;
     }
 
-    // ------------------------------------------------------------ 4. Instance di MainMultiplayerScene
+    // ------------------------------------------------------------ 4. Instance di scene lobby
 
-    private static bool SceneHasCanvas() {
-        string guid = AssetDatabase.AssetPathToGUID(CanvasPrefabPath);
-        if (string.IsNullOrEmpty(guid)) return false;
-        Scene scene = SceneManager.GetSceneByPath(MainScenePath);
-        if (scene.IsValid() && scene.isLoaded) return FindCanvasIn(scene) != null;
-        return File.Exists(MainScenePath) && File.ReadAllText(MainScenePath).Contains(guid);
+    private static bool AllScenesHaveCanvas() {
+        foreach (string scenePath in LobbyScenePaths) {
+            if (File.Exists(scenePath) && !SceneHasCanvas(scenePath))
+                return false;
+        }
+        return true;
     }
 
-    private static string EnsureCanvasInMainScene(GameObject prefab) {
-        if (!File.Exists(MainScenePath)) return "tidak ditemukan, dilewati";
+    private static bool SceneHasCanvas(string scenePath) {
+        string guid = AssetDatabase.AssetPathToGUID(CanvasPrefabPath);
+        if (string.IsNullOrEmpty(guid)) return false;
+        Scene scene = SceneManager.GetSceneByPath(scenePath);
+        if (scene.IsValid() && scene.isLoaded) return FindCanvasIn(scene) != null;
+        return File.Exists(scenePath) && File.ReadAllText(scenePath).Contains(guid);
+    }
 
-        Scene scene = SceneManager.GetSceneByPath(MainScenePath);
+    private static string EnsureCanvasInScene(GameObject prefab, string scenePath) {
+        if (!File.Exists(scenePath)) return "tidak ditemukan, dilewati";
+
+        Scene scene = SceneManager.GetSceneByPath(scenePath);
         bool wasOpen = scene.IsValid() && scene.isLoaded;
         if (!wasOpen) {
             try {
-                scene = EditorSceneManager.OpenScene(MainScenePath, OpenSceneMode.Additive);
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
             } catch (System.Exception e) {
-                Debug.LogWarning($"[CharacterSelect] Tidak bisa membuka {MainScenePath}: {e.Message}. " +
+                Debug.LogWarning($"[CharacterSelect] Tidak bisa membuka {scenePath}: {e.Message}. " +
                                  "Simpan scene yang terbuka, lalu jalankan Go Vista > Setup Pilih Karakter.");
                 return "gagal dibuka (lihat Console)";
             }
@@ -464,7 +478,7 @@ public static class CharacterSelectBuilder {
             EditorSceneManager.MarkSceneDirty(scene);
             return "CharacterSelectCanvas ditambahkan, silakan Ctrl+S";
         }
-        EditorSceneManager.SaveScene(scene, MainScenePath);
+        EditorSceneManager.SaveScene(scene, scenePath);
         EditorSceneManager.CloseScene(scene, true);
         return "CharacterSelectCanvas ditambahkan & disimpan";
     }

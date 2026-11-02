@@ -72,7 +72,7 @@ public class InteractButtonUI : MonoBehaviour
         if (target == null) return;
 
         target.SetPromptVisible(true);
-        if (iconImage && target.action) iconImage.sprite = target.action.icon;
+        if (iconImage && target.action) iconImage.sprite = target.action.HudIcon;
     }
 
     /// Dipakai mode ATUR KONTROL: tampilkan tombol walau tidak ada target, supaya bisa diatur.
