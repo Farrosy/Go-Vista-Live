@@ -41,11 +41,13 @@ public static class ProgressService {
         Loaded = null;
         _saving = false;
         DialogueUI.DialogueFinished -= OnDialogueFinished;
+        DialogueUI.AnswerChosen -= OnAnswerChosen;
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Initialize() {
         DialogueUI.DialogueFinished += OnDialogueFinished;
+        DialogueUI.AnswerChosen += OnAnswerChosen;
         ProgressAutoSave.Create();
     }
 
@@ -127,6 +129,31 @@ public static class ProgressService {
         MarkDialogueCompleted(dialogue.Id);
     }
 
+    /// <summary>Jawaban terakhir untuk pertanyaan ini, atau null kalau belum pernah dijawab.</summary>
+    public static DialogueAnswer GetDialogueAnswer(string questionKey) {
+        return Current.dialogueAnswers.Find(a => a.questionKey == questionKey);
+    }
+
+    /// <summary>Simpan jawaban (selalu menimpa jawaban sebelumnya).</summary>
+    public static void SetDialogueAnswer(string questionKey, string optionId, bool correct) {
+        if (string.IsNullOrEmpty(questionKey))
+            return;
+        DialogueAnswer a = GetDialogueAnswer(questionKey);
+        if (a == null) {
+            a = new DialogueAnswer { questionKey = questionKey };
+            Current.dialogueAnswers.Add(a);
+        } else if (a.optionId == optionId && a.correct == correct) {
+            return;
+        }
+        a.optionId = optionId ?? "";
+        a.correct = correct;
+        MarkDirty(); // ikut tersimpan saat dialog selesai / auto-save
+    }
+
+    private static void OnAnswerChosen(DialogueData dialogue, string questionKey, string optionId, bool correct) {
+        SetDialogueAnswer(questionKey, optionId, correct);
+    }
+
     // ================================================================ Karakter
 
     public static void SetCharacter(string characterId) {
@@ -146,6 +173,7 @@ public static class ProgressService {
     /// <summary>Perbaiki/upgrade data lama supaya cocok dengan versi PlayerProgress sekarang.</summary>
     private static void Migrate(PlayerProgress p) {
         p.completedDialogues ??= new List<string>();
+        p.dialogueAnswers ??= new List<DialogueAnswer>();
         p.characterId ??= "";
         // Posisi terakhir tidak dipakai lagi (spawn selalu di PlayerSpawnPoint). Kosongkan data
         // lama supaya ikut terhapus dari cloud di save berikutnya.

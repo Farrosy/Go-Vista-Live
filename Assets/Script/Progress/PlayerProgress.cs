@@ -19,6 +19,8 @@ public class PlayerProgress {
     // ---------------------------------------------------------------- Dialog
     /// <summary>ID dialog (DialogueData.Id) yang sudah selesai dibaca sampai baris terakhir.</summary>
     public List<string> completedDialogues = new List<string>();
+    /// <summary>Jawaban terakhir pemain untuk tiap pertanyaan dialog (lihat ProgressService.SetDialogueAnswer).</summary>
+    public List<DialogueAnswer> dialogueAnswers = new List<DialogueAnswer>();
 
     // ---------------------------------------------------------------- Karakter
     /// <summary>ID karakter pilihan (CharacterDatabase). Kosong = karakter pertama (default).</summary>
@@ -73,4 +75,12 @@ public class PlayerProgress {
     //   PlayerPrefs saja sering sudah cukup. Simpan di sini hanya kalau pengaturan harus ikut
     //   pindah saat pemain login di HP lain. Terapkan ke AudioMixer dan CameraOrbit setelah
     //   event ProgressService.Loaded.
+}
+
+/// <summary>Jawaban satu pertanyaan dialog. questionKey = "&lt;dialogId&gt;/&lt;questionId&gt;".</summary>
+[Serializable]
+public class DialogueAnswer {
+    public string questionKey = "";
+    public string optionId = "";
+    public bool correct;
 }

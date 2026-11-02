@@ -6,6 +6,41 @@ public class DialogueLine
     [TextArea(2, 5)] public string text;
     [Tooltip("Opsional: ganti ekspresi wajah hanya untuk baris ini")]
     public Sprite portraitOverride;
+
+    [Tooltip("ON = baris ini adalah pertanyaan. Teks di atas = teks pertanyaannya, " +
+             "lalu tombol opsi muncul setelah teks selesai diketik.")]
+    public bool isQuestion;
+    public DialogueQuestion question;
+}
+
+/// Pertanyaan dengan beberapa opsi jawaban (UI sekarang punya 2 tombol).
+[System.Serializable]
+public class DialogueQuestion
+{
+    [Tooltip("ID unik pertanyaan di dalam dialog ini (mis. 'ibukota'). Dipakai untuk simpan jawaban. " +
+             "JANGAN diganti setelah rilis. Kosong = 'q<nomor baris>' (berubah kalau urutan baris digeser).")]
+    public string questionId;
+    public DialogueOption[] options = new DialogueOption[2];
+}
+
+[System.Serializable]
+public class DialogueOption
+{
+    [Tooltip("ID opsi untuk disimpan (mis. 'a'). JANGAN diganti setelah rilis. Kosong = huruf urutan (a, b, ...).")]
+    public string optionId;
+    [Tooltip("Teks di tombol")]
+    public string text;
+    public bool isCorrect;
+    [Tooltip("Balasan NPC kalau opsi ini dipilih. Setelah habis, dialog lanjut ke baris berikutnya.")]
+    public DialogueReplyLine[] reply;
+}
+
+[System.Serializable]
+public class DialogueReplyLine
+{
+    [TextArea(2, 5)] public string text;
+    [Tooltip("Opsional: ganti ekspresi wajah hanya untuk baris ini")]
+    public Sprite portraitOverride;
 }
 
 /// Data satu percakapan. Dibuat sebagai asset: Create > Dialogue > Dialogue Data.
@@ -23,7 +58,7 @@ public class DialogueData : ScriptableObject
 
     public string Id => string.IsNullOrEmpty(dialogueId) ? name : dialogueId;
 
-    [Header("Isi dialog (satu elemen = satu kotak teks)")]
+    [Header("Isi dialog (satu elemen = satu kotak teks, boleh berupa pertanyaan)")]
     public DialogueLine[] lines;
 
     [Header("Typing")]
@@ -45,4 +80,15 @@ public class DialogueData : ScriptableObject
     public float cameraHeight = 0.2f;
     [Tooltip("Geser ke samping supaya terasa over-the-shoulder. 0 = lurus")]
     public float cameraSideOffset = 0.6f;
+
+    /// Kunci simpan jawaban: "<dialogId>/<questionId>".
+    public string QuestionKey(int lineIndex)
+    {
+        var q = lines[lineIndex].question;
+        string qid = q != null && !string.IsNullOrEmpty(q.questionId) ? q.questionId : "q" + lineIndex;
+        return Id + "/" + qid;
+    }
+
+    public static string OptionId(DialogueOption option, int optionIndex) =>
+        option != null && !string.IsNullOrEmpty(option.optionId) ? option.optionId : ((char)('a' + optionIndex)).ToString();
 }
