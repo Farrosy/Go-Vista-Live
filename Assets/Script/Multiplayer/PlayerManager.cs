@@ -109,7 +109,7 @@ public class PlayerManager : MonoBehaviour {
         }
 
         GameObject playerGameObject = Realtime.Instantiate(prefab.name, spawnPosition, spawnRotation, options);
-        playerGameObject.name = "Player " + (clientID + 1);
+        playerGameObject.name = PlayerNameRules.DisplayName(ProgressService.Current.playerName, clientID);
 
         _localPlayer = playerGameObject.GetComponent<PlayerController>();
         if (_localPlayer == null) {

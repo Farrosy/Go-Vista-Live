@@ -53,7 +53,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     // Ukuran UI untuk layar HP (referensi 1920x1080). Teks < 24 atau tombol < 88 terlalu kecil untuk jari.
     // Penanda versi layout default yang dibuat kode (hanya informasi, tidak memicu rebuild lagi).
-    private const string LobbyLayoutVersion = "Layout v9"; // v9: tombol KARAKTER di menu utama
+    private const string LobbyLayoutVersion = "Layout v10"; // v10: desain baru tombol menu utama (ikon, gradasi, tile)
     private const string WaitingCanvasLayoutVersion = "Layout v14"; // v14: kode room + SALIN di panel PEMAIN (pause)
     private const int LabelFontSize = 26;
     private const int BodyFontSize = 30;
@@ -70,7 +70,11 @@ public sealed class LobyUISceneController : MonoBehaviour {
     private GameObject _panel;
     private GameObject _mainMenu;
     private Text _mainMenuGreeting;
+    private Text _mainMenuName;
+    private Text _mainMenuInitial;
     private GameObject _settingsOverlay;
+    private Canvas _lobbyCanvas;
+    private bool _lobbyControlLayoutOpen;
     private GameObject _exitOverlay;
     private Slider _sensitivitySlider;
     private Text _sensitivityValue;
@@ -153,6 +157,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
 #endif
         if (_playerListRoutine != null)
             StopCoroutine(_playerListRoutine);
+        ProgressService.Loaded -= RefreshAccountChip;
+        ProgressService.PlayerNameChanged -= OnPlayerNameChanged;
         if (!Application.isPlaying || realtime == null)
             return;
 
@@ -163,6 +169,11 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void Update() {
+        // Tombol Back HP saat ATUR KONTROL dibuka dari Pengaturan lobby.
+        if (Application.isPlaying && _lobbyControlLayoutOpen && Input.GetKeyDown(KeyCode.Escape)) {
+            FindControlLayoutEditor()?.Cancel();
+            return;
+        }
         if (!Application.isPlaying || !_gameplayStarted || _leaveRoomPending ||
             !Input.GetKeyDown(KeyCode.Escape))
             return;
@@ -218,10 +229,14 @@ public sealed class LobyUISceneController : MonoBehaviour {
         AddClickListener("Main Menu Quit Button", OpenExitConfirm);
         AddClickListener("Settings Close Button", CloseSettings);
         AddClickListener("Settings Done Button", CloseSettings);
+        AddClickListener("Settings Controls Button", OpenLobbyControlLayoutEditor);
         AddClickListener("Exit Cancel Button", CloseExitConfirm);
         AddClickListener("Exit Confirm Button", QuitGame);
         LoginUIController.AccountChanged -= OnAccountChanged;
         LoginUIController.AccountChanged += OnAccountChanged;
+        // Sapaan menu utama memakai nama pemain dari progres: segarkan saat progres ter-load / nama diganti.
+        ProgressService.Loaded += RefreshAccountChip;
+        ProgressService.PlayerNameChanged += OnPlayerNameChanged;
         RefreshAccountChip();
 
         SetStatus("Siap. Buat room atau bergabung.", StatusKind.Success);
@@ -617,36 +632,227 @@ public sealed class LobyUISceneController : MonoBehaviour {
         AddLayoutMarker(canvas, LobbyLayoutVersion);
     }
 
+    // Warna menu utama (desain v10). Tombol pakai gradasi atas->bawah (UIVerticalGradient) + "lip" gelap di bawah.
+    private static readonly Color MenuCardColor = new Color32(13, 18, 34, 245);
+    private static readonly Color PlayTopColor = new Color32(79, 140, 255, 255);
+    private static readonly Color PlayBottomColor = new Color32(123, 77, 255, 255);
+    private static readonly Color PlayLipColor = new Color32(59, 31, 143, 255);
+    private static readonly Color PlayIconColor = new Color32(91, 108, 255, 255);
+    private static readonly Color TileTopColor = new Color32(37, 48, 79, 255);
+    private static readonly Color TileBottomColor = new Color32(26, 35, 64, 255);
+    private static readonly Color TileLipColor = new Color32(10, 15, 30, 255);
+    private static readonly Color TileSubColor = new Color32(142, 155, 187, 255);
+    private static readonly Color PinkTopColor = new Color32(244, 114, 182, 255);
+    private static readonly Color PinkBottomColor = new Color32(219, 39, 119, 255);
+    private static readonly Color CyanTopColor = new Color32(34, 211, 238, 255);
+    private static readonly Color CyanBottomColor = new Color32(8, 145, 178, 255);
+    private static readonly Color AvatarBottomColor = new Color32(139, 92, 246, 255);
+    private static readonly Color QuitFaceColor = new Color32(42, 21, 32, 255);
+    private static readonly Color QuitLipColor = new Color32(30, 11, 18, 255);
+    private static readonly Color QuitTextColor = new Color32(255, 122, 140, 255);
+    private static readonly Color QuitBorderColor = new Color32(255, 107, 129, 115);
+    private const float MenuLipDepth = 8f;
+
     /// <summary>
     /// Menu utama setelah login: kartu di kanan (kiri dibiarkan untuk logo dan karakter di background).
+    /// Atas: avatar + "Selamat datang, nama". Lalu tombol besar MAIN, dua tile KARAKTER / PENGATURAN,
+    /// dan KELUAR GAME yang sengaja dibuat paling kalem supaya tidak bersaing dengan MAIN.
     /// MAIN membuka panel lobby, KARAKTER membuka CharacterSelectCanvas (prefab terpisah),
     /// PENGATURAN membuka overlay pengaturan, KELUAR GAME minta konfirmasi dulu.
+    /// Nama objek tombol tetap sama ("Main Menu ... Button"), jadi listener di InitializeRuntime tidak berubah.
     /// </summary>
     private static void BuildMainMenu(RectTransform safeArea) {
         RectTransform menu = Stretch(CreateRect("Main Menu", safeArea, Vector2.zero), 0f);
-        RectTransform card = CreateRect("Main Menu Card", menu, new Vector2(640f, 660f));
+        RectTransform card = CreateRect("Main Menu Card", menu, new Vector2(640f, 668f));
         card.anchorMin = card.anchorMax = card.pivot = new Vector2(1f, 0.5f);
         card.anchoredPosition = new Vector2(-100f, -40f);
-        AddShape(card.gameObject, PanelColor, cornerScale: 1.8f);
+        AddShape(card.gameObject, MenuCardColor, cornerScale: 1.8f);
         AddOutline(card, LineColor, cornerScale: 1.8f);
 
-        Place(CreateText("Main Menu Greeting", card, "Selamat datang!", BodyFontSize, FontStyle.Normal,
-                         TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
-              40f, 40f, 560f, 44f);
-        Place(CreateButton("Main Menu Play Button", card, "MAIN", PrimaryColor, 44).GetComponent<RectTransform>(),
-              40f, 108f, 560f, 128f);
-        Place(CreateButton("Main Menu Character Button", card, "KARAKTER", CardColor).GetComponent<RectTransform>(),
-              40f, 260f, 560f, 104f);
-        Place(CreateButton("Main Menu Settings Button", card, "PENGATURAN", CardColor).GetComponent<RectTransform>(),
-              40f, 388f, 560f, 104f);
-        // Aksi keluar dibuat outline merah supaya jelas berbeda dari PENGATURAN.
-        Place(CreateButton("Main Menu Quit Button", card, "KELUAR GAME", DangerTextColor, ButtonFontSize, true)
-                  .GetComponent<RectTransform>(), 40f, 516f, 560f, 104f);
+        // Header: avatar inisial + sapaan. Teks diisi RefreshAccountChip (Main Menu Initial / Name):
+        // nama pemain dari menu KARAKTER, atau username kalau belum diisi.
+        RectTransform ring = Place(CreateRect("Main Menu Avatar Ring", card, Vector2.zero), 37f, 37f, 86f, 86f);
+        AddShape(ring.gameObject, new Color(1f, 1f, 1f, 0.22f), "ui-circle").raycastTarget = false;
+        RectTransform avatar = Place(CreateRect("Main Menu Avatar", card, Vector2.zero), 40f, 40f, 80f, 80f);
+        AddGradientShape(avatar.gameObject, PinkTopColor, AvatarBottomColor, "ui-circle").raycastTarget = false;
+        Stretch(CreateText("Main Menu Initial", avatar, "?", 38, FontStyle.Bold, TextAnchor.MiddleCenter,
+                           Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f);
+        Place(CreateText("Main Menu Greeting", card, "Selamat datang,", 24, FontStyle.Normal,
+                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
+              142f, 44f, 420f, 32f);
+        Place(CreateText("Main Menu Name", card, "Pemain", 40, FontStyle.Bold,
+                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              142f, 76f, 420f, 48f);
+
+        // MAIN: tombol utama, gradasi biru -> ungu, ikon play di lingkaran putih.
+        Button play = CreateMenuButton("Main Menu Play Button", card, PlayTopColor, PlayBottomColor, PlayLipColor,
+                                       new Color(1f, 1f, 1f, 0.18f), 1.2f, out RectTransform playFace);
+        Place((RectTransform)play.transform, 40f, 152f, 560f, 156f);
+        RectTransform badge = Place(CreateRect("Main Menu Play Badge", playFace, Vector2.zero), 32f, 28f, 92f, 92f);
+        AddShape(badge.gameObject, Color.white, "ui-circle").raycastTarget = false;
+        AddIcon("Main Menu Play Icon", badge, "icon-play", PlayIconColor, 26f, 22f, 48f);
+        Place(CreateText("Main Menu Play Button Label", playFace, "MAIN", 56, FontStyle.Bold, TextAnchor.MiddleLeft,
+                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 152f, 26f, 320f, 64f);
+        Place(CreateText("Main Menu Play Subtitle", playFace, "Jelajahi kota Go Vista", 24, FontStyle.Normal,
+                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, new Color32(223, 227, 255, 255))
+                  .rectTransform, 152f, 90f, 320f, 32f);
+        AddIcon("Main Menu Play Chevron", playFace, "icon-chevron-right", new Color(1f, 1f, 1f, 0.75f),
+                486f, 52f, 44f);
+
+        // KARAKTER & PENGATURAN: dua tile berdampingan, ikon di kotak berwarna.
+        BuildMenuTile("Main Menu Character Button", card, 40f, "KARAKTER", "Ganti avatar", "icon-user",
+                      PinkTopColor, PinkBottomColor);
+        BuildMenuTile("Main Menu Settings Button", card, 328f, "PENGATURAN", "Kontrol & suara", "icon-settings",
+                      CyanTopColor, CyanBottomColor);
+
+        // KELUAR GAME: merah kalem dengan ikon power. Isi diatur HorizontalLayoutGroup supaya selalu di tengah.
+        Button quit = CreateMenuButton("Main Menu Quit Button", card, QuitFaceColor, QuitFaceColor, QuitLipColor,
+                                       QuitBorderColor, 1.2f, out RectTransform quitFace);
+        Place((RectTransform)quit.transform, 40f, 540f, 560f, 88f);
+        RectTransform quitContent = Stretch(CreateRect("Main Menu Quit Content", quitFace, Vector2.zero), 0f);
+        HorizontalLayoutGroup row = quitContent.gameObject.AddComponent<HorizontalLayoutGroup>();
+        row.childAlignment = TextAnchor.MiddleCenter;
+        row.spacing = 14f;
+        row.childControlWidth = row.childControlHeight = true;
+        row.childForceExpandWidth = row.childForceExpandHeight = false;
+        Image quitIcon = AddIcon("Main Menu Quit Icon", quitContent, "icon-power", QuitTextColor, 0f, 0f, 34f);
+        LayoutElement iconSize = quitIcon.gameObject.AddComponent<LayoutElement>();
+        iconSize.preferredWidth = iconSize.preferredHeight = 34f;
+        Text quitLabel = CreateText("Main Menu Quit Button Label", quitContent, "KELUAR GAME", 28, FontStyle.Bold,
+                                    TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, QuitTextColor);
+        quitLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
     }
+
+    private static void BuildMenuTile(string name, RectTransform card, float x, string label, string subtitle,
+                                      string icon, Color iconTop, Color iconBottom) {
+        Button tile = CreateMenuButton(name, card, TileTopColor, TileBottomColor, TileLipColor,
+                                       new Color(1f, 1f, 1f, 0.12f), 1.2f, out RectTransform face);
+        Place((RectTransform)tile.transform, x, 330f, 272f, 188f);
+        RectTransform iconBox = Place(CreateRect(name + " Icon Box", face, Vector2.zero), 98f, 22f, 76f, 76f);
+        AddGradientShape(iconBox.gameObject, iconTop, iconBottom, cornerScale: 1.1f).raycastTarget = false;
+        AddIcon(name + " Icon", iconBox, icon, Color.white, 18f, 18f, 40f);
+        Place(CreateText(name + " Label", face, label, 28, FontStyle.Bold, TextAnchor.MiddleCenter,
+                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f, 108f, 272f, 36f);
+        Place(CreateText(name + " Subtitle", face, subtitle, 20, FontStyle.Normal, TextAnchor.MiddleCenter,
+                         Vector2.zero, Vector2.zero, TileSubColor).rectTransform, 0f, 144f, 272f, 26f);
+    }
+
+    /// <summary>
+    /// Tombol menu bergaya "3D": Lip (bayangan gelap, terlihat 8 px di bawah) + Face (gradasi, isi tombol).
+    /// Isi tombol (ikon/teks) ditaruh di <paramref name="face"/>. MenuButtonPress menurunkan Face saat ditekan.
+    /// </summary>
+    private static Button CreateMenuButton(string name, Transform parent, Color top, Color bottom, Color lip,
+                                           Color border, float cornerScale, out RectTransform face) {
+        RectTransform rect = CreateRect(name, parent, Vector2.zero);
+        RectTransform lipRect = Inset(CreateRect(name + " Lip", rect, Vector2.zero), MenuLipDepth, 0f);
+        AddShape(lipRect.gameObject, lip, cornerScale: cornerScale).raycastTarget = false;
+
+        face = Inset(CreateRect(name + " Face", rect, Vector2.zero), 0f, MenuLipDepth);
+        Image faceImage = AddGradientShape(face.gameObject, top, bottom, cornerScale: cornerScale);
+        if (border.a > 0f)
+            AddOutline(face, border, cornerScale: cornerScale);
+
+        Button button = rect.gameObject.AddComponent<Button>();
+        button.targetGraphic = faceImage;
+        button.colors = PressTint();
+        rect.gameObject.AddComponent<MenuButtonPress>().Init(face, MenuLipDepth - 2f);
+        return button;
+    }
+
+    private static Image AddGradientShape(GameObject target, Color top, Color bottom, string sprite = "ui-rounded",
+                                          float cornerScale = 1f) {
+        Image image = AddShape(target, Color.white, sprite, cornerScale);
+        target.AddComponent<UIVerticalGradient>().SetColors(top, bottom);
+        return image;
+    }
+
+    /// <summary>Ikon putih dari Assets/Resources/UI/Icons, diwarnai lewat color.</summary>
+    private static Image AddIcon(string name, Transform parent, string icon, Color color, float x, float y, float size) {
+        RectTransform rect = Place(CreateRect(name, parent, Vector2.zero), x, y, size, size);
+        Image image = rect.gameObject.AddComponent<Image>();
+        image.sprite = UiSprite("Icons/" + icon);
+        image.preserveAspect = true;
+        image.color = color;
+        image.raycastTarget = false;
+        return image;
+    }
+
+    /// <summary>Isi penuh parent, dengan jarak dari atas dan bawah.</summary>
+    private static RectTransform Inset(RectTransform rect, float top, float bottom) {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.offsetMin = new Vector2(0f, bottom);
+        rect.offsetMax = new Vector2(0f, -top);
+        return rect;
+    }
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// Ganti HANYA "Main Menu" di LobbyCanvas.prefab dengan desain terbaru dari BuildMainMenu.
+    /// Panel lobby, overlay pengaturan, dll. tidak disentuh. Lewat menu "Go Vista > Lobby UI > Pasang desain baru menu utama".
+    /// </summary>
+    public static void RebuildMainMenuInPrefab() {
+        if (LoadCanvasPrefab(LobbyCanvasPrefabPath) == null) {
+            Debug.LogWarning($"[Lobby UI] {LobbyCanvasPrefabPath} tidak ditemukan.");
+            return;
+        }
+        GameObject root = PrefabUtility.LoadPrefabContents(LobbyCanvasPrefabPath);
+        try {
+            Transform oldMenu = FindChild(root.transform, "Main Menu");
+            RectTransform safeArea = oldMenu != null
+                ? oldMenu.parent as RectTransform
+                : FindChild(root.transform, "Lobby Safe Area") as RectTransform;
+            if (safeArea == null) {
+                Debug.LogWarning("[Lobby UI] \"Main Menu\" / \"Lobby Safe Area\" tidak ditemukan di prefab.");
+                return;
+            }
+            int siblingIndex = oldMenu != null ? oldMenu.GetSiblingIndex() : safeArea.childCount;
+            bool wasActive = oldMenu == null || oldMenu.gameObject.activeSelf;
+            if (oldMenu != null)
+                Object.DestroyImmediate(oldMenu.gameObject);
+
+            BuildMainMenu(safeArea);
+            Transform newMenu = safeArea.GetChild(safeArea.childCount - 1);
+            newMenu.SetSiblingIndex(Mathf.Min(siblingIndex, safeArea.childCount - 1));
+            newMenu.gameObject.SetActive(wasActive);
+            PrefabUtility.SaveAsPrefabAsset(root, LobbyCanvasPrefabPath);
+            Debug.Log("[Lobby UI] Menu utama di LobbyCanvas.prefab diganti ke desain baru.");
+        } finally {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
+    /// <summary>
+    /// Ganti HANYA "Settings Overlay" di LobbyCanvas.prefab dengan versi terbaru dari BuildSettingsOverlay
+    /// (misalnya setelah tombol ATUR KONTROL ditambahkan). Bagian lain prefab tidak disentuh.
+    /// </summary>
+    public static void RebuildSettingsOverlayInPrefab() {
+        if (LoadCanvasPrefab(LobbyCanvasPrefabPath) == null) {
+            Debug.LogWarning($"[Lobby UI] {LobbyCanvasPrefabPath} tidak ditemukan.");
+            return;
+        }
+        GameObject root = PrefabUtility.LoadPrefabContents(LobbyCanvasPrefabPath);
+        try {
+            Transform old = FindChild(root.transform, "Settings Overlay");
+            int siblingIndex = old != null ? old.GetSiblingIndex() : root.transform.childCount;
+            if (old != null)
+                Object.DestroyImmediate(old.gameObject);
+
+            BuildSettingsOverlay(root.transform);
+            Transform rebuilt = root.transform.GetChild(root.transform.childCount - 1);
+            rebuilt.SetSiblingIndex(Mathf.Min(siblingIndex, root.transform.childCount - 1));
+            PrefabUtility.SaveAsPrefabAsset(root, LobbyCanvasPrefabPath);
+            Debug.Log("[Lobby UI] Settings Overlay di LobbyCanvas.prefab diperbarui.");
+        } finally {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+#endif
 
     private static void BuildSettingsOverlay(Transform canvas) {
         RectTransform overlay = CreateModalOverlay("Settings Overlay", canvas);
-        RectTransform dialog = CreateResponsivePanel("Settings Dialog", overlay, new Vector2(960f, 524f));
+        RectTransform dialog = CreateResponsivePanel("Settings Dialog", overlay, new Vector2(960f, 632f));
         AddShape(dialog.gameObject, PanelColor, cornerScale: 1.8f);
         AddOutline(dialog, LineColor, cornerScale: 1.8f);
 
@@ -665,10 +871,13 @@ public sealed class LobyUISceneController : MonoBehaviour {
         Place(CreateSlider("Settings Sensitivity Slider", dialog, GameSettings.MinCameraSensitivity,
                            GameSettings.MaxCameraSensitivity).GetComponent<RectTransform>(), 56f, 222f, 848f, 72f);
 
+        // Sama seperti Pause > Pengaturan > ATUR KONTROL, supaya tata letak kontrol bisa diatur sebelum main.
+        Place(CreateButton("Settings Controls Button", dialog, "ATUR KONTROL", CardColor).GetComponent<RectTransform>(),
+              56f, 318f, 848f, 88f);
         Place(CreateText("Settings Account", dialog, "", SmallFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
-                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 56f, 326f, 848f, 40f);
+                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 56f, 430f, 848f, 40f);
         Place(CreateButton("Settings Done Button", dialog, "SELESAI", PrimaryColor).GetComponent<RectTransform>(),
-              56f, 396f, 848f, 96f);
+              56f, 500f, 848f, 96f);
         overlay.gameObject.SetActive(false);
     }
 
@@ -980,7 +1189,10 @@ public sealed class LobyUISceneController : MonoBehaviour {
         _recentScroll = recentList.GetComponent<ScrollRect>();
         _mainMenu = mainMenu.gameObject;
         _mainMenuGreeting = FindChild(canvas, "Main Menu Greeting")?.GetComponent<Text>();
+        _mainMenuName = FindChild(canvas, "Main Menu Name")?.GetComponent<Text>();
+        _mainMenuInitial = FindChild(canvas, "Main Menu Initial")?.GetComponent<Text>();
         _settingsOverlay = FindChild(canvas, "Settings Overlay")?.gameObject;
+        _lobbyCanvas = canvasObject.GetComponent<Canvas>();
         _exitOverlay = FindChild(canvas, "Exit Confirm Overlay")?.gameObject;
         _sensitivitySlider = FindChild(canvas, "Settings Sensitivity Slider")?.GetComponent<Slider>();
         _sensitivityValue = FindChild(canvas, "Settings Sensitivity Value")?.GetComponent<Text>();
@@ -1050,6 +1262,14 @@ public sealed class LobyUISceneController : MonoBehaviour {
             ShowMainMenu();
     }
 
+    private void OnPlayerNameChanged(string playerName) => RefreshAccountChip();
+
+    /// <summary>Nama untuk sapaan menu utama: nama pemain (menu KARAKTER), atau username kalau belum diisi.</summary>
+    private static string GreetingName(string username) {
+        string playerName = ProgressService.IsLoaded ? PlayerNameRules.Sanitize(ProgressService.Current.playerName) : "";
+        return playerName.Length > 0 ? playerName : username;
+    }
+
     private void RefreshAccountChip() {
         bool signedIn = AuthService.IsSignedIn;
         if (_accountChip != null)
@@ -1064,8 +1284,17 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _accountName.text = username.Length > 14 ? username.Substring(0, 13) + "…" : username;
         if (_accountInitial != null)
             _accountInitial.text = username.Length > 0 ? username.Substring(0, 1).ToUpperInvariant() : "?";
-        if (_mainMenuGreeting != null)
-            _mainMenuGreeting.text = "Selamat datang, " + username + "!";
+        // Desain v10: sapaan dan nama di dua teks terpisah. Layout lama (tanpa "Main Menu Name"): satu kalimat.
+        string greetingName = GreetingName(username);
+        if (_mainMenuName != null) {
+            _mainMenuName.text = greetingName.Length > 18 ? greetingName.Substring(0, 17) + "…" : greetingName;
+            if (_mainMenuGreeting != null)
+                _mainMenuGreeting.text = "Selamat datang,";
+        } else if (_mainMenuGreeting != null) {
+            _mainMenuGreeting.text = "Selamat datang, " + greetingName + "!";
+        }
+        if (_mainMenuInitial != null)
+            _mainMenuInitial.text = greetingName.Length > 0 ? greetingName.Substring(0, 1).ToUpperInvariant() : "?";
         if (_settingsAccount != null)
             _settingsAccount.text = "Masuk sebagai " + username;
     }
@@ -1331,6 +1560,34 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _settingsOverlay.SetActive(false);
     }
 
+    // Pengaturan (lobby) > ATUR KONTROL. Canvas lobby disembunyikan supaya kontrol mobile (MobileUI,
+    // sorting order di bawah lobby) terlihat di atas background. Selesai = kembali ke Pengaturan.
+    private void OpenLobbyControlLayoutEditor() {
+        if (_lobbyControlLayoutOpen || ControlLayoutEditor.IsOpen)
+            return;
+        ControlLayoutEditor editor = FindControlLayoutEditor();
+        if (editor == null) {
+            Debug.LogWarning("[ControlLayout] Control Layout Editor tidak ada di MobileUI.");
+            return;
+        }
+
+        GameSettings.Save();
+        _lobbyControlLayoutOpen = true;
+        if (_lobbyCanvas != null)
+            _lobbyCanvas.enabled = false;
+        MobileControls.SetVisible(true);
+        editor.Open(OnLobbyControlLayoutEditorClosed);
+    }
+
+    private void OnLobbyControlLayoutEditorClosed() {
+        if (!_lobbyControlLayoutOpen)
+            return;
+        _lobbyControlLayoutOpen = false;
+        MobileControls.SetVisible(false);
+        if (_lobbyCanvas != null)
+            _lobbyCanvas.enabled = true;
+    }
+
     private void OnSensitivityChanged(float value) {
         GameSettings.CameraSensitivity = value;
         UpdateSettingsLabels();
@@ -1417,7 +1674,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
         var signature = new System.Text.StringBuilder();
         foreach (KeyValuePair<int, bool> player in players)
-            signature.Append(player.Key).Append(player.Value ? '+' : '-');
+            signature.Append(player.Key).Append(player.Value ? '+' : '-')
+                     .Append(LobbyPresence.NameOf(player.Key)).Append('\n'); // nama ikut, supaya ganti nama ter-refresh
         string currentSignature = signature.ToString();
         if (_waitingRosterSignature != currentSignature) {
             _waitingRosterSignature = currentSignature;
@@ -1452,8 +1710,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
             AddShape(avatar.gameObject, QuickmatchColor, "ui-circle");
             Stretch(CreateText("Number", avatar, (player.Key + 1).ToString(), 28, FontStyle.Bold,
                                TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f);
-            // TODO (next develop): ganti "Player N" dengan username dari LobbyPresence.
-            string playerName = "Player " + (player.Key + 1) + (isLocal ? " (Kamu)" : "");
+            // Nama dari menu KARAKTER (LobbyPresence), atau "Player N" kalau pemain belum mengisi nama.
+            string playerName = LobbyPresence.NameOf(player.Key) + (isLocal ? " (Kamu)" : "");
             PlaceInRow(CreateText("Name", row, playerName, BodyFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
                                   Vector2.zero, Vector2.zero, Color.white).rectTransform, 104f, 560f, 60f);
 

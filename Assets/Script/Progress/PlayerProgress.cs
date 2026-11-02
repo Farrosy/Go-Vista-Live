@@ -23,6 +23,8 @@ public class PlayerProgress {
     // ---------------------------------------------------------------- Karakter
     /// <summary>ID karakter pilihan (CharacterDatabase). Kosong = karakter pertama (default).</summary>
     public string characterId = "";
+    /// <summary>Nama pemain yang tampil di daftar pemain (lihat PlayerNameRules). Kosong = "Player N".</summary>
+    public string playerName = "";
 
     // ---------------------------------------------------------------- Posisi terakhir (TIDAK DIPAKAI)
     // Dulu dipakai untuk spawn di posisi terakhir. Sekarang pemain selalu spawn di PlayerSpawnPoint,
