@@ -21,6 +21,9 @@ public class NpcController : MonoBehaviour
     private Quaternion originalRotation;
     private TurnState state = TurnState.None;
 
+    /// True selama NPC sedang menghadap player / memutar badan kembali. Dipakai NpcNavigation.
+    public bool IsBusy => state != TurnState.None;
+
     void Awake()
     {
         trigger = GetComponent<DialogueTrigger>();
