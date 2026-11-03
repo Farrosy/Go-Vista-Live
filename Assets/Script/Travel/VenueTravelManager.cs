@@ -44,6 +44,11 @@ public class VenueTravelManager : MonoBehaviour
     [Tooltip("Komponen transisi (harus implement ISceneTransition). Kosong = pakai FadeToBlackTransition otomatis.")]
     [SerializeField] private MonoBehaviour _transitionComponent;
 
+    [Tooltip("Skala avatar saat berada di venue (World tetap 1). Interior venue lebih sempit, jadi avatar " +
+             "dikecilkan supaya proporsional dengan furnitur/pintu normal.")]
+    [Range(0.3f, 1f)]
+    [SerializeField] private float _venueAvatarScale = 0.7f;
+
     private ISceneTransition _transition;
     private Realtime _realtime;
     private bool _traveling;
@@ -181,6 +186,10 @@ public class VenueTravelManager : MonoBehaviour
             }
 
             if (cc != null) cc.enabled = false;
+            // Skala avatar sesuai venue (World = 1, venue = lebih kecil) selagi CharacterController mati.
+            // RealtimeTransform menyinkronkan skala, jadi pemain se-venue melihat ukuran yang sama.
+            float scale = target == VenueId.World ? 1f : Mathf.Clamp(_venueAvatarScale, 0.05f, 1f);
+            avatar.localScale = new Vector3(scale, scale, scale);
             avatar.SetPositionAndRotation(position, rotation);
             Physics.SyncTransforms();
             if (cc != null) cc.enabled = true;

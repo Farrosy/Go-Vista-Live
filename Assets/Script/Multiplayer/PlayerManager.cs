@@ -14,6 +14,9 @@ public class PlayerManager : MonoBehaviour {
     [SerializeField] private GameObject _camera = default;
     [Tooltip("Cadangan kalau CharacterDatabase kosong. Prefab avatar di folder Resources.")]
     [SerializeField] private GameObject _prefab;
+    [Tooltip("Backdrop lobby (Floor + Cubes + cahaya) di MainMultiplayerScene. Disembunyikan saat gameplay " +
+             "supaya lantai lobby tidak menembus/menimpa scene venue yang berada di dekat y=0.")]
+    [SerializeField] private GameObject _lobbyEnvironment;
 
     private Realtime _realtime;
     private PlayerController _localPlayer;
@@ -45,6 +48,7 @@ public class PlayerManager : MonoBehaviour {
         _localPlayer = null;
         _gameStarted = false;
         MobileControls.SetVisible(false);
+        SetLobbyEnvironmentVisible(true);
         ResetWaitingCamera();
     }
 
@@ -54,6 +58,7 @@ public class PlayerManager : MonoBehaviour {
         _localPlayer = null;
         _gameStarted = false;
         MobileControls.SetVisible(false);
+        SetLobbyEnvironmentVisible(true);
         ResetWaitingCamera();
     }
 
@@ -63,7 +68,14 @@ public class PlayerManager : MonoBehaviour {
 
         _gameStarted = true;
         MobileControls.SetVisible(true);
+        SetLobbyEnvironmentVisible(false);
         SpawnLocalPlayer(_realtime);
+    }
+
+    /// Tampilkan/sembunyikan backdrop lobby. Disembunyikan saat gameplay supaya tidak menimpa venue.
+    private void SetLobbyEnvironmentVisible(bool visible) {
+        if (_lobbyEnvironment != null)
+            _lobbyEnvironment.SetActive(visible);
     }
 
     private void ResetWaitingCamera() {

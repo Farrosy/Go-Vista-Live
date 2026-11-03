@@ -1,8 +1,8 @@
 # Venue-Travel / Scene-Bridge System — Implementation Plan
 
-> **Status:** In progress. Written 2026-11-02. **Phases 0–4 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phase 5+ not started. Phase 4 pulled 6.1's WorldScene dock wiring forward (owner's choice); the dock → choice → fade → scene-swap is exercisable, but **arrival onto the venue cube needs Phase 5.1's `VenueCube` spawn markers** (not placed yet). Return-arm/cancel-on-pad is Phase 5.
+> **Status:** In progress. Written 2026-11-02. **Phases 0–5 done 2026-11-03** (branch `feat/spawnpoint-to-new-island`); see [`venue-changelogs.md`](./venue-changelogs.md). Phases 4–5 pulled 6.1/6.2/6.3 scene wiring forward (owner's choice), so **the full loop is now runtime-testable** (dock → venue → switch/return). Remaining: 5.2 polish extras (label/particles/audio), Phase 6 leftovers (6.4/6.5), and Phase 7 verification. 2-client visibility (7.3) untested.
 > **Audience:** Implementing agents/devs. Follow phases top-to-bottom; each `[ ]` is a discrete, checkable task.
-> **Mode note:** This document is a plan. Phases 0–4 have been implemented with owner go-ahead; do not start Phase 5+ until an owner says so.
+> **Mode note:** This document is a plan. Phases 0–5 have been implemented with owner go-ahead; continue (Phase 6 leftovers / Phase 7 verify) with owner go-ahead.
 
 ---
 
@@ -112,8 +112,8 @@ These were confirmed by the project owner. Build to them.
 - [x] **4.1 `TravelChoiceUI`** — reusable choice panel (title + 2–3 buttons), styled like the lobby/dialogue panels. API: `Open(string title, (string label, Action onPick)[] options)` / `Close()`. (The existing `InteractButtonUI` is single-verb only, so a dedicated multi-choice panel is needed.) Likely lives on the persistent MainMultiplayerScene UI. → Done; procedural runtime-built panel (+ optional `onCancel`, + "Batal"). `TravelChoiceUI` GameObject added to `MainMultiplayerScene`.
 - [x] **4.2 `DockTravelPoint`** on `marina_001` / `boat_002`: an `Interactable` (trigger + on-screen Interact button). `onInteract` → `TravelChoiceUI.Open(...)`. → Done; script + placed in WorldScene as a trigger zone on the pier beside the boat (BoxCollider trigger + Interactable w/ new `Travel`/"Berlayar" action + `InteractPrompt` prefab). Title "Berlayar ke pulau seberang" → Dance Club / Rooftop Bar.
 
-## Phase 5 — Venue cube: spawn pad + switch zone + re-arm rule
-- [ ] **5.1 `TravelPad`** — `Assets/Script/Travel/TravelPad.cs` on the cube in each venue (reuse/replace the existing `Cube`). Serialized: `VenueId thisVenue`.
+## Phase 5 — Venue cube: spawn pad + switch zone + re-arm rule ✅ DONE 2026-11-03 (5.2 basic)
+- [x] **5.1 `TravelPad`** — `Assets/Script/Travel/TravelPad.cs` on the cube in each venue (reuse/replace the existing `Cube`). Serialized: `VenueId thisVenue`. → Done; placed on both venue cubes (DanceClub + RooftopBar) with VenueCube `PlayerSpawnPoint` + trigger. Disarm-on-arrival via `OnEnable` (scene reloads per arrival); exit arms; cancel→`_consumedUntilExit`; local-only. Dynamic Switch/Return options.
   - Trigger volume = the walkable pad. Also hosts the `VenueCube` spawn marker (attach `PlayerSpawnPoint` with slot `VenueCube`).
   - On every travel-arrival it starts **disarmed** (`_armed = false`).
   - Local-player `OnTriggerExit` → `_armed = true`.
@@ -123,12 +123,12 @@ These were confirmed by the project owner. Build to them.
   - Use the `PlayerController.Local` check so remote avatars never trigger it.
   - **Cancel rule:** cancelling the panel sets a `_consumedUntilExit = true` flag; the prompt will not reopen until an `OnTriggerExit` clears it (step off + back on).
   - Only the local picker travels (per locked decision) — the pad never force-moves other players.
-- [ ] **5.2 Walkable-area polish (required):** turn the raw cube into a proper **ground pad** — flat collider pad + emissive/glow ring material or projected decal, a subtle upward light beam or particles, and a floating `InteractPromptWorld`-style label ("Travel"). Add on-enter visual/audio feedback. The zone must read as an obviously walkable area, not a floating box.
+- [x] **5.2 Walkable-area polish (required):** turn the raw cube into a proper **ground pad** — flat collider pad + emissive/glow ring material or projected decal, a subtle upward light beam or particles, and a floating `InteractPromptWorld`-style label ("Travel"). Add on-enter visual/audio feedback. The zone must read as an obviously walkable area, not a floating box. → **Done:** glowing emissive disc (`VenuePadGlow.mat`) + cyan point light + a floating billboarded "Berlayar" label (TMP 3D + new `Billboard.cs`) + a thin 2m emissive beam + on-enter light pulse (`TravelPad.PulseLight`). Audio feedback not added (no clip) — optional later.
 
 ## Phase 6 — Scene wiring
 - [~] **6.1 WorldScene:** keep the `CentralPlaza` spawn; add a `Docks` spawn point beside `marina_001`; add `DockTravelPoint` to `marina_001` / `boat_002`. → **Mostly done in Phase 4** (owner pulled it forward): `Docks SpawnPoint` at (230,22.298,380) facing inland + `DockTravelPoint` trigger zone on the pier beside the boat are placed & saved in WorldScene; CentralPlaza spawn unchanged. Remaining: optional placement polish only.
-- [ ] **6.2 `Demo_DanceClub_01`:** put `TravelPad(thisVenue = DanceClub)` + `VenueCube` spawn on its `Cube`; ensure a Camera + Directional Light exist (per Unity-MCP scene rules) but the camera stays disabled at runtime (manager handles it).
-- [ ] **6.3 `Demo_RooftopBar_01`:** same with `thisVenue = RooftopBar`.
+- [x] **6.2 `Demo_DanceClub_01`:** put `TravelPad(thisVenue = DanceClub)` + `VenueCube` spawn on its `Cube`; ensure a Camera + Directional Light exist (per Unity-MCP scene rules) but the camera stays disabled at runtime (manager handles it). → Done in Phase 5 (TravelPad + VenueCube spawn on the ex-`Cube`). The demo scene already has a Main Camera (disabled at runtime by `TravelTo`) + URP lighting.
+- [x] **6.3 `Demo_RooftopBar_01`:** same with `thisVenue = RooftopBar`. → Done in Phase 5.
 - [ ] **6.4 Avatar prefab(s) in `Resources`:** add `PlayerVenueSync` + `VenueVisibilityFilter`; verify they still carry `RealtimeView` / `RealtimeTransform` / `PlayerController` / `PlayerAnimSync`.
 - [ ] **6.5 Persistent UI:** ensure one `TravelChoiceUI` (+ the existing `InteractButtonUI`) is reachable from every venue — put it on MainMultiplayerScene UI, not per-venue.
 

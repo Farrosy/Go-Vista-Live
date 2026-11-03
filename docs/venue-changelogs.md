@@ -6,6 +6,117 @@
 
 ---
 
+## 2026-11-03 — Phase 5.2 polish completed (pad label + beam + on-enter pulse)
+
+Finished the remaining 5.2 polish on both venue pads (was a basic disc+light before). Compiles clean.
+
+- **New `Assets/Script/Travel/Billboard.cs`** — tiny component that makes an object face `Camera.main` each
+  `LateUpdate` (for the floating label).
+- **Floating label** — each pad gained a child `PadLabel`: a 3D `TextMeshPro` "Berlayar" (≈2.9m × 0.77m,
+  readable) at 2.6m above the pad, with `Billboard` so it always faces the camera.
+- **Upward beam** — a child `PadBeam`: a thin emissive cylinder (0.12m × 2m) using `VenuePadGlow.mat`. Kept
+  short (2m) so it won't poke through venue ceilings (DanceClub interior / RooftopBar pergola at 4.37m).
+- **On-enter feedback** — `TravelPad` now caches the pad `Light` in `Awake` and runs `PulseLight()` on local
+  `OnTriggerEnter`: intensity jumps to ~2.2× and eases back over 0.45s. (Audio feedback not added — no clip.)
+- Each pad now: glowing disc + point light + billboarded label + beam + on-enter pulse.
+- Files: new `Billboard.cs`; modified `TravelPad.cs`, `Demo_DanceClub_01.unity`, `Demo_RooftopBar_01.unity`.
+- Verified label/beam sizes & placement via data queries (scenes too cramped for clean screenshots); the
+  in-game read still wants a play-test.
+
+---
+
+## 2026-11-03 — Bug fixes: lobby floor overlapping venues + avatar too big in venues
+
+Two issues reported from play-testing the venues (both diagnosed, both fixed). Compiles clean.
+
+### Bug 1 — "weird panel overlapping the rooftop" (a leftover from the base scene)
+**Cause:** `MainMultiplayerScene` (the always-loaded base scene) has `Environment/Floor` — a **500×500 flat
+lobby-backdrop floor at y=0** (plus decorative `Cubes` + a Directional Light). It was never hidden when gameplay
+starts. WorldScene sits at y≈22 so it was hidden there, but the venues sit near y=0 (RooftopBar floor y≈0.008,
+DanceClub y=-15), so the big plane overlapped/z-fought the rooftop and floated over the dance club.
+**Fix (owner chose: hide the whole Environment during gameplay):** `PlayerManager` now hides `_lobbyEnvironment`
+in `BeginGame()` and re-shows it in `DidConnectToRoom` / `DidDisconnectFromRoom`. Wired `_lobbyEnvironment` →
+the `Environment` GameObject. Verified **WorldScene has its own Directional Light** (intensity 1.0) and venues
+have their own `Lighting (URP)` groups, so hiding the lobby light doesn't darken gameplay.
+- Files: `Assets/Script/Multiplayer/PlayerManager.cs` (+ serialized ref wired in `MainMultiplayerScene.unity`).
+
+### Bug 2 — avatar too big in both venues
+**Cause:** the avatar model is ~2.4–2.5m tall (CC 2.01m) — taller than a normal venue door (~2.0m). The venues
+are **normal 1m scale** (measured: doors 1.97m, chairs 0.9–1.1m), so the tall avatar reads as oversized in the
+tight interiors. WorldScene (big open environment) hid it. **Owner confirmed: avatar too big.**
+**Fix (per-venue avatar scale, so WorldScene is untouched):** `VenueTravelManager.TravelTo` now sets the
+avatar's `localScale` on arrival — **1.0 for World, `_venueAvatarScale` (default 0.7) for venues** — applied
+while the CharacterController is disabled. `RealtimeTransform` syncs scale, so co-located players see the same
+size. The factor is a tunable serialized field (`_venueAvatarScale`, Range 0.3–1) on the `VenueTravelManager`
+GameObject — adjust to taste. 0.7 → avatar ≈1.7m, ~85% of a venue door.
+- Files: `Assets/Script/Travel/VenueTravelManager.cs` (+ `_venueAvatarScale = 0.7` serialized in the scene).
+
+### Notes
+- Both fixes need a play-test to confirm visually (hide-on-BeginGame and scale-on-arrival are runtime).
+- The avatar "shrinks" when entering a venue and returns to full size at the Docks — by design (per-venue), to
+  keep WorldScene's look unchanged. If a global avatar size is preferred instead, say so and I'll switch.
+- `_venueAvatarScale` deserialized to the 0.7 initializer on the existing scene instance (not 0); set explicitly
+  + saved to be safe.
+
+---
+
+## 2026-11-03 — Phase 5 implemented (venue cube pad: spawn + switch/return + re-arm) + part of 6.2/6.3
+
+**Branch:** `feat/spawnpoint-to-new-island` · **Scope:** Phase 5.1 fully; 5.2 a solid-but-basic polish pass.
+Also places the pads on both venue cubes (overlaps Phase 6.2/6.3). Compiles clean. **This also unblocks Phase 4's
+arrival** — the `VenueCube` spawn markers now exist, so the full loop is testable.
+
+### New script (`Assets/Script/Travel/`)
+- **`TravelPad.cs`** — `[RequireComponent(PlayerSpawnPoint)]` on each venue cube. State machine:
+  - `OnEnable` (venue scene loads fresh on each arrival) → **disarmed** (`_armed=false`, `_consumedUntilExit=false`).
+  - Local-player `OnTriggerExit` → `_armed=true` (+ clears `_consumedUntilExit`).
+  - Local-player `OnTriggerEnter` while armed & not consumed → opens `TravelChoiceUI` with **dynamic options**:
+    *Pindah ke &lt;other venue&gt;* → `TravelTo(other, VenueCube)` and *Kembali ke pulau utama* →
+    `TravelTo(World, Docks)`. Cancel sets `_consumedUntilExit=true` (won't reopen until step off+on).
+  - `PlayerController.Local` check so remote avatars never trigger it; only the picker travels.
+
+### Scene edits (both venue cubes reshaped into pads — 6.2/6.3 pulled forward)
+Each venue's placeholder `Cube` became a **`TravelPad`**:
+- Renamed `Cube` → `TravelPad`; 1m cube MeshFilter/MeshRenderer removed.
+- Existing BoxCollider → **trigger** detection zone (center (0,1.5,0), size 5×3×5). The avatar stands on the
+  venue's own floor (verified present under each cube), so no solid pad collider is needed.
+- Added `PlayerSpawnPoint` (venue=this, **slot=VenueCube**) — this is the landing spot `TravelTo` resolves.
+- Added `TravelPad` (thisVenue set).
+- **5.2 visual:** child `PadVisual` (flat glowing cylinder disc, 4-unit diameter) using a new shared emissive
+  material, + child `PadLight` (cyan point light, range 7). Reads as a glowing floor pad, not a floating cube.
+
+| Venue | Pad position | Venue floor (raycast) |
+|---|---|---|
+| `Demo_DanceClub_01` | (-11.352, -15.0, 14.032) | `SM_Bld_Base_Floor_01` @ y -15.0 |
+| `Demo_RooftopBar_01` | (11.153, 0.01, 3.916) | `SM_Bld_Floor_Combined_01` @ y ~0.0 (pergola roof above) |
+
+### New asset
+- **`Assets/Materials/VenuePadGlow.mat`** — URP/Lit, cyan base + realtime emissive (×3), shared by both pads.
+
+### Verification
+- Compile clean (0 errors). Both pads' serialized values confirmed on live objects: DanceClub
+  PlayerSpawnPoint venue=1/slot=2, TravelPad thisVenue=1; RooftopBar venue=2/slot=2, thisVenue=2; both
+  BoxColliders isTrigger=true 5×3×5.
+- Scene-view screenshots confirm a glowing disc on each venue floor. Both venue scenes saved; editor restored
+  to MainMultiplayerScene (venues unloaded).
+
+### Decisions / notes
+- **Pad = trigger + visual only** (no solid collider): each venue already has a floor under the cube, so the
+  avatar stands on the venue floor and the pad is purely a glowing marker + detection volume. Robust and simple.
+- **5.2 is a basic pass:** flat emissive disc + glow light done. **Not yet done** (the plan also lists these):
+  the floating "Travel" label, upward beam/particles, and on-enter visual/audio feedback. Easy follow-ups.
+- Pad placement reuses each demo cube's spot; may want art-direction (e.g., RooftopBar pad sits near the bar).
+- **Full loop now testable:** CentralPlaza → dock "Berlayar" → pick venue → fade → arrive on venue pad
+  (disarmed) → step off/on → Switch/Return → arrive (disarmed) → … → Return → Docks. Two-client visibility is
+  Phase 7.3.
+
+### Files touched
+- **New:** `Assets/Script/Travel/TravelPad.cs` (+ `.meta`), `Assets/Materials/VenuePadGlow.mat` (+ folder/meta)
+- **Modified:** `Assets/Download_Assets/PolygonNightclubs/Scenes/Demo_DanceClub_01.unity`,
+  `Assets/Download_Assets/PolygonNightclubs/Scenes/Demo_RooftopBar_01.unity`
+
+---
+
 ## 2026-11-03 — Phase 4 implemented (dock → destination choice) + part of 6.1 pulled forward
 
 **Branch:** `feat/spawnpoint-to-new-island` · **Scope:** owner chose the **full, testable slice**, so this

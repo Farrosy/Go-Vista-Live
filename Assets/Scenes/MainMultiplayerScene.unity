@@ -343,6 +343,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VenueTravelManager
   _transitionComponent: {fileID: 0}
+  _venueAvatarScale: 0.7
 --- !u!4 &509528582
 Transform:
   m_ObjectHideFlags: 0
@@ -662,6 +663,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1bc67b0060a39824cb0465fa3c5f1fe3, type: 3}
+--- !u!1 &1008448258 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8548896590521847137, guid: f248c30e1a22d5444ad861d24bd90de4, type: 3}
+  m_PrefabInstance: {fileID: 1810142199}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1066204854
 GameObject:
   m_ObjectHideFlags: 0
@@ -746,6 +752,10 @@ PrefabInstance:
       propertyPath: _prefab
       value: 
       objectReference: {fileID: 5469951118779690227, guid: 76fb299ded8a23eda90b98ae8db07b6f, type: 3}
+    - target: {fileID: 7606531919527334309, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
+      propertyPath: _lobbyEnvironment
+      value: 
+      objectReference: {fileID: 1008448258}
     - target: {fileID: 7606531919527334328, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
       propertyPath: m_Name
       value: Realtime + Hoverbird Player
