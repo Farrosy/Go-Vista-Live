@@ -46,8 +46,10 @@ public class NpcController : MonoBehaviour
 
     private void HandleStarted()
     {
-        var pc = FindAnyObjectByType<PlayerController>();
-        if (pc) player = pc.transform;
+        // Dialog selalu dimulai oleh pemain di client ini, jadi hadapkan ke avatar lokal.
+        // Jangan FindAnyObjectByType: di multiplayer itu bisa mengembalikan avatar pemain lain (mis. host).
+        var pc = PlayerController.Local;
+        player = pc ? pc.transform : null;
 
         // Kalau sedang kembali ke arah awal, arah awal yang tersimpan tetap dipakai.
         if (state == TurnState.None) originalRotation = transform.rotation;
@@ -69,6 +71,7 @@ public class NpcController : MonoBehaviour
         Quaternion target;
         if (state == TurnState.FacingPlayer)
         {
+            if (!player) return;
             Vector3 d = player.position - transform.position;
             d.y = 0f;
             if (d.sqrMagnitude < 0.001f) return;
