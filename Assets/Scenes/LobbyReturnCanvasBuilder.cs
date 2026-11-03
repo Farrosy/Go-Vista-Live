@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Video;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -11,6 +12,8 @@ internal static class LobbyReturnCanvasBuilder {
     private const string ScenePath = "Assets/Scenes/Multiplayer/LobbyReturnScene.unity";
     private const string PrefabPath = "Assets/Prefab/LobbyReturnCanvas.prefab";
     private const string MainScenePath = "Assets/Scenes/MainMultiplayerScene.unity";
+    private const string VideoClipPath = "Assets/Art/Image/govista_lobby_loop_1080p.webm";
+    private const string VideoObjectName = "Lobby Background Video";
 
     static LobbyReturnCanvasBuilder() {
         EditorApplication.delayCall += EnsureAssets;
@@ -74,15 +77,62 @@ internal static class LobbyReturnCanvasBuilder {
         Canvas canvas = contents.GetComponent<Canvas>();
         Transform imageTransform = contents.transform.Find("Lobby Background Image");
         Image image = imageTransform != null ? imageTransform.GetComponent<Image>() : null;
+        if (image != null)
+            image.sprite = null;
+        GameObject videoObject = EnsureVideoSurface(contents.transform);
         LobbyBackgroundCanvas controller = contents.GetComponent<LobbyBackgroundCanvas>();
         if (controller == null)
             controller = contents.AddComponent<LobbyBackgroundCanvas>();
         SerializedObject serialized = new SerializedObject(controller);
         serialized.FindProperty("targetCanvas").objectReferenceValue = canvas;
         serialized.FindProperty("backgroundImage").objectReferenceValue = image;
+        serialized.FindProperty("videoSurface").objectReferenceValue = videoObject.GetComponent<RawImage>();
+        serialized.FindProperty("videoAspectFitter").objectReferenceValue = videoObject.GetComponent<AspectRatioFitter>();
+        serialized.FindProperty("videoPlayer").objectReferenceValue = videoObject.GetComponent<VideoPlayer>();
         serialized.ApplyModifiedPropertiesWithoutUndo();
         PrefabUtility.SaveAsPrefabAsset(contents, PrefabPath);
         PrefabUtility.UnloadPrefabContents(contents);
+    }
+
+    private static GameObject EnsureVideoSurface(Transform canvasRoot) {
+        Transform existing = canvasRoot.Find(VideoObjectName);
+        GameObject videoObject = existing != null
+            ? existing.gameObject
+            : new GameObject(VideoObjectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage),
+                             typeof(AspectRatioFitter), typeof(VideoPlayer));
+        videoObject.transform.SetParent(canvasRoot, false);
+        videoObject.transform.SetAsLastSibling();
+
+        RectTransform rect = videoObject.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+
+        RawImage surface = GetOrAdd<RawImage>(videoObject);
+        surface.color = Color.white;
+        surface.raycastTarget = false;
+
+        AspectRatioFitter fitter = GetOrAdd<AspectRatioFitter>(videoObject);
+        fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+
+        VideoPlayer player = GetOrAdd<VideoPlayer>(videoObject);
+        player.source = VideoSource.VideoClip;
+        player.clip = AssetDatabase.LoadAssetAtPath<VideoClip>(VideoClipPath);
+        if (player.clip == null)
+            Debug.LogError($"Video lobby tidak ditemukan di {VideoClipPath}.");
+        player.playOnAwake = false;
+        player.isLooping = true;
+        player.renderMode = VideoRenderMode.RenderTexture;
+        player.audioOutputMode = VideoAudioOutputMode.None;
+        player.waitForFirstFrame = true;
+        player.skipOnDrop = true;
+        return videoObject;
+    }
+
+    private static T GetOrAdd<T>(GameObject target) where T : Component {
+        T component = target.GetComponent<T>();
+        return component != null ? component : target.AddComponent<T>();
     }
 
     private static bool SceneHasLobbyController(string path) {
