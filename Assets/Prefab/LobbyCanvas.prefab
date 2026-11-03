@@ -34,8 +34,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 53, y: -382}
-  m_SizeDelta: {x: 910, y: 36}
+  m_AnchoredPosition: {x: 53, y: -600}
+  m_SizeDelta: {x: 910, y: 32}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &8403643940415297605
 CanvasRenderer:
@@ -78,7 +78,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: NAMA ROOM
+  m_Text: ROOM PRIVAT
 --- !u!1 &137194632496577937
 GameObject:
   m_ObjectHideFlags: 0
@@ -609,7 +609,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: Siap. Buat room atau bergabung.
+  m_Text: Siap. Cari room cepat atau buat room.
 --- !u!1 &869220660469969946
 GameObject:
   m_ObjectHideFlags: 0
@@ -722,8 +722,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 656, y: -668}
-  m_SizeDelta: {x: 307, y: 96}
+  m_AnchoredPosition: {x: 656, y: -490}
+  m_SizeDelta: {x: 307, y: 84}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &9202579748550531507
 CanvasRenderer:
@@ -1018,7 +1018,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 53, y: -339}
+  m_AnchoredPosition: {x: 53, y: -425}
   m_SizeDelta: {x: 390, y: 2}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &7287388568890997665
@@ -1382,7 +1382,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: Buat room, masukkan nama room, atau pakai kode Quickmatch.
+  m_Text: Cari room cepat, buat room, atau masuk dengan kode / nama room privat.
 --- !u!1 &1509350719057242125
 GameObject:
   m_ObjectHideFlags: 0
@@ -1686,7 +1686,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: "QUICKMATCH \xB7 CARI ROOM OTOMATIS"
+  m_Text: CARI ROOM CEPAT
 --- !u!1 &2159085656481598010
 GameObject:
   m_ObjectHideFlags: 0
@@ -2260,8 +2260,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 520, y: -549}
-  m_SizeDelta: {x: 443, y: 96}
+  m_AnchoredPosition: {x: 656, y: -638}
+  m_SizeDelta: {x: 307, y: 84}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &8234494868617261166
 CanvasRenderer:
@@ -2664,7 +2664,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2226414656413631667}
   m_Layer: 0
-  m_Name: Layout v9
+  m_Name: Layout v11
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3966,6 +3966,7 @@ RectTransform:
   - {fileID: 1432835792750995361}
   - {fileID: 6213398731727936415}
   - {fileID: 3735028462264857948}
+  - {fileID: 3163336343939668842}
   - {fileID: 3175519672663118138}
   - {fileID: 8945839661124984979}
   - {fileID: 6900726239943321149}
@@ -5903,7 +5904,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 573, y: -339}
+  m_AnchoredPosition: {x: 573, y: -425}
   m_SizeDelta: {x: 390, y: 2}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &2652274732651131751
@@ -6226,7 +6227,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 53, y: -178}
-  m_SizeDelta: {x: 910, y: 124}
+  m_SizeDelta: {x: 910, y: 110}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &3674307037371897508
 CanvasRenderer:
@@ -6388,7 +6389,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: Kode Quickmatch
+  m_Text: Masukkan kode room
 --- !u!1 &7422450584408067333
 GameObject:
   m_ObjectHideFlags: 0
@@ -6709,7 +6710,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: Masukkan nama room
+  m_Text: Nama room privat
 --- !u!1 &7633001111342498192
 GameObject:
   m_ObjectHideFlags: 0
@@ -6903,8 +6904,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 53, y: -549}
-  m_SizeDelta: {x: 443, y: 96}
+  m_AnchoredPosition: {x: 53, y: -308}
+  m_SizeDelta: {x: 910, y: 84}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &2528076857986663595
 CanvasRenderer:
@@ -7262,7 +7263,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: GABUNG
+  m_Text: MASUK
 --- !u!1 &8694821137346775521
 GameObject:
   m_ObjectHideFlags: 0
@@ -7301,8 +7302,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 53, y: -428}
-  m_SizeDelta: {x: 910, y: 96}
+  m_AnchoredPosition: {x: 53, y: -638}
+  m_SizeDelta: {x: 578, y: 84}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &8931942690688085971
 CanvasRenderer:
@@ -7444,7 +7445,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 443, y: -322}
+  m_AnchoredPosition: {x: 443, y: -408}
   m_SizeDelta: {x: 130, y: 36}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &983451167103051481
@@ -7567,7 +7568,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: Daftar room publik belum tersedia.
+  m_Text: Room publik bisa ditemukan lewat CARI ROOM CEPAT.
 --- !u!1 &8914718676558223126
 GameObject:
   m_ObjectHideFlags: 0
@@ -7776,8 +7777,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 53, y: -668}
-  m_SizeDelta: {x: 578, y: 96}
+  m_AnchoredPosition: {x: 53, y: -490}
+  m_SizeDelta: {x: 578, y: 84}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &6050246741816708768
 CanvasRenderer:
@@ -8199,3 +8200,82 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 7193132254418521939, guid: ed0e176057dff150b892bd3bbcdfd206, type: 3}
   m_PrefabInstance: {fileID: 899104479463605211}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &3203293330890351827
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3163336343939668842}
+  - component: {fileID: 3403213351422152968}
+  - component: {fileID: 1647265996574606752}
+  m_Layer: 0
+  m_Name: Code Room Label
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &3163336343939668842
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3203293330890351827}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3376136127290627386}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 53, y: -452}
+  m_SizeDelta: {x: 910, y: 32}
+  m_Pivot: {x: 0, y: 1}
+--- !u!222 &3403213351422152968
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3203293330890351827}
+  m_CullTransparentMesh: 1
+--- !u!114 &1647265996574606752
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3203293330890351827}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.68, g: 0.76, b: 0.88, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_FontSize: 26
+    m_FontStyle: 1
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 40
+    m_Alignment: 3
+    m_AlignByGeometry: 0
+    m_RichText: 1
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 1
+    m_LineSpacing: 1
+  m_Text: KODE ROOM

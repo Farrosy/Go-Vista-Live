@@ -24,7 +24,7 @@ using UnityEditor.SceneManagement;
 /// list here contains local room history plus manual and Quickmatch joins.
 /// </summary>
 [ExecuteAlways]
-public sealed class LobyUISceneController : MonoBehaviour {
+public sealed partial class LobyUISceneController : MonoBehaviour {
     [SerializeField] private Realtime realtime;
 
     private const string CanvasRootName = "Loby Canvas";
@@ -53,7 +53,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
     // Ukuran UI untuk layar HP (referensi 1920x1080). Teks < 24 atau tombol < 88 terlalu kecil untuk jari.
     // Penanda versi layout default yang dibuat kode (hanya informasi, tidak memicu rebuild lagi).
-    private const string LobbyLayoutVersion = "Layout v10"; // v10: desain baru tombol menu utama (ikon, gradasi, tile)
+    private const string LobbyLayoutVersion = "Layout v11"; // v11: CARI ROOM CEPAT / BUAT ROOM publik / kode / room privat
     private const string WaitingCanvasLayoutVersion = "Layout v14"; // v14: kode room + SALIN di panel PEMAIN (pause)
     private const int LabelFontSize = 26;
     private const int BodyFontSize = 30;
@@ -213,6 +213,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         EnsureCanvasExists();
         EnsureWaitingCanvasExists();
         ResolveCanvasReferences();
+        ResolveModal();
         if (realtime == null) {
             SetStatus("Komponen Normcore Realtime tidak ditemukan di scene.", StatusKind.Error);
             return;
@@ -225,9 +226,9 @@ public sealed class LobyUISceneController : MonoBehaviour {
         realtime.didDisconnectFromRoom += DidDisconnectFromRoom;
         realtime.didDisconnectFromRoomWithEvent += DidDisconnectFromRoomWithEvent;
 
-        AddClickListener("Lobby Create Button", CreateRoom);
+        AddClickListener("Lobby Quickmatch Button", SearchQuickRoom);
+        AddClickListener("Lobby Create Button", CreatePublicRoom);
         AddClickListener("Lobby Join Button", ConnectByRoomName);
-        AddClickListener("Lobby Quickmatch Button", ConnectQuickmatch);
         AddClickListener("Lobby Join Code Button", ConnectQuickmatchCode);
         AddClickListener("Lobby Close Button", ShowMainMenu);
         AddClickListener("Lobby Sign Out Button", SignOutAccount);
@@ -244,7 +245,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         ProgressService.PlayerNameChanged += OnPlayerNameChanged;
         RefreshAccountChip();
 
-        SetStatus("Siap. Buat room atau bergabung.", StatusKind.Success);
+        SetStatus(ReadyStatusMessage, StatusKind.Success);
         RefreshRecentRooms();
         if (s_openLobbyOnNextLoad) {
             s_openLobbyOnNextLoad = false;
@@ -539,7 +540,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
         return canvas;
     }
 
-    // Layout mengikuti desain "Go Vista Lobby": kiri = Quickmatch / nama room / kode, kanan = room terakhir,
+    // Layout mengikuti desain "Go Vista Lobby": kiri = cari room cepat / buat room / kode / room privat,
+    // kanan = room terakhir,
     // bawah = status + keluar akun. Koordinat = jarak dari kiri/atas panel (lihat Place).
     private static void BuildCanvasContents(Transform canvas) {
         RectTransform safeArea = CreateSafeArea("Lobby Safe Area", canvas);
@@ -549,7 +551,8 @@ public sealed class LobyUISceneController : MonoBehaviour {
 
         Place(CreateText("Lobby Title", panel, "GO VISTA LOBBY", 56, FontStyle.Bold, TextAnchor.MiddleLeft,
                          Vector2.zero, Vector2.zero, Color.white).rectTransform, 53f, 38f, 1000f, 72f);
-        Place(CreateText("Lobby Subtitle", panel, "Buat room, masukkan nama room, atau pakai kode Quickmatch.",
+        Place(CreateText("Lobby Subtitle", panel,
+                         "Cari room cepat, buat room, atau masuk dengan kode / nama room privat.",
                          LabelFontSize, FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero,
                          MutedColor).rectTransform, 53f, 112f, 1000f, 40f);
 
@@ -565,25 +568,28 @@ public sealed class LobyUISceneController : MonoBehaviour {
         Place(CreateButton("Lobby Close Button", panel, "×", CardColor, 48).GetComponent<RectTransform>(),
               1533f, 49f, 90f, 90f);
 
-        // Kolom kiri: Quickmatch = aksi utama, lalu cara manual.
-        Place(CreateButton("Lobby Quickmatch Button", panel, "QUICKMATCH · CARI ROOM OTOMATIS", QuickmatchColor, 34)
-                  .GetComponent<RectTransform>(), 53f, 178f, 910f, 124f);
-        AddLine(panel, "Lobby Divider Left", 53f, 339f, 390f);
-        Place(CreateText("Lobby Divider Text", panel, "ATAU", SmallFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
-                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 443f, 322f, 130f, 36f);
-        AddLine(panel, "Lobby Divider Right", 573f, 339f, 390f);
-        Place(CreateText("Room Name Label", panel, "NAMA ROOM", LabelFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
-                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 53f, 382f, 910f, 36f);
-        Place(CreateInputField("Lobby Room Input", panel, "Masukkan nama room").GetComponent<RectTransform>(),
-              53f, 428f, 910f, 96f);
+        // Kolom kiri: CARI ROOM CEPAT (hanya mencari) = aksi utama, lalu BUAT ROOM publik,
+        // lalu cara manual: kode room dan room privat (nama). Lihat LobyUISceneController.Quickmatch.cs.
+        Place(CreateButton("Lobby Quickmatch Button", panel, "CARI ROOM CEPAT", QuickmatchColor, 34)
+                  .GetComponent<RectTransform>(), 53f, 178f, 910f, 110f);
         Place(CreateButton("Lobby Create Button", panel, "BUAT ROOM", PrimaryColor).GetComponent<RectTransform>(),
-              53f, 549f, 443f, 96f);
-        Place(CreateButton("Lobby Join Button", panel, "GABUNG", PrimaryColor).GetComponent<RectTransform>(),
-              520f, 549f, 443f, 96f);
-        Place(CreateInputField("Lobby Code Input", panel, "Kode Quickmatch").GetComponent<RectTransform>(),
-              53f, 668f, 578f, 96f);
+              53f, 308f, 910f, 84f);
+        AddLine(panel, "Lobby Divider Left", 53f, 425f, 390f);
+        Place(CreateText("Lobby Divider Text", panel, "ATAU", SmallFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
+                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 443f, 408f, 130f, 36f);
+        AddLine(panel, "Lobby Divider Right", 573f, 425f, 390f);
+        Place(CreateText("Code Room Label", panel, "KODE ROOM", LabelFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
+                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 53f, 452f, 910f, 32f);
+        Place(CreateInputField("Lobby Code Input", panel, "Masukkan kode room").GetComponent<RectTransform>(),
+              53f, 490f, 578f, 84f);
         Place(CreateButton("Lobby Join Code Button", panel, "GABUNG DENGAN KODE", SuccessTextColor, SmallFontSize, true)
-                  .GetComponent<RectTransform>(), 656f, 668f, 307f, 96f);
+                  .GetComponent<RectTransform>(), 656f, 490f, 307f, 84f);
+        Place(CreateText("Room Name Label", panel, "ROOM PRIVAT", LabelFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
+                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 53f, 600f, 910f, 32f);
+        Place(CreateInputField("Lobby Room Input", panel, "Nama room privat").GetComponent<RectTransform>(),
+              53f, 638f, 578f, 84f);
+        Place(CreateButton("Lobby Join Button", panel, "MASUK", PrimaryColor).GetComponent<RectTransform>(),
+              656f, 638f, 307f, 84f);
 
         // Kolom kanan: kartu room terakhir (dibuat saat runtime di RefreshRecentRooms).
         Place(CreateText("Recent Rooms Label", panel, "ROOM TERAKHIR", LabelFontSize, FontStyle.Bold,
@@ -600,7 +606,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         recentContent.anchorMin = new Vector2(0f, 1f);
         recentContent.anchorMax = new Vector2(1f, 1f);
         recentScroll.content = recentContent;
-        Place(CreateText("Global Rooms Note", panel, "Daftar room publik belum tersedia.", SmallFontSize,
+        Place(CreateText("Global Rooms Note", panel, "Room publik bisa ditemukan lewat CARI ROOM CEPAT.", SmallFontSize,
                          FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
               1017f, 556f, 606f, 40f);
 
@@ -608,7 +614,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         AddLine(panel, "Lobby Footer Line", 53f, 797f, 1574f);
         RectTransform dot = Place(CreateRect("Lobby Status Dot", panel, Vector2.zero), 53f, 858f, 20f, 20f);
         AddShape(dot.gameObject, SuccessTextColor, "ui-circle");
-        Place(CreateText("Lobby Status", panel, "Siap. Buat room atau bergabung.", 28, FontStyle.Normal,
+        Place(CreateText("Lobby Status", panel, ReadyStatusMessage, 28, FontStyle.Normal,
                          TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
               90f, 832f, 1130f, 72f);
         Place(CreateButton("Lobby Sign Out Button", panel, "Keluar akun", DangerTextColor, LabelFontSize, true)
@@ -1227,7 +1233,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
         SetStatus("Kamu masuk sebagai tamu. Keluar akan menghapus progres tamu di perangkat ini.", StatusKind.Error);
         yield return new WaitForSeconds(3f);
         SetSignOutLabel("Keluar akun");
-        SetStatus("Siap. Buat room atau bergabung.", StatusKind.Success);
+        SetStatus(ReadyStatusMessage, StatusKind.Success);
         _guestSignOutConfirmRoutine = null;
     }
 
@@ -1268,23 +1274,18 @@ public sealed class LobyUISceneController : MonoBehaviour {
         button.onClick.AddListener(action);
     }
 
+    /// <summary>Room privat: masuk kalau nama sudah ada, kalau belum Normcore membuatnya.</summary>
     private void ConnectByRoomName() {
         string requestedRoom = ReadRoomName();
         if (requestedRoom != null)
-            Connect(() => realtime.Connect(requestedRoom), "Menghubungkan ke room…");
-    }
-
-    private void CreateRoom() {
-        string requestedRoom = ReadRoomName();
-        if (requestedRoom != null)
-            Connect(() => realtime.Connect(requestedRoom), "Membuat room dan menghubungkan ke server…");
+            Connect(() => realtime.Connect(requestedRoom), "Masuk ke room privat…");
     }
 
     /// <summary>Nama room dari input, atau null (dengan pesan error) kalau tidak valid.</summary>
     private string ReadRoomName() {
         string requestedRoom = _roomInput != null ? _roomInput.text.Trim() : "";
         if (string.IsNullOrEmpty(requestedRoom)) {
-            SetStatus("Nama room harus diisi.", StatusKind.Error);
+            SetStatus("Isi nama room privat terlebih dahulu.", StatusKind.Error);
             return null;
         }
         if (requestedRoom.Length >= 512) {
@@ -1294,23 +1295,19 @@ public sealed class LobyUISceneController : MonoBehaviour {
         return requestedRoom;
     }
 
-    private void ConnectQuickmatch() {
-        Connect(() => realtime.ConnectToNextAvailableQuickmatchRoom("go-vista", 10), "Mencari atau membuat room…");
-    }
-
     private void ConnectQuickmatchCode() {
         string code = _codeInput != null ? _codeInput.text.Trim() : "";
         if (string.IsNullOrEmpty(code)) {
-            SetStatus("Masukkan kode Quickmatch terlebih dahulu.", StatusKind.Error);
+            SetStatus("Masukkan kode room terlebih dahulu.", StatusKind.Error);
             return;
         }
-        Connect(() => realtime.ConnectDirectlyToQuickmatchRoom("go-vista", code), "Memeriksa kode dan menghubungkan…");
+        Connect(() => realtime.ConnectDirectlyToQuickmatchRoom(QuickmatchRoomGroup, code), "Memeriksa kode dan menghubungkan…");
     }
 
     private void JoinRecentRoom(string room) {
         if (room.StartsWith("qm:")) {
             string code = room.Substring(3);
-            Connect(() => realtime.ConnectDirectlyToQuickmatchRoom("go-vista", code), "Memeriksa kode dan menghubungkan…");
+            Connect(() => realtime.ConnectDirectlyToQuickmatchRoom(QuickmatchRoomGroup, code), "Memeriksa kode dan menghubungkan…");
         } else {
             Connect(() => realtime.Connect(room), "Menghubungkan ke room…");
         }
@@ -1320,18 +1317,27 @@ public sealed class LobyUISceneController : MonoBehaviour {
         if (realtime == null || _busy)
             return;
         _busy = true;
+        _connectCancelled = false;
         SetStatus(status, StatusKind.Busy);
+        ShowConnectingModal(status);
         try {
             connect();
         } catch (System.Exception exception) {
             _busy = false;
+            _quickmatchIntent = QuickmatchIntent.None;
+            HideModal();
             SetStatus("Gagal memulai koneksi: " + exception.Message, StatusKind.Error);
             Debug.LogException(exception);
         }
     }
 
     private void DidConnectToRoom(Realtime connectedRealtime) {
+        if (IgnoreCancelledConnect(connectedRealtime))
+            return;
+        if (InterceptQuickmatchConnect(connectedRealtime))
+            return;
         _busy = false;
+        HideModal();
         _roomFullDisconnectRequested = false;
         _leaveRoomPending = false;
         ResetInGameMenu();
@@ -1348,7 +1354,7 @@ public sealed class LobyUISceneController : MonoBehaviour {
             _pauseCodeText.text = shareCode;
         SetWaitingStatus(!string.IsNullOrEmpty(roomCode)
             ? "Teman bisa masuk lewat GABUNG DENGAN KODE."
-            : "Teman bisa masuk dengan mengetik nama room ini lalu GABUNG.");
+            : "Teman bisa masuk dengan mengetik nama room ini di ROOM PRIVAT lalu MASUK.");
         if (_codeInput != null && !string.IsNullOrEmpty(roomCode))
             _codeInput.text = roomCode;
         if (_panel != null)
@@ -1374,7 +1380,10 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void DidDisconnectFromRoom(Realtime disconnectedRealtime) {
+        if (IgnoreCancelledConnect(null) || HandleQuickmatchDisconnect())
+            return;
         _busy = false;
+        HideModal();
         ResetInGameMenu();
         _leaveRoomPending = false;
         if (ReturnToLobbyIfRequested())
@@ -1405,7 +1414,10 @@ public sealed class LobyUISceneController : MonoBehaviour {
     }
 
     private void DidDisconnectFromRoomWithEvent(Realtime disconnectedRealtime, DisconnectEvent disconnectEvent) {
+        if (IgnoreCancelledConnect(null) || HandleQuickmatchDisconnect())
+            return;
         _busy = false;
+        HideModal();
         if (ReturnToLobbyIfRequested())
             return;
 
