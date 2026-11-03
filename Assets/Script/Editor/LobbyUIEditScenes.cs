@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 /// Alur edit UI lobby, satu scene untuk satu canvas (seperti LoginUIScene):
 ///  - LobyUIScene.unity      -> Assets/Prefab/LobbyCanvas.prefab
 ///  - RoomWaitingScene.unity -> Assets/Prefab/RoomWaitingCanvas.prefab
+///  - LobbyModalScene.unity  -> Assets/Prefab/LobbyModalCanvas.prefab (lihat LobbyModalBuilder)
 ///
 /// Kedua scene berisi INSTANCE prefab. Edit canvas di scene itu, lalu Ctrl+S: perubahan otomatis
 /// di-Apply ke prefab, sehingga MainMultiplayerScene & LobbyReturnScene ikut berubah. Bisa juga edit
@@ -27,6 +28,21 @@ public static class LobbyUIEditScenes {
         EditorSceneManager.sceneSaving -= ApplyEditsToPrefab;
         EditorSceneManager.sceneSaving += ApplyEditsToPrefab;
         EditorApplication.delayCall += MigrateEditScenes;
+        EditorApplication.delayCall += BuildLobbyModalIfMissing;
+    }
+
+    // LobbyModalCanvas belum pernah dibuat (mis. baru pull branch): buat sekali secara otomatis.
+    private static void BuildLobbyModalIfMissing() {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || File.Exists(LobbyModalBuilder.PrefabPath))
+            return;
+        for (int i = 0; i < SceneManager.sceneCount; i++) {
+            if (string.IsNullOrEmpty(SceneManager.GetSceneAt(i).path)) {
+                Debug.LogWarning("[Lobby UI] LobbyModalCanvas belum ada. Simpan scene yang terbuka lalu jalankan " +
+                                 "Go Vista > Lobby UI > Buat ulang LobbyModalCanvas.");
+                return;
+            }
+        }
+        LobbyModalBuilder.BuildAll();
     }
 
     // ------------------------------------------------------------ Menu
@@ -71,6 +87,24 @@ public static class LobbyUIEditScenes {
     private static void ApplyEditsToPrefab(Scene scene, string path) {
         if (path == LobbyScenePath) Apply(scene, LobbyPrefabPath);
         else if (path == WaitingScenePath) Apply(scene, WaitingPrefabPath);
+        else if (path == LobbyModalBuilder.EditScenePath) ApplyModal(scene);
+    }
+
+    // Overlay modal terlihat di scene edit, tapi di prefab harus nonaktif: jangan ikut di-apply.
+    private static void ApplyModal(Scene scene) {
+        GameObject instance = FindInstance(scene, LobbyModalBuilder.PrefabPath);
+        Transform overlay = instance != null ? instance.transform.Find(LobbyModal.OverlayName) : null;
+        if (overlay == null) {
+            Apply(scene, LobbyModalBuilder.PrefabPath);
+            return;
+        }
+        bool wasVisible = overlay.gameObject.activeSelf;
+        overlay.gameObject.SetActive(false);
+        try {
+            Apply(scene, LobbyModalBuilder.PrefabPath);
+        } finally {
+            overlay.gameObject.SetActive(wasVisible);
+        }
     }
 
     private static void Apply(Scene scene, string prefabPath) {

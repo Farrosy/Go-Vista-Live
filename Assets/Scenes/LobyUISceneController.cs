@@ -213,6 +213,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         EnsureCanvasExists();
         EnsureWaitingCanvasExists();
         ResolveCanvasReferences();
+        ResolveModal();
         if (realtime == null) {
             SetStatus("Komponen Normcore Realtime tidak ditemukan di scene.", StatusKind.Error);
             return;
@@ -1316,21 +1317,27 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (realtime == null || _busy)
             return;
         _busy = true;
+        _connectCancelled = false;
         SetStatus(status, StatusKind.Busy);
+        ShowConnectingModal(status);
         try {
             connect();
         } catch (System.Exception exception) {
             _busy = false;
             _quickmatchIntent = QuickmatchIntent.None;
+            HideModal();
             SetStatus("Gagal memulai koneksi: " + exception.Message, StatusKind.Error);
             Debug.LogException(exception);
         }
     }
 
     private void DidConnectToRoom(Realtime connectedRealtime) {
+        if (IgnoreCancelledConnect(connectedRealtime))
+            return;
         if (InterceptQuickmatchConnect(connectedRealtime))
             return;
         _busy = false;
+        HideModal();
         _roomFullDisconnectRequested = false;
         _leaveRoomPending = false;
         ResetInGameMenu();
@@ -1373,9 +1380,10 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     }
 
     private void DidDisconnectFromRoom(Realtime disconnectedRealtime) {
-        if (HandleQuickmatchDisconnect())
+        if (IgnoreCancelledConnect(null) || HandleQuickmatchDisconnect())
             return;
         _busy = false;
+        HideModal();
         ResetInGameMenu();
         _leaveRoomPending = false;
         if (ReturnToLobbyIfRequested())
@@ -1406,9 +1414,10 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     }
 
     private void DidDisconnectFromRoomWithEvent(Realtime disconnectedRealtime, DisconnectEvent disconnectEvent) {
-        if (HandleQuickmatchDisconnect())
+        if (IgnoreCancelledConnect(null) || HandleQuickmatchDisconnect())
             return;
         _busy = false;
+        HideModal();
         if (ReturnToLobbyIfRequested())
             return;
 

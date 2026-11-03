@@ -29,6 +29,8 @@ public sealed partial class LobyUISceneController {
     private int _createRoomAttempts;
     private bool _quickmatchDisconnecting;
     private System.Action _afterQuickmatchDisconnect;
+    private Coroutine _quickmatchVerifyRoutine;
+    private Coroutine _quickmatchRetryRoutine;
 
     private void SearchQuickRoom() {
         if (_busy)
@@ -59,7 +61,8 @@ public sealed partial class LobyUISceneController {
     private bool InterceptQuickmatchConnect(Realtime connectedRealtime) {
         if (_quickmatchIntent == QuickmatchIntent.None)
             return false;
-        StartCoroutine(VerifyQuickmatchRoom(connectedRealtime));
+        StopQuickmatchRoutines();
+        _quickmatchVerifyRoutine = StartCoroutine(VerifyQuickmatchRoom(connectedRealtime));
         return true;
     }
 
@@ -74,6 +77,7 @@ public sealed partial class LobyUISceneController {
             yield return null;
             hasOthers = HasOtherPlayers(connectedRealtime);
         }
+        _quickmatchVerifyRoutine = null;
         if (!connectedRealtime.connected)
             yield break; // Handler disconnect yang membereskan state.
 
@@ -87,7 +91,7 @@ public sealed partial class LobyUISceneController {
         if (hasOthers)
             AcceptQuickmatchRoom(connectedRealtime);
         else
-            LeaveQuickmatchRoom(connectedRealtime, () => FailQuickmatch(NoRoomAvailableMessage));
+            LeaveQuickmatchRoom(connectedRealtime, () => FailQuickmatch(NoRoomAlertTitle, NoRoomAvailableMessage));
     }
 
     private void ResolveCreate(Realtime connectedRealtime, bool hasOthers) {
@@ -99,7 +103,7 @@ public sealed partial class LobyUISceneController {
         if (!string.IsNullOrEmpty(joinedCode))
             _excludedRoomCodes.Add(joinedCode);
         if (_createRoomAttempts >= MaxCreateRoomAttempts)
-            LeaveQuickmatchRoom(connectedRealtime, () => FailQuickmatch(CreateRoomFailedMessage));
+            LeaveQuickmatchRoom(connectedRealtime, () => FailQuickmatch(CreateRoomFailedTitle, CreateRoomFailedMessage));
         else
             LeaveQuickmatchRoom(connectedRealtime, ConnectNewPublicRoom);
     }
@@ -109,9 +113,11 @@ public sealed partial class LobyUISceneController {
         DidConnectToRoom(connectedRealtime);
     }
 
-    private void FailQuickmatch(string message) {
+    private void FailQuickmatch(string title, string message) {
         _quickmatchIntent = QuickmatchIntent.None;
         SetStatus(message, StatusKind.Error);
+        HideModal();
+        ShowAlertModal(title, message);
     }
 
     private void LeaveQuickmatchRoom(Realtime connectedRealtime, System.Action afterDisconnect) {
@@ -134,16 +140,26 @@ public sealed partial class LobyUISceneController {
             System.Action next = _afterQuickmatchDisconnect;
             _afterQuickmatchDisconnect = null;
             // Tunggu satu frame supaya kedua event disconnect Normcore selesai sebelum konek lagi.
-            StartCoroutine(RunAfterQuickmatchDisconnect(next));
+            _quickmatchRetryRoutine = StartCoroutine(RunAfterQuickmatchDisconnect(next));
         }
         return true;
     }
 
     private IEnumerator RunAfterQuickmatchDisconnect(System.Action next) {
         yield return null;
+        _quickmatchRetryRoutine = null;
         _quickmatchDisconnecting = false;
         _busy = false;
         next();
+    }
+
+    private void StopQuickmatchRoutines() {
+        if (_quickmatchVerifyRoutine != null)
+            StopCoroutine(_quickmatchVerifyRoutine);
+        if (_quickmatchRetryRoutine != null)
+            StopCoroutine(_quickmatchRetryRoutine);
+        _quickmatchVerifyRoutine = null;
+        _quickmatchRetryRoutine = null;
     }
 
     private static bool HasOtherPlayers(Realtime connectedRealtime) {
