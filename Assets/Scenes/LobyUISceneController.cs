@@ -2031,14 +2031,17 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (realtime != null && realtime.connected)
             realtime.Disconnect();
         else
-            SceneManager.LoadScene("LobbyReturnScene", LoadSceneMode.Single);
+            // Reload the real persistent base (bukan clone LobbyReturnScene yang bisa basi): skybox,
+            // VenueTravelManager, dan TravelChoiceUI ikut kembali. s_openLobbyOnNextLoad → langsung ke lobby.
+            SceneManager.LoadScene("MainMultiplayerScene", LoadSceneMode.Single);
     }
 
     private bool ReturnToLobbyIfRequested() {
         if (!_returnToLobbyOnDisconnect)
             return false;
         _returnToLobbyOnDisconnect = false;
-        SceneManager.LoadScene("LobbyReturnScene", LoadSceneMode.Single);
+        // Lihat catatan di Disconnect(): muat ulang MainMultiplayerScene, bukan LobbyReturnScene (clone basi).
+        SceneManager.LoadScene("MainMultiplayerScene", LoadSceneMode.Single);
         return true;
     }
 
