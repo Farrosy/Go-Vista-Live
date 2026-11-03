@@ -1760,6 +1760,12 @@ public sealed class LobyUISceneController : MonoBehaviour {
             DisableWorldCameras(worldScene);
 
         playerManager.BeginGame();
+
+        // Daftarkan WorldScene yang sudah ter-load sebagai venue awal; hop berikutnya (dermaga/pad)
+        // lewat VenueTravelManager.TravelTo. LocalVenue sendiri sudah World lewat PlayerVenueSync avatar.
+        if (VenueTravelManager.Instance != null)
+            VenueTravelManager.Instance.AdoptInitialVenue(VenueId.World);
+
         _startingGame = false;
         _gameplayStarted = true;
         SetWaitingJoinButtonJoined(true);

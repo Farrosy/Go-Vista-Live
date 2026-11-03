@@ -14,6 +14,9 @@ public class PlayerManager : MonoBehaviour {
     [SerializeField] private GameObject _camera = default;
     [Tooltip("Cadangan kalau CharacterDatabase kosong. Prefab avatar di folder Resources.")]
     [SerializeField] private GameObject _prefab;
+    [Tooltip("Backdrop lobby (Floor + Cubes + cahaya) di MainMultiplayerScene. Disembunyikan saat gameplay " +
+             "supaya lantai lobby tidak menembus/menimpa scene venue yang berada di dekat y=0.")]
+    [SerializeField] private GameObject _lobbyEnvironment;
 
     private Realtime _realtime;
     private PlayerController _localPlayer;
@@ -45,6 +48,7 @@ public class PlayerManager : MonoBehaviour {
         _localPlayer = null;
         _gameStarted = false;
         MobileControls.SetVisible(false);
+        SetLobbyEnvironmentVisible(true);
         ResetWaitingCamera();
     }
 
@@ -54,6 +58,7 @@ public class PlayerManager : MonoBehaviour {
         _localPlayer = null;
         _gameStarted = false;
         MobileControls.SetVisible(false);
+        SetLobbyEnvironmentVisible(true);
         ResetWaitingCamera();
     }
 
@@ -63,7 +68,14 @@ public class PlayerManager : MonoBehaviour {
 
         _gameStarted = true;
         MobileControls.SetVisible(true);
+        SetLobbyEnvironmentVisible(false);
         SpawnLocalPlayer(_realtime);
+    }
+
+    /// Tampilkan/sembunyikan backdrop lobby. Disembunyikan saat gameplay supaya tidak menimpa venue.
+    private void SetLobbyEnvironmentVisible(bool visible) {
+        if (_lobbyEnvironment != null)
+            _lobbyEnvironment.SetActive(visible);
     }
 
     private void ResetWaitingCamera() {
@@ -94,14 +106,14 @@ public class PlayerManager : MonoBehaviour {
         int clientID = Mathf.Max(0, realtime.clientID);
         Vector3 spawnPosition;
         Quaternion spawnRotation;
-        // Selalu spawn di PlayerSpawnPoint scene world (posisi terakhir tidak disimpan).
-        PlayerSpawnPoint spawnPoint = PlayerSpawnPoint.Active;
+        // Spawn awal selalu di titik World/CentralPlaza scene world (posisi terakhir tidak disimpan).
+        PlayerSpawnPoint spawnPoint = PlayerSpawnPoint.Find(VenueId.World, SpawnSlot.CentralPlaza);
         if (spawnPoint != null) {
             spawnPosition = spawnPoint.GetPosition(clientID);
             spawnRotation = spawnPoint.Rotation;
         } else {
             // Tanpa spawn point, sebar melingkar di sekitar (0, 0, 0) supaya avatar tidak tumpuk.
-            Debug.LogWarning("[Spawn] PlayerSpawnPoint tidak ada di scene world, spawn di sekitar (0, 0, 0).");
+            Debug.LogWarning("[Spawn] PlayerSpawnPoint World/CentralPlaza tidak ada di scene world, spawn di sekitar (0, 0, 0).");
             float angle = clientID * 2.39996323f;
             float radius = 3.0f + Mathf.Sqrt(clientID) * 0.5f;
             spawnPosition = new Vector3(Mathf.Cos(angle) * radius, 0.0f, Mathf.Sin(angle) * radius);

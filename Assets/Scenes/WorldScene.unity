@@ -5124,6 +5124,95 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1e2902991d2906e479032fc447a87c67, type: 3}
+--- !u!1 &242213258
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 242213262}
+  - component: {fileID: 242213261}
+  - component: {fileID: 242213260}
+  - component: {fileID: 242213259}
+  m_Layer: 0
+  m_Name: DockTravelPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &242213259
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242213258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9f2b52d6c42668468334fbc5d41c246, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DockTravelPoint
+  title: Berlayar ke pulau seberang
+  danceClubLabel: Dance Club
+  rooftopBarLabel: Rooftop Bar
+--- !u!114 &242213260
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242213258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50064362929322a49b34009bcae4a468, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Interactable
+  displayName: Dermaga
+  action: {fileID: 11400000, guid: caed718253097ce4e97cfc6ea4254ea8, type: 2}
+  promptPrefab: {fileID: 5715900420359320683, guid: a14b39a67e949f24283002fc5f6962dd, type: 3}
+  promptOffset: {x: 0, y: 2.8, z: 0}
+  onInteract:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!65 &242213261
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242213258}
+  m_Material: {fileID: 1112075457}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 8, y: 5, z: 14}
+  m_Center: {x: 0, y: 1.8, z: 0}
+--- !u!4 &242213262
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242213258}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 229, y: 22.298, z: 382}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &245257967
 GameObject:
   m_ObjectHideFlags: 0
@@ -16512,6 +16601,53 @@ Transform:
   m_Children:
   - {fileID: 1417915099}
   m_Father: {fileID: 1991792921}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &660764893
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 660764895}
+  - component: {fileID: 660764894}
+  m_Layer: 0
+  m_Name: Docks SpawnPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &660764894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 660764893}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee880ab9ad9846339e3ba52daa809271, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnPoint
+  venue: 0
+  slot: 1
+  spreadRadius: 2
+--- !u!4 &660764895
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 660764893}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: -0.00000004371139}
+  m_LocalPosition: {x: 230, y: 22.298, z: 380}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &664371114
 PrefabInstance:
@@ -28068,6 +28204,19 @@ Transform:
   - {fileID: 1424751461}
   m_Father: {fileID: 1978987593}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!134 &1112075457
+PhysicsMaterial:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 
+  serializedVersion: 2
+  m_DynamicFriction: 0.6
+  m_StaticFriction: 0.6
+  m_Bounciness: 0
+  m_FrictionCombine: 0
+  m_BounceCombine: 0
 --- !u!1001 &1114399416
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -50631,6 +50780,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ee880ab9ad9846339e3ba52daa809271, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnPoint
+  venue: 0
+  slot: 0
   spreadRadius: 10
 --- !u!1001 &1939477497
 PrefabInstance:
@@ -56005,3 +56156,5 @@ SceneRoots:
   - {fileID: 1339003770}
   - {fileID: 1254346447}
   - {fileID: 1649269862}
+  - {fileID: 660764895}
+  - {fileID: 242213262}
