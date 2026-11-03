@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 3139010553364512106}
   - component: {fileID: 3255365358486124721}
   - component: {fileID: 2151182225554921579}
+  - component: {fileID: 4999945791723308768}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -171,6 +172,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b50922f18471ae44da56e2b0e3036c73, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VenueVisibilityFilter
+--- !u!136 &4999945791723308768
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5469951118779690227}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2.34
+  m_Direction: 1
+  m_Center: {x: 0, y: 0.65, z: 0}
 --- !u!1001 &2234267670862747034
 PrefabInstance:
   m_ObjectHideFlags: 0
