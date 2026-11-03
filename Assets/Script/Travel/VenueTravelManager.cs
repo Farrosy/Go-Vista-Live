@@ -52,6 +52,8 @@ public class VenueTravelManager : MonoBehaviour
     private ISceneTransition _transition;
     private Realtime _realtime;
     private bool _traveling;
+    private Coroutine _travelRoutine;
+    private bool _holdsLowLoadPriority;
 
     /// Transisi aktif. Default ke FadeToBlackTransition supaya LoadingScreenTransition bisa
     /// menggantikannya di satu tempat saja (serialized field) tanpa menyentuh TravelTo.
@@ -110,7 +112,58 @@ public class VenueTravelManager : MonoBehaviour
             Debug.LogWarning("[VenueTravel] Travel sedang berjalan; permintaan diabaikan.");
             return;
         }
-        StartCoroutine(TravelRoutine(target, slot));
+        _travelRoutine = StartCoroutine(TravelRoutine(target, slot));
+    }
+
+    /// <summary>
+    /// Kembalikan semua state venue ke kondisi awal (World). Dipanggil LobyUISceneController saat lepas
+    /// dari room (koneksi putus atau keluar room). Tanpa ini scene venue, state pad, panel pilihan, dan
+    /// kunci input dari sesi lama tertinggal, sehingga pindah pulau tidak merespons setelah masuk lagi.
+    /// unloadVenueScenes = false kalau scene utama akan di-load ulang (Single) sebentar lagi.
+    /// </summary>
+    public void ResetToWorld(bool unloadVenueScenes)
+    {
+        if (_travelRoutine != null)
+            StopCoroutine(_travelRoutine);
+        _travelRoutine = null;
+        _traveling = false;
+        ReleaseLoadPriority();
+
+        if (TravelChoiceUI.Instance != null && TravelChoiceUI.Instance.IsOpen)
+            TravelChoiceUI.Instance.Close();
+        if (PlayerInputHub.Instance != null)
+            PlayerInputHub.Instance.SetPauseLocked(false);
+        Transition?.ResetImmediate();
+
+        CurrentVenue = VenueId.World;
+        SetLocalVenue(VenueId.World);
+        if (unloadVenueScenes)
+            UnloadVenueScenes();
+    }
+
+    private void ReleaseLoadPriority()
+    {
+        if (!_holdsLowLoadPriority)
+            return;
+        _holdsLowLoadPriority = false;
+        SceneLoadPriority.Restore();
+    }
+
+    /// WorldScene tidak disentuh di sini; itu diatur LobyUISceneController.
+    private void UnloadVenueScenes()
+    {
+        Scene home = gameObject.scene;
+        foreach (VenueId venue in (VenueId[])Enum.GetValues(typeof(VenueId)))
+        {
+            if (venue == VenueId.World)
+                continue;
+            Scene scene = SceneManager.GetSceneByName(VenueMap.SceneName(venue));
+            if (!scene.IsValid() || !scene.isLoaded)
+                continue;
+            if (SceneManager.GetActiveScene() == scene && home.IsValid() && home.isLoaded)
+                SceneManager.SetActiveScene(home);
+            SceneManager.UnloadSceneAsync(scene);
+        }
     }
 
     private IEnumerator TravelRoutine(VenueId target, SpawnSlot slot)
@@ -129,14 +182,20 @@ public class VenueTravelManager : MonoBehaviour
         Scene targetScene = SceneManager.GetSceneByName(targetSceneName);
         if (!targetScene.isLoaded)
         {
+            // Cicil integrasi scene per frame supaya main thread tidak macet lama (Normcore ikut
+            // memproses jaringan di main thread; macet lama = koneksi room putus).
+            SceneLoadPriority.UseLow();
+            _holdsLowLoadPriority = true;
             AsyncOperation load = SceneManager.LoadSceneAsync(targetSceneName, LoadSceneMode.Additive);
             if (load == null)
             {
+                ReleaseLoadPriority();
                 Debug.LogError($"[VenueTravel] Gagal memuat '{targetSceneName}'. Pastikan ada & enabled di Build Settings.");
                 yield return AbortReveal(hub);
                 yield break;
             }
             yield return load;
+            ReleaseLoadPriority();
             targetScene = SceneManager.GetSceneByName(targetSceneName);
         }
 
@@ -214,6 +273,7 @@ public class VenueTravelManager : MonoBehaviour
         if (hub != null) hub.SetPauseLocked(false);
         MobileControls.SetVisible(true);
         _traveling = false;
+        _travelRoutine = null;
     }
 
     /// Reveal + buka kunci saat travel gagal, supaya tidak soft-lock di layar hitam.
@@ -223,6 +283,7 @@ public class VenueTravelManager : MonoBehaviour
         if (hub != null) hub.SetPauseLocked(false);
         MobileControls.SetVisible(true);
         _traveling = false;
+        _travelRoutine = null;
     }
 
     private int LocalClientID()

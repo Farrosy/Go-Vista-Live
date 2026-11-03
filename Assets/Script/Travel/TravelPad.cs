@@ -2,9 +2,10 @@ using System.Collections;
 using UnityEngine;
 
 /// Pasang di cube venue (bareng PlayerSpawnPoint slot=VenueCube + collider trigger untuk zona).
-/// Aturan re-arm: baru tiba = DISARMED (berdiri di atasnya tidak melakukan apa-apa). Pemain harus
-/// MELANGKAH KELUAR dulu (meng-arm), lalu masuk lagi untuk membuka pilihan: pindah ke venue lain,
-/// atau kembali ke pulau utama. Batal = tidak terbuka lagi sampai keluar + masuk lagi.
+/// Aturan re-arm: kalau pemain TIBA DI ATAS pad = DISARMED (berdiri di atasnya tidak melakukan apa-apa).
+/// Pemain harus MELANGKAH KELUAR dulu (meng-arm), lalu masuk lagi untuk membuka pilihan: pindah ke venue
+/// lain, atau kembali ke pulau utama. Kalau pemain tiba DI LUAR pad (spawn disebar per client, jadi tamu
+/// bisa mendarat di samping pad), pad langsung armed. Batal = tidak terbuka lagi sampai keluar + masuk lagi.
 /// Hanya pemain lokal yang bisa memicu; pad tidak pernah memaksa pemain lain pindah.
 [RequireComponent(typeof(PlayerSpawnPoint))]
 public class TravelPad : MonoBehaviour
@@ -16,6 +17,7 @@ public class TravelPad : MonoBehaviour
     private bool _armed;              // true setelah pemain melangkah keluar sekali
     private bool _consumedUntilExit;  // true setelah Batal; direset saat keluar
     private bool _inside;
+    private bool _arrivalResolved;    // sudah ditentukan apakah pemain tiba di atas pad atau di luar
 
     private Light _padLight;          // cahaya glow (child PadLight), dipakai untuk pulse saat masuk
     private float _baseLightIntensity;
@@ -33,6 +35,18 @@ public class TravelPad : MonoBehaviour
         _armed = false;
         _consumedUntilExit = false;
         _inside = false;
+        _arrivalResolved = false;
+    }
+
+    // Tentukan sekali setelah travel selesai (layar sudah terbuka, physics sudah sempat memicu
+    // OnTriggerEnter kalau avatar mendarat di atas pad): mendarat di luar pad = langsung armed.
+    void Update()
+    {
+        if (_arrivalResolved) return;
+        var travel = VenueTravelManager.Instance;
+        if (PlayerController.Local == null || (travel != null && travel.IsTraveling)) return;
+        _arrivalResolved = true;
+        if (!_inside) _armed = true;
     }
 
     // Hanya avatar lokal (pemain lain yang lewat tidak boleh memicu panel kita).
@@ -46,6 +60,7 @@ public class TravelPad : MonoBehaviour
     {
         if (!IsLocalPlayer(other)) return;
         _inside = true;
+        if (!_arrivalResolved) return; // masih proses tiba: jangan buka panel di frame teleport
         if (isActiveAndEnabled && _padLight != null)
         {
             if (_pulse != null) StopCoroutine(_pulse);

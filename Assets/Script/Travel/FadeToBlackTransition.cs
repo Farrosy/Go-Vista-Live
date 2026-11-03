@@ -64,6 +64,13 @@ public class FadeToBlackTransition : MonoBehaviour, ISceneTransition
         group.blocksRaycasts = false;
     }
 
+    public void ResetImmediate()
+    {
+        Build();
+        group.alpha = 0f;
+        group.blocksRaycasts = false;
+    }
+
     private IEnumerator Fade(float targetAlpha)
     {
         if (fadeDuration <= 0f)

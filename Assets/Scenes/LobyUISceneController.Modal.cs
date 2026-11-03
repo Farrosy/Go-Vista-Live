@@ -11,6 +11,14 @@ public sealed partial class LobyUISceneController {
     private const string NoRoomAlertTitle = "Belum ada room";
     private const string CreateRoomFailedTitle = "Gagal membuat room";
     private const string ConnectCancelledMessage = "Dibatalkan.";
+    private const string RoomNotFoundTitle = "Room tidak ditemukan";
+    private const string RoomExpiredMessage = "Room sudah kedaluwarsa dan dihapus dari daftar.";
+    private const string ConnectionLostTitle = "Koneksi terputus";
+    private const string ConnectionLostMessage =
+        "Koneksi ke server terputus. Masuk lagi lewat ROOM TERAKHIR atau kode room.";
+    private const string ConnectionLostStatus = "Koneksi ke room terputus.";
+    private const string JoinFailedTitle = "Gagal masuk room";
+    private const string JoinFailedFallback = "Tidak bisa terhubung ke server. Coba lagi.";
 
     [SerializeField] private LobbyModal modal;
 
@@ -27,9 +35,10 @@ public sealed partial class LobyUISceneController {
             modal.ShowLoading(message, CancelConnect);
     }
 
+    /// <summary>Tutup modal loading saja. Alert dibiarkan sampai pemain menekan OK.</summary>
     private void HideModal() {
         if (modal != null)
-            modal.Hide();
+            modal.HideLoading();
     }
 
     private void ShowAlertModal(string title, string message) {

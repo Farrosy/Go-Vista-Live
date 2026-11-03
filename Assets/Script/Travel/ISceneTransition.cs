@@ -14,4 +14,8 @@ public interface ISceneTransition
 {
     IEnumerator Cover();
     IEnumerator Reveal();
+
+    /// Buka layar seketika tanpa animasi. Dipakai saat travel dibatalkan di tengah jalan
+    /// (mis. koneksi room putus), supaya layar tidak tertinggal hitam.
+    void ResetImmediate();
 }
