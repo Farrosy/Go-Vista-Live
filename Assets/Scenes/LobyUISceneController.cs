@@ -1386,6 +1386,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         HideModal();
         ResetInGameMenu();
         _leaveRoomPending = false;
+        ResetVenueState();
         if (ReturnToLobbyIfRequested())
             return;
         if (_worldLoading)
@@ -1418,6 +1419,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             return;
         _busy = false;
         HideModal();
+        ResetVenueState();
         if (ReturnToLobbyIfRequested())
             return;
 
@@ -1429,12 +1431,35 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
                 : roomNotFound.requestedRoomName;
             ForgetRoom(expiredRoom);
             RefreshRecentRooms();
-            SetStatus("Room sudah kedaluwarsa dan dihapus dari daftar.", StatusKind.Error);
+            SetStatus(RoomExpiredMessage, StatusKind.Error);
+            ShowAlertModal(RoomNotFoundTitle, RoomExpiredMessage);
             return;
         }
 
-        if (disconnectEvent != null && !string.IsNullOrEmpty(disconnectEvent.message))
-            SetStatus("Gagal masuk room: " + disconnectEvent.message, StatusKind.Error);
+        // Disconnect yang disengaja (keluar room, ganti akun, room penuh) tidak perlu alert.
+        if (disconnectEvent == null || disconnectEvent is DisconnectCalledByLocalClient || _roomFullDisconnectRequested)
+            return;
+
+        if (disconnectEvent.didConnectToRoom) {
+            SetStatus(ConnectionLostStatus, StatusKind.Error);
+            ShowAlertModal(ConnectionLostTitle, ConnectionLostMessage);
+            return;
+        }
+        string detail = !string.IsNullOrEmpty(disconnectEvent.message) ? disconnectEvent.message : JoinFailedFallback;
+        SetStatus("Gagal masuk room: " + detail, StatusKind.Error);
+        ShowAlertModal(JoinFailedTitle, detail);
+    }
+
+    /// <summary>
+    /// Kembalikan state venue ke World (scene venue, panel pilihan, kunci input, venue lokal). Idempoten,
+    /// jadi aman dipanggil dari kedua event disconnect. Kalau scene akan di-load ulang (keluar room),
+    /// scene venue tidak perlu di-unload manual karena ikut hilang bersama load Single.
+    /// </summary>
+    private void ResetVenueState() {
+        if (VenueTravelManager.Instance != null)
+            VenueTravelManager.Instance.ResetToWorld(unloadVenueScenes: !_returnToLobbyOnDisconnect);
+        else
+            VenueTravelManager.SetLocalVenue(VenueId.World);
     }
 
     // ---------------------------------------------------------------- Menu utama, pengaturan, keluar game
@@ -1688,14 +1713,17 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
 
         Scene worldScene = SceneManager.GetSceneByName(WorldSceneName);
         if (!worldScene.isLoaded) {
+            SceneLoadPriority.UseLow(); // cicil integrasi supaya koneksi Normcore tidak putus saat load
             AsyncOperation load = SceneManager.LoadSceneAsync(WorldSceneName, LoadSceneMode.Additive);
             if (load == null) {
+                SceneLoadPriority.Restore();
                 _worldLoading = false;
                 SetWaitingJoinButtonLoading(false);
                 SetWaitingStatus("Gagal memuat world pratinjau. Tekan MULAI untuk mencoba lagi.");
                 yield break;
             }
             yield return load;
+            SceneLoadPriority.Restore();
             worldScene = SceneManager.GetSceneByName(WorldSceneName);
         }
 
@@ -1758,13 +1786,16 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
 
         Scene worldScene = SceneManager.GetSceneByName(WorldSceneName);
         if (!worldScene.isLoaded) {
+            SceneLoadPriority.UseLow();
             AsyncOperation load = SceneManager.LoadSceneAsync(WorldSceneName, LoadSceneMode.Additive);
             if (load == null) {
+                SceneLoadPriority.Restore();
                 _startingGame = false;
                 SetStatus("Gagal memuat WorldScene. Pastikan scene ada di Build Settings.", StatusKind.Error);
                 yield break;
             }
             yield return load;
+            SceneLoadPriority.Restore();
             worldScene = SceneManager.GetSceneByName(WorldSceneName);
         }
 

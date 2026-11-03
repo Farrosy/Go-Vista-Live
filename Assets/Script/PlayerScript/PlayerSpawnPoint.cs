@@ -24,8 +24,14 @@ public class PlayerSpawnPoint : MonoBehaviour
     [Tooltip("Slot pemunculan di dalam venue (spawn awal, kembali ke dermaga, cube venue, dst.).")]
     [SerializeField] private SpawnSlot slot = SpawnSlot.CentralPlaza;
 
-    [Tooltip("Pemain disebar melingkar di sekitar titik ini supaya tidak saling tumpuk (meter). 0 = semua di titik yang sama.")]
+    [Tooltip("Pemain disebar melingkar di sekitar titik ini supaya tidak saling tumpuk. Jarak terjauh dari " +
+             "titik (meter), berapa pun clientID-nya. 0 = semua di titik yang sama.")]
     [SerializeField] private float spreadRadius = 2f;
+
+    // clientID Normcore terus naik tiap ada yang (re)connect, jadi dipetakan ke sejumlah slot tetap
+    // supaya jarak sebar tidak pernah melebihi spreadRadius (mis. tamu tidak mendarat di luar TravelPad).
+    private const int SpreadSlots = 10;
+    private const float GoldenAngle = 2.39996323f;
 
     public VenueId Venue => venue;
     public SpawnSlot Slot => slot;
@@ -66,8 +72,9 @@ public class PlayerSpawnPoint : MonoBehaviour
     {
         if (clientID <= 0 || spreadRadius <= 0f) return transform.position;
 
-        float angle = clientID * 2.39996323f;
-        float radius = spreadRadius * Mathf.Sqrt(clientID) * 0.5f;
+        int slot = (clientID - 1) % SpreadSlots + 1; // 1..SpreadSlots
+        float angle = slot * GoldenAngle;
+        float radius = spreadRadius * Mathf.Sqrt(slot / (float)SpreadSlots);
         return transform.position + new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
     }
 

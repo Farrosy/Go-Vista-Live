@@ -25,8 +25,10 @@ public sealed class LobbyModal : MonoBehaviour {
 
     private Action _onAction;
     private GameObject _previousSelection;
+    private bool _isLoading;
 
     public bool IsOpen => overlay != null && overlay.activeSelf;
+    public bool IsLoading => IsOpen && _isLoading;
 
     /// <summary>Isi referensi dari builder editor (prefab dibuat dari kode).</summary>
     public void Bind(GameObject overlayObject, Text title, Text message, RectTransform spinnerRect, Button button,
@@ -66,6 +68,12 @@ public sealed class LobbyModal : MonoBehaviour {
         Show(title, message, false, "OK", onOk);
     }
 
+    /// <summary>Tutup hanya kalau sedang mode loading (alert yang sedang tampil tidak ikut tertutup).</summary>
+    public void HideLoading() {
+        if (IsLoading)
+            Hide();
+    }
+
     public void Hide() {
         if (!IsOpen)
             return;
@@ -102,6 +110,7 @@ public sealed class LobbyModal : MonoBehaviour {
         if (actionLabel != null)
             actionLabel.text = hasAction ? actionText : "";
         _onAction = onAction;
+        _isLoading = showSpinner;
 
         overlay.SetActive(true);
         // Fokus keyboard/gamepad pindah ke modal, supaya tombol di belakang tidak bisa di-"Submit".

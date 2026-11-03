@@ -41,6 +41,19 @@ public static class LobbyModalBuilder {
         BuildAll();
     }
 
+    /// Pasang (atau sambungkan ulang) instance prefab di scene game tanpa membangun ulang prefab.
+    [MenuItem("Go Vista/Lobby UI/Pasang LobbyModalCanvas ke scene game")]
+    private static void InstallFromMenu() {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+        if (prefab == null) {
+            EditorUtility.DisplayDialog("LobbyModalCanvas belum ada",
+                "Jalankan dulu Go Vista > Lobby UI > Buat ulang LobbyModalCanvas.", "OK");
+            return;
+        }
+        foreach (string path in HostScenePaths)
+            InstallInHostScene(path, prefab);
+    }
+
     [MenuItem("Go Vista/Lobby UI/Edit LobbyModalCanvas (LobbyModalScene)")]
     private static void OpenEditScene() {
         if (!File.Exists(EditScenePath)) {
