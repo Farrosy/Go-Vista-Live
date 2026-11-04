@@ -14,6 +14,22 @@ public class CameraOrbit : MonoBehaviour
     [Tooltip("Lama transisi ke/dari fokus, detik")]
     [SerializeField] private float focusBlendTime = 0.6f;
 
+    [Header("Collision (anti tembus tembok)")]
+    [Tooltip("Layer yang dianggap penghalang kamera (bangunan, tembok, dll)")]
+    [SerializeField] private LayerMask collisionMask = ~0;
+    [Tooltip("Radius bola untuk cek tabrakan. Otomatis diperbesar supaya near plane kamera tidak masuk tembok.")]
+    [SerializeField] private float collisionRadius = 0.2f;
+    [Tooltip("Jarak sisa antara kamera dan tembok")]
+    [SerializeField] private float collisionBuffer = 0.1f;
+    [Tooltip("Jarak minimum kamera dari pivot (kepala player)")]
+    [SerializeField] private float minDistance = 0.3f;
+    [Tooltip("Kecepatan kamera mundur kembali setelah penghalang hilang (meter/detik)")]
+    [SerializeField] private float returnSpeed = 6f;
+
+    private readonly RaycastHit[] hits = new RaycastHit[32];
+    private float currentDistance = -1f;   // jarak kamera aktual dari pivot (setelah collision)
+    private Camera cam;
+
     private float yaw;
     private float pitch = 15f;
 
@@ -25,10 +41,15 @@ public class CameraOrbit : MonoBehaviour
     public void SetTarget(Transform value)
     {
         target = value;
+        currentDistance = -1f;
         if (target) yaw = transform.eulerAngles.y;
     }
 
-    void Start() => yaw = transform.eulerAngles.y;
+    void Start()
+    {
+        yaw = transform.eulerAngles.y;
+        cam = GetComponent<Camera>();
+    }
 
     public void FocusOn(Transform point, float dist, float height, float side)
     {
@@ -62,7 +83,7 @@ public class CameraOrbit : MonoBehaviour
 
         if (blend <= 0f || !focusPoint)
         {
-            transform.SetPositionAndRotation(orbitPos, orbitRot);
+            transform.SetPositionAndRotation(ResolveCollision(pivot, orbitPos), orbitRot);
             return;
         }
 
@@ -79,7 +100,68 @@ public class CameraOrbit : MonoBehaviour
 
         float t = Mathf.SmoothStep(0f, 1f, blend);
         transform.SetPositionAndRotation(
-            Vector3.Lerp(orbitPos, focusPos, t),
+            ResolveCollision(pivot, Vector3.Lerp(orbitPos, focusPos, t)),
             Quaternion.Slerp(orbitRot, focusRot, t));
+    }
+
+    /// Tarik kamera maju kalau ada penghalang antara pivot (kepala player) dan posisi kamera yang diinginkan.
+    /// Maju langsung (supaya tidak pernah tembus), mundur kembali secara halus.
+    private Vector3 ResolveCollision(Vector3 pivot, Vector3 desiredPos)
+    {
+        Vector3 offset = desiredPos - pivot;
+        float maxDist = offset.magnitude;
+        if (maxDist < 0.0001f) return desiredPos;
+        Vector3 dir = offset / maxDist;
+
+        float radius = Mathf.Max(collisionRadius, NearPlaneRadius());
+        float allowed = maxDist;
+
+        // Sphere cast: penghalang di sepanjang jalur kamera.
+        int count = Physics.SphereCastNonAlloc(pivot, radius, dir, hits, maxDist, collisionMask, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit h = hits[i];
+            if (h.distance <= 0f || IsIgnored(h.collider)) continue;   // distance 0 = sudah overlap di titik awal, ditangani raycast di bawah
+            allowed = Mathf.Min(allowed, h.distance - collisionBuffer);
+        }
+
+        // Raycast tipis: menangkap tembok yang sudah bersentuhan dengan bola di titik awal (player mepet tembok).
+        count = Physics.RaycastNonAlloc(pivot, dir, hits, maxDist, collisionMask, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit h = hits[i];
+            if (IsIgnored(h.collider)) continue;
+            allowed = Mathf.Min(allowed, h.distance - radius - collisionBuffer);
+        }
+
+        allowed = Mathf.Clamp(allowed, Mathf.Min(minDistance, maxDist), maxDist);
+
+        if (currentDistance < 0f || allowed < currentDistance)
+            currentDistance = allowed;   // ada penghalang: langsung maju
+        else
+            currentDistance = Mathf.MoveTowards(currentDistance, allowed, returnSpeed * Time.deltaTime);
+
+        return pivot + dir * currentDistance;
+    }
+
+    /// Radius minimum supaya sudut-sudut near clip plane tidak masuk ke dalam tembok.
+    private float NearPlaneRadius()
+    {
+        if (!cam) return 0f;
+        float near = cam.nearClipPlane;
+        float halfH = near * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+        float halfW = halfH * cam.aspect;
+        return Mathf.Sqrt(near * near + halfH * halfH + halfW * halfW);
+    }
+
+    /// Player sendiri, avatar pemain lain, dan NPC tidak dianggap penghalang (supaya kamera tidak loncat-loncat).
+    private bool IsIgnored(Collider c)
+    {
+        if (!c) return true;
+        if (target && c.transform.IsChildOf(target)) return true;
+        if (c is CharacterController) return true;
+        if (c.GetComponentInParent<PlayerController>()) return true;
+        if (c.GetComponentInParent<NpcController>()) return true;
+        return false;
     }
 }
