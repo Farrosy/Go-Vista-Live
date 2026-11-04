@@ -1,0 +1,497 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5855870028555442345
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8632926726067080216}
+  - component: {fileID: 5753061687043866716}
+  m_Layer: 0
+  m_Name: Head_AnimeYoung
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8632926726067080216
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5855870028555442345}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 5606493496970051157}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5753061687043866716
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5855870028555442345}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30163d88ceeb5dd4c9f91932956c80e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  AttachInEditMode: 0
+  OutfitName: Anime Young
+  PackName: 
+  OutfitIcon: {fileID: 21300000, guid: ab35a2c2a922eb84293510d984c30d34, type: 3}
+  ColorChannels:
+  - Base
+  - Undertone
+  - Lines
+  - Sclera
+  - Sclera Shade
+  - Inner Mouth
+  - Teeth
+  - Tongue
+  - Teeth
+  TextureCatagory: 
+  mergeTexture: 1
+  mergeMesh: 1
+  supportDecals: 1
+  supportPatterns: 0
+  showCharacterCreator: 1
+  Type: {fileID: 11400000, guid: 480ce04c1d1586c44b495f52ce52adc8, type: 2}
+  AttachPoint: 
+  materialIndex: -1
+  materialPriority: 100
+  colors:
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  defaultColors: []
+  pattern: {fileID: 0}
+  patternColors:
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0}
+  patternSize: {x: 0, y: 0}
+  decalDatas: []
+  tags:
+  - Anime
+  requiredTags: []
+  categories: []
+  optionalPieces: []
+  additionalBones:
+  - {fileID: 6023626926398726732}
+  LinkedColorSets:
+  - linkedType: {fileID: 11400000, guid: 11451b38f6824a84d8e8c9afe9bbc832, type: 2}
+    linkedChannelRange: 3
+  IncompatibleSets: []
+  HideTypes: []
+  currentSwatch: 0
+  outfitSwatches: []
+  originalBones: []
+  originalRootBone: {fileID: 0}
+  editorAttachPoint: {fileID: 0}
+  customShader: 0
+  material: {fileID: 0}
+  controlMaterial: {fileID: 0}
+  controlIndex: 0
+  MC2Map: {fileID: 0}
+  attached: 0
+--- !u!1001 &5351680832909253054
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 8632926726067080216}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      propertyPath: m_Name
+      value: Head_AnimeYoung
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: -2193295715602264096, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4709038742628425182}
+    - targetCorrespondingSourceObject: {fileID: -8601364633731858928, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1612993680405408821}
+    - targetCorrespondingSourceObject: {fileID: 1103183771031064788, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3206642998378783026}
+    - targetCorrespondingSourceObject: {fileID: 3484794321889513439, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3068188228644671309}
+    - targetCorrespondingSourceObject: {fileID: 5553766722740254572, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4759512201977295132}
+    - targetCorrespondingSourceObject: {fileID: 6633316665050502978, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1673509594983029294}
+  m_SourcePrefab: {fileID: 100100000, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+--- !u!1 &528623424655060690 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5553766722740254572, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+  m_PrefabInstance: {fileID: 5351680832909253054}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4759512201977295132
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 528623424655060690}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e380248cdcfafa94881758bf4b8482e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shapeName: Mouth
+  sorting: Head
+  useScale: 1
+  scaleValue: 1
+  xScaleValue: 1
+  yScaleValue: 1
+  zScaleValue: 1
+  counterScale: []
+  useXScale: 0
+  useYScale: 0
+  useZScale: 1
+  linkScaleAxis: 0
+  scaleRange: {x: 0.5, y: 2}
+  usePosition: 1
+  posValue: 0
+  xPosValue: 0
+  yPosValue: 0
+  zPosValue: 0
+  useXPos: 0
+  useYPos: 1
+  useZPos: 1
+  posRange: {x: -0.01, y: 0.01}
+  mirrorX: -1
+  mirrorY: 1
+  mirrorZ: 1
+  useRotation: 1
+  initalRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  initalMirrorRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  rotation: 0
+  rotationAxis: {x: 0, y: 1, z: 0}
+  rotRange: {x: -25, y: 25}
+  mirrotRot: 0
+  MirrorTransform: 1
+--- !u!1 &1606301827325824764 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6633316665050502978, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+  m_PrefabInstance: {fileID: 5351680832909253054}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1673509594983029294
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1606301827325824764}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e380248cdcfafa94881758bf4b8482e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shapeName: Nose
+  sorting: Head
+  useScale: 1
+  scaleValue: 1
+  xScaleValue: 1
+  yScaleValue: 1
+  zScaleValue: 1
+  counterScale: []
+  useXScale: 0
+  useYScale: 0
+  useZScale: 1
+  linkScaleAxis: 1
+  scaleRange: {x: 0.5, y: 3}
+  usePosition: 1
+  posValue: 0
+  xPosValue: 0
+  yPosValue: 0
+  zPosValue: 0
+  useXPos: 0
+  useYPos: 1
+  useZPos: 1
+  posRange: {x: -0.02, y: 0.02}
+  mirrorX: -1
+  mirrorY: 1
+  mirrorZ: 1
+  useRotation: 0
+  initalRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  initalMirrorRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  rotation: 0
+  rotationAxis: {x: 0, y: 0, z: 1}
+  rotRange: {x: -90, y: 90}
+  mirrotRot: 0
+  MirrorTransform: 0
+--- !u!1 &3155656053748045406 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -2193295715602264096, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+  m_PrefabInstance: {fileID: 5351680832909253054}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4709038742628425182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3155656053748045406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e380248cdcfafa94881758bf4b8482e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shapeName: Chin
+  sorting: Head
+  useScale: 1
+  scaleValue: 1
+  xScaleValue: 1
+  yScaleValue: 1
+  zScaleValue: 1
+  counterScale: []
+  useXScale: 0
+  useYScale: 0
+  useZScale: 1
+  linkScaleAxis: 1
+  scaleRange: {x: 0.5, y: 4}
+  usePosition: 1
+  posValue: 0
+  xPosValue: 0
+  yPosValue: 0
+  zPosValue: 0
+  useXPos: 0
+  useYPos: 1
+  useZPos: 1
+  posRange: {x: -0.02, y: 0.02}
+  mirrorX: -1
+  mirrorY: 1
+  mirrorZ: 1
+  useRotation: 0
+  initalRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  initalMirrorRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  rotation: 0
+  rotationAxis: {x: 0, y: 0, z: 1}
+  rotRange: {x: -90, y: 90}
+  mirrotRot: 0
+  MirrorTransform: 0
+--- !u!1 &4820308647233939374 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -8601364633731858928, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+  m_PrefabInstance: {fileID: 5351680832909253054}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1612993680405408821
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4820308647233939374}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e380248cdcfafa94881758bf4b8482e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shapeName: Eyes
+  sorting: Head
+  useScale: 1
+  scaleValue: 1
+  xScaleValue: 1
+  yScaleValue: 1
+  zScaleValue: 1
+  counterScale: []
+  useXScale: 1
+  useYScale: 1
+  useZScale: 1
+  linkScaleAxis: 0
+  scaleRange: {x: 0.5, y: 2}
+  usePosition: 1
+  posValue: 0
+  xPosValue: 0
+  yPosValue: 0
+  zPosValue: 0
+  useXPos: 1
+  useYPos: 1
+  useZPos: 1
+  posRange: {x: -0.02, y: 0.02}
+  mirrorX: -1
+  mirrorY: 1
+  mirrorZ: 1
+  useRotation: 1
+  initalRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  initalMirrorRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  rotation: 0
+  rotationAxis: {x: 0, y: 0, z: 1}
+  rotRange: {x: -90, y: 90}
+  mirrotRot: 0
+  MirrorTransform: 1
+--- !u!1 &4975270975409670506 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1103183771031064788, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+  m_PrefabInstance: {fileID: 5351680832909253054}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3206642998378783026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4975270975409670506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e380248cdcfafa94881758bf4b8482e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shapeName: Iris
+  sorting: Head
+  useScale: 1
+  scaleValue: 1
+  xScaleValue: 1
+  yScaleValue: 1
+  zScaleValue: 1
+  counterScale: []
+  useXScale: 1
+  useYScale: 1
+  useZScale: 1
+  linkScaleAxis: 0
+  scaleRange: {x: 0.5, y: 2}
+  usePosition: 1
+  posValue: 0
+  xPosValue: 0
+  yPosValue: 0
+  zPosValue: 0
+  useXPos: 1
+  useYPos: 1
+  useZPos: 1
+  posRange: {x: -0.02, y: 0.02}
+  mirrorX: -1
+  mirrorY: 1
+  mirrorZ: 1
+  useRotation: 1
+  initalRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  initalMirrorRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  rotation: 0
+  rotationAxis: {x: 0, y: 0, z: 1}
+  rotRange: {x: -90, y: 90}
+  mirrotRot: 0
+  MirrorTransform: 1
+--- !u!4 &5606493496970051157 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+  m_PrefabInstance: {fileID: 5351680832909253054}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &6023626926398726732 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -7359790423337075726, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+  m_PrefabInstance: {fileID: 5351680832909253054}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &8797927712033822305 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3484794321889513439, guid: 35be80aca575f564e8838b7c7d9b904b, type: 3}
+  m_PrefabInstance: {fileID: 5351680832909253054}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3068188228644671309
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8797927712033822305}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e380248cdcfafa94881758bf4b8482e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shapeName: Jaw
+  sorting: Head
+  useScale: 0
+  scaleValue: 1
+  xScaleValue: 1
+  yScaleValue: 1
+  zScaleValue: 1
+  counterScale: []
+  useXScale: 1
+  useYScale: 1
+  useZScale: 1
+  linkScaleAxis: 0
+  scaleRange: {x: 0.5, y: 3}
+  usePosition: 1
+  posValue: 0
+  xPosValue: 0
+  yPosValue: 0
+  zPosValue: 0
+  useXPos: 1
+  useYPos: 1
+  useZPos: 1
+  posRange: {x: -0.02, y: 0.02}
+  mirrorX: -1
+  mirrorY: 1
+  mirrorZ: 1
+  useRotation: 0
+  initalRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  initalMirrorRotationAxis: {x: 0, y: 0, z: 0, w: 0}
+  rotation: 0
+  rotationAxis: {x: 0, y: 0, z: 1}
+  rotRange: {x: -90, y: 90}
+  mirrotRot: 0
+  MirrorTransform: 1
