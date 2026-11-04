@@ -87,7 +87,12 @@ public static class ChatPanelBuilder {
         BuildHeader(panel, assets, refs);
         BuildMessageList(panel, assets, refs);
         BuildInputBar(panel, assets, refs);
-        panel.gameObject.SetActive(false);
+        // Panel TIDAK pernah di-SetActive(false): teks TMP di object nonaktif belum ter-inisialisasi, sehingga
+        // ukuran bubble pesan yang masuk saat panel tertutup terbaca 0 (bubble rusak). Disembunyikan lewat
+        // CanvasGroup saja (lihat ChatPanel.SetExpanded).
+        refs.PanelGroup.alpha = 0f;
+        refs.PanelGroup.interactable = false;
+        refs.PanelGroup.blocksRaycasts = false;
     }
 
     private static void BuildHeader(RectTransform panel, ChatUiAssets assets, ChatPanelRefs refs) {

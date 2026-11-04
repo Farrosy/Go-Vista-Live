@@ -153,7 +153,11 @@ public sealed class ChatPanel : MonoBehaviour {
     private void SetExpanded(bool expanded) {
         _expanded = expanded;
         if (!expanded && _ui.Input.isFocused) _ui.Input.DeactivateInputField();
-        _ui.Panel.gameObject.SetActive(expanded);
+        // Sembunyikan lewat CanvasGroup, bukan SetActive (lihat ChatPanelBuilder.BuildPanel).
+        CanvasGroup group = _ui.PanelGroup;
+        group.alpha = expanded ? 1f : 0f;
+        group.interactable = expanded;
+        group.blocksRaycasts = expanded;
         _ui.ToggleButton.gameObject.SetActive(!expanded);
         if (expanded) {
             SetUnread(0);
