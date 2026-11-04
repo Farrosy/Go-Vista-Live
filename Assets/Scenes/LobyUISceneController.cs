@@ -1371,6 +1371,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (_playerListRoutine != null)
             StopCoroutine(_playerListRoutine);
         _playerListRoutine = StartCoroutine(RefreshWaitingPlayerList());
+        ChatPanel.SetContext(ChatContext.WaitingRoom);
         string recentRoom = !string.IsNullOrEmpty(roomCode)
             ? "qm:" + roomCode
             : connectedRealtime.roomName;
@@ -1386,6 +1387,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         HideModal();
         ResetInGameMenu();
         _leaveRoomPending = false;
+        ChatPanel.SetContext(ChatContext.Hidden);
         ResetVenueState();
         if (ReturnToLobbyIfRequested())
             return;
@@ -1419,6 +1421,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             return;
         _busy = false;
         HideModal();
+        ChatPanel.SetContext(ChatContext.Hidden);
         ResetVenueState();
         if (ReturnToLobbyIfRequested())
             return;
@@ -1823,6 +1826,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         _inGameMenuPage = InGameMenuPage.Closed;
         if (_panel != null)
             _panel.SetActive(false);
+        ChatPanel.SetContext(ChatContext.InGame);
     }
 
     private void ToggleWaitingRoster() {
@@ -1935,6 +1939,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
 
     private void ShowInGameMenuPage(InGameMenuPage page) {
         _inGameMenuPage = page;
+        // Chat disembunyikan selama menu pause / atur kontrol supaya tidak menutupi panel itu.
+        ChatPanel.SetSuppressed(page != InGameMenuPage.Closed);
         if (_pauseOverlay != null)
             _pauseOverlay.SetActive(page != InGameMenuPage.Closed && page != InGameMenuPage.ControlLayout);
         if (_pauseMainPanel != null)
@@ -1949,6 +1955,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
 
     private void ResetInGameMenu() {
         _gameplayStarted = false;
+        ChatPanel.SetSuppressed(false);
         if (ControlLayoutEditor.IsOpen)
             FindControlLayoutEditor()?.Cancel();
         _inGameMenuPage = InGameMenuPage.Closed;

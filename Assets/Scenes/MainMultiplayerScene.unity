@@ -552,6 +552,13 @@ MonoBehaviour:
   minPitch: -25
   maxPitch: 70
   focusBlendTime: 0.6
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  collisionRadius: 0.2
+  collisionBuffer: 0.1
+  minDistance: 0.3
+  returnSpeed: 6
 --- !u!1001 &642941722
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -947,6 +954,73 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &1849964383
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1849964386}
+  - component: {fileID: 1849964385}
+  - component: {fileID: 1849964384}
+  m_Layer: 0
+  m_Name: Chat Room
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1849964384
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1849964383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74bf59d3bf17ed352a4e29b4999d698d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChatRoom
+--- !u!114 &1849964385
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1849964383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -363599832, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Normal.Realtime.dll::Normal.Realtime.RealtimeView
+  _realtime: {fileID: 0}
+  _sceneViewUUID: 
+  _viewUUID: e4147cbb-3809-43e5-87e0-c69c4f8b2b72
+  _sceneViewPreventOwnershipTakeover: 0
+  _sceneViewDestroyWhenLastClientLeaves: 1
+  _components:
+  - componentID: 1
+    component: {fileID: 1849964384}
+    isDeprecated: 0
+  _childViews: []
+--- !u!4 &1849964386
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1849964383}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2006033948
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1161,6 +1235,62 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 7424922761789820149, guid: 03c26fa30ca68284986700965fb8fc09, type: 3}
   m_PrefabInstance: {fileID: 2008016537}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2113591064
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2113591066}
+  - component: {fileID: 2113591065}
+  m_Layer: 0
+  m_Name: Chat UI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2113591065
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2113591064}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc78b8e2ac2e200c4848a18813511452, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChatPanel
+  chatRoom: {fileID: 1849964384}
+  assets:
+    font: {fileID: 11400000, guid: b51443edd50c94546a29f4cffc611e8a, type: 2}
+    chatIcon: {fileID: 21300000, guid: c916a74bfa81f0ea189cbf7006acff4e, type: 3}
+    sendButton: {fileID: 21300000, guid: 8e4cad0d9e1ca1ce780bfc046e9b37e2, type: 3}
+    sendButtonPressed: {fileID: 21300000, guid: 231467df8516300f5889a8b650421718, type: 3}
+    rounded: {fileID: 21300000, guid: e01237b0fd1547c1b80c48f0d18203a9, type: 3}
+    circle: {fileID: 21300000, guid: 3fb90f005db44ee0b3df8833cde94082, type: 3}
+    chevron: {fileID: 21300000, guid: a0fde92a2a9b4a92ba29c58e9f87e83c, type: 3}
+  fadeDelay: 10
+  fadedAlpha: 0.4
+  fadeSpeed: 3
+--- !u!4 &2113591066
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2113591064}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2160233073280113650
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1663,11 +1793,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4336829993428079430, guid: 3aecf1c0c3aacfe1885a7d9908e11988, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.9167685
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4336829993428079430, guid: 3aecf1c0c3aacfe1885a7d9908e11988, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.9167685
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4391541893858399897, guid: 3aecf1c0c3aacfe1885a7d9908e11988, type: 3}
       propertyPath: m_AnchorMax.x
@@ -3180,3 +3310,5 @@ SceneRoots:
   - {fileID: 509528582}
   - {fileID: 683684671}
   - {fileID: 2006033948}
+  - {fileID: 1849964386}
+  - {fileID: 2113591066}
