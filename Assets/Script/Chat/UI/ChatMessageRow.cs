@@ -30,7 +30,7 @@ public static class ChatMessageRow {
     }
 
     private static float BuildOther(RectTransform row, ChatMessage message, ChatUiAssets assets) {
-        Color nameColor = ChatRules.NameColor(message.SenderId);
+        Color nameColor = ChatRules.NameColor(message.ColorSeed);
         RectTransform bubble = ChatUiKit.CreateRect("Bubble", row);
         ChatUiKit.AddShape(bubble.gameObject, assets.rounded, ChatTheme.BubbleOther, BubbleCorner).raycastTarget = false;
 
