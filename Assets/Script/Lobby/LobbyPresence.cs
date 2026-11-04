@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Normal.Realtime;
 using UnityEngine;
@@ -20,6 +21,11 @@ public sealed class LobbyPresence : RealtimeComponent<LobbyPresenceModel> {
 
     private static readonly List<LobbyPresence> _all = new List<LobbyPresence>();
     public static IReadOnlyList<LobbyPresence> All => _all;
+
+    /// <summary>Pemain siap (model + nama sudah ada). Dipakai ChatRoom untuk pesan "X bergabung".</summary>
+    public static event Action<LobbyPresence> Ready;
+    /// <summary>Objek presence hilang (pemain keluar, atau scene/koneksi lokal ditutup).</summary>
+    public static event Action<LobbyPresence> Gone;
 
     private RealtimeView _view;
 
@@ -49,6 +55,8 @@ public sealed class LobbyPresence : RealtimeComponent<LobbyPresenceModel> {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() {
         _all.Clear();
+        Ready = null;
+        Gone = null;
     }
 
     private void Awake() {
@@ -58,16 +66,23 @@ public sealed class LobbyPresence : RealtimeComponent<LobbyPresenceModel> {
     private void OnEnable() {
         _all.Add(this);
         ProgressService.PlayerNameChanged += OnLocalPlayerNameChanged;
+        // Model bisa sudah terpasang sebelum OnEnable (urutan Realtime.Instantiate tidak dijamin).
+        if (model != null)
+            Ready?.Invoke(this);
     }
 
     private void OnDisable() {
-        _all.Remove(this);
+        bool wasTracked = _all.Remove(this);
+        if (wasTracked && model != null)
+            Gone?.Invoke(this);
         ProgressService.PlayerNameChanged -= OnLocalPlayerNameChanged;
     }
 
     protected override void OnRealtimeModelReplaced(LobbyPresenceModel previousModel, LobbyPresenceModel currentModel) {
         if (currentModel != null && IsLocal)
             PublishName(ProgressService.Current.playerName);
+        if (currentModel != null && _all.Contains(this))
+            Ready?.Invoke(this);
     }
 
     private void OnLocalPlayerNameChanged(string playerName) {

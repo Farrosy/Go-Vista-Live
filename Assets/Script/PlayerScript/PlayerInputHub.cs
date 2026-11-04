@@ -15,10 +15,11 @@ public class PlayerInputHub : MonoBehaviour
     private Vector2 lookDelta;
     private bool inputLocked;
     private bool pauseLocked;
+    private bool chatTypingLocked;
     private bool ignoreJoystickUntilNeutral;
 
-    /// True saat dialog/cutscene atau menu pause: gerak, sprint, dan look dimatikan.
-    public bool InputLocked => inputLocked || pauseLocked;
+    /// True saat dialog/cutscene, menu pause, atau sedang mengetik chat: gerak, sprint, dan look dimatikan.
+    public bool InputLocked => inputLocked || pauseLocked || chatTypingLocked;
 
     public Vector2 Move
     {
@@ -79,6 +80,15 @@ public class PlayerInputHub : MonoBehaviour
     public void SetPauseLocked(bool locked)
     {
         pauseLocked = locked;
+        if (locked) ignoreJoystickUntilNeutral = true;
+        ClearPendingInput();
+    }
+
+    /// <summary>Lock selama kolom chat fokus (keyboard terbuka). Panel chat yang hanya terlihat tidak mengunci.</summary>
+    public void SetChatTypingLocked(bool locked)
+    {
+        if (chatTypingLocked == locked) return;
+        chatTypingLocked = locked;
         if (locked) ignoreJoystickUntilNeutral = true;
         ClearPendingInput();
     }
