@@ -18,7 +18,10 @@ public static class SettingsPanelRedesign {
     private const string LobbyCanvasPath = "Assets/Prefab/LobbyCanvas.prefab";
     private const string WaitingCanvasPath = "Assets/Prefab/RoomWaitingCanvas.prefab";
     private const float Width = 860f;
-    private const float Height = 840f;
+    // Baris akun ("Masuk sebagai …") pindah ke menu PROFIL (Docs/Profil/08a), jadi dialog lebih pendek.
+    private const float AccountRowHeight = 70f;
+    private const float Height = 840f - AccountRowHeight;
+    private const float DoneY = 698f - AccountRowHeight;
     private const float Pad = 44f;
     private const float Inner = Width - Pad * 2f; // 772
 
@@ -50,7 +53,7 @@ public static class SettingsPanelRedesign {
 
             var panel = root.AddComponent<SettingsPanel>();
             panel.Init(Find<Slider>(rect, "Settings Sensitivity Slider"), Find<Text>(rect, "Settings Sensitivity Value"),
-                       Find<Text>(rect, "Settings Account"), Find<Button>(rect, "Settings Controls Button"),
+                       null, Find<Button>(rect, "Settings Controls Button"),
                        Find<Button>(rect, "Settings Done Button"), Find<Button>(rect, "Settings Close Button"));
             SetLayerRecursive(rect, LayerMask.NameToLayer("UI"));
             root.SetActive(false); // dibuka lewat SettingsPanel.Open()
@@ -164,20 +167,36 @@ public static class SettingsPanelRedesign {
                     TextAnchor.MiddleLeft, SubColor).rectTransform, 122f, 60f, 560f, 30f);
         Icon("Settings Controls Chevron", controlsFace, "icon-chevron-right", SubColor, Inner - 28f - 40f, 38f, 40f);
 
-        // ---- Akun: avatar inisial + "Masuk sebagai ..." (teks diisi LobyUISceneController).
-        RectTransform avatar = Place(NewRect("Settings Account Avatar", dialog), Pad, 628f, 44f, 44f);
-        GradientShape(avatar.gameObject, PinkTopColor, AvatarBottomColor, "ui-circle").raycastTarget = false;
-        Text initial = Label("Settings Account Initial", avatar, "?", 22, true, TextAnchor.MiddleCenter, Color.white);
-        Stretch(initial.rectTransform);
-        avatar.gameObject.AddComponent<PlayerNameDisplay>().Init(null, initial);
-        Place(Label("Settings Account", dialog, "", 22, false, TextAnchor.MiddleLeft, SubColor).rectTransform,
-              Pad + 58f, 628f, Inner - 58f, 44f);
-
         // ---- SELESAI: tombol utama, gaya sama dengan MAIN.
         Button done = MenuButton("Settings Done Button", dialog, BlueColor, VioletColor, VioletLipColor,
                                  new Color(1f, 1f, 1f, 0.18f), 1.2f, out RectTransform doneFace);
-        Place((RectTransform)done.transform, Pad, 698f, Inner, 100f);
+        Place((RectTransform)done.transform, Pad, DoneY, Inner, 100f);
         CenteredContent("Settings Done", doneFace, "icon-check", "SELESAI", 34, 36f, Color.white);
+    }
+
+    /// Patch SettingsPanel.prefab yang sudah ada (editan manual lain tetap): hapus baris akun, naikkan SELESAI,
+    /// perpendek dialog. Aman diulang. Dipanggil Go Vista > Profile > Pasang Profile.
+    public static string RemoveAccountRow() {
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(PanelPrefabPath) == null)
+            return "tidak ditemukan, dilewati";
+        GameObject root = PrefabUtility.LoadPrefabContents(PanelPrefabPath);
+        try {
+            Transform avatar = FindDeep(root.transform, "Settings Account Avatar");
+            Transform label = FindDeep(root.transform, "Settings Account");
+            if (avatar == null && label == null)
+                return "baris akun sudah tidak ada";
+            if (avatar != null) Object.DestroyImmediate(avatar.gameObject);
+            if (label != null) Object.DestroyImmediate(label.gameObject);
+
+            var dialog = (RectTransform)root.transform;
+            dialog.sizeDelta = new Vector2(dialog.sizeDelta.x, dialog.sizeDelta.y - AccountRowHeight);
+            if (FindDeep(root.transform, "Settings Done Button") is RectTransform done)
+                done.anchoredPosition += new Vector2(0f, AccountRowHeight);
+            PrefabUtility.SaveAsPrefabAsset(root, PanelPrefabPath);
+            return "baris akun dihapus, SELESAI dinaikkan";
+        } finally {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
     }
 
     // GhostButton dengan label kosong: hapus Text kosongnya supaya ikon benar-benar di tengah.

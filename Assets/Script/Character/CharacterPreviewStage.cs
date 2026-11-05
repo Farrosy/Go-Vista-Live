@@ -33,6 +33,14 @@ public class CharacterPreviewStage : MonoBehaviour {
         }
     }
 
+    /// Latar kamera transparan supaya gradasi kartu preview di menu terlihat di belakang karakter
+    /// (prefab lama memakai latar biru gelap solid).
+    public void UseTransparentBackground() {
+        if (!previewCamera) return;
+        previewCamera.clearFlags = CameraClearFlags.SolidColor;
+        previewCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+    }
+
     public void Show(CharacterDatabase.Entry character) {
         Clear();
         GameObject source = character?.PreviewSource;

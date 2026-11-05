@@ -60,7 +60,6 @@ public sealed class FriendsMenu : MonoBehaviour {
 
     private void WireUi() {
         _ui.CloseButton.onClick.AddListener(Close);
-        _ui.CopyButton.onClick.AddListener(CopyOwnName);
         for (int i = 0; i < _ui.Tabs.Length; i++) {
             FriendsTab tab = (FriendsTab)i;
             _ui.Tabs[i].Button.onClick.AddListener(() => ShowTab(tab));
@@ -80,7 +79,6 @@ public sealed class FriendsMenu : MonoBehaviour {
 
     private void Update() {
         if (!_tileBound) TryBindTile();
-        UpdateCopyFeedback();
         if (IsOpen && Input.GetKeyDown(KeyCode.Escape)) Close(); // tombol Back Android
     }
 
@@ -175,9 +173,6 @@ public sealed class FriendsMenu : MonoBehaviour {
 
     private void RefreshHeaderAndTabs() {
         bool ready = FriendsManager.IsReady;
-        string ownName = FriendsManager.LocalFriendName;
-        _ui.OwnNameGroup.SetActive(ready && !string.IsNullOrEmpty(ownName));
-        _ui.OwnNameText.text = ownName;
         _ui.OnlinePill.gameObject.SetActive(ready);
         if (ready) SetPillText(_ui.OnlinePill, _ui.OnlineText, "● " + FriendsManager.OnlineFriendCount + " online");
 
@@ -352,24 +347,6 @@ public sealed class FriendsMenu : MonoBehaviour {
             return;
         }
         Close(); // Lobby menampilkan dialog "menghubungkan" sendiri.
-    }
-
-    private const float CopiedFeedbackSeconds = 1.5f;
-    private float _copiedUntil;
-
-    /// Salin nama lengkap "Nama#1234" supaya mudah dibagikan ke teman (ditempel di kolom TAMBAH mereka).
-    private void CopyOwnName() {
-        string ownName = FriendsManager.LocalFriendName;
-        if (string.IsNullOrEmpty(ownName)) return;
-        GUIUtility.systemCopyBuffer = ownName;
-        _copiedUntil = Time.unscaledTime + CopiedFeedbackSeconds;
-        _ui.CopyLabel.text = "TERSALIN";
-    }
-
-    private void UpdateCopyFeedback() {
-        if (_copiedUntil <= 0f || Time.unscaledTime < _copiedUntil) return;
-        _copiedUntil = 0f;
-        _ui.CopyLabel.text = "SALIN";
     }
 
     /// Kotak hasil di tab TAMBAH: hijau + centang kalau berhasil, merah + silang kalau gagal.
