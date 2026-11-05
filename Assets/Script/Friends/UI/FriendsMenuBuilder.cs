@@ -19,10 +19,6 @@ public sealed class FriendsMenuRefs {
     public Button CloseButton;
     public RectTransform OnlinePill;
     public TextMeshProUGUI OnlineText;
-    public GameObject OwnNameGroup;
-    public TextMeshProUGUI OwnNameText;
-    public Button CopyButton;
-    public TextMeshProUGUI CopyLabel;
     public readonly FriendsTabRefs[] Tabs = new FriendsTabRefs[3];
 
     public GameObject ListPage;
@@ -120,29 +116,6 @@ public static class FriendsMenuBuilder {
         refs.CloseButton = FriendsUiKit.CreateOutlineButton("Close Button", panel, assets, "", Color.white,
                                                             FriendsTheme.NeutralFill, assets.closeIcon, 28);
         ChatUiKit.PlaceTopRight((RectTransform)refs.CloseButton.transform, Margin - 8f, 40f, 72f, 72f);
-        BuildOwnName(panel, assets, refs);
-    }
-
-    /// "Nama kamu  ganteng#4821  [SALIN]" di kiri tombol ×. Sementara, sampai menu Profile dibuat.
-    private static void BuildOwnName(RectTransform panel, ChatUiAssets assets, FriendsMenuRefs refs) {
-        const float height = 72f;
-        const float copyWidth = 190f; // cukup untuk "TERSALIN" di ukuran penuh
-        const float nameWidth = 300f;
-        RectTransform group = ChatUiKit.CreateRect("Own Name", panel);
-        ChatUiKit.PlaceTopRight(group, Margin - 8f + 72f + 16f, 40f, nameWidth + copyWidth + 16f, height);
-
-        TextMeshProUGUI caption = ChatUiKit.CreateText("Caption", group, assets.font, "Nama kamu", FriendsTheme.SmallSize - 2,
-                                                       FriendsTheme.Muted, FontStyles.Bold, TextAlignmentOptions.BottomRight);
-        ChatUiKit.Place(caption.rectTransform, 0f, 0f, nameWidth, 30f);
-        refs.OwnNameText = ChatUiKit.CreateText("Name", group, assets.font, "", FriendsTheme.BodySize + 2, Color.white,
-                                                FontStyles.Bold, TextAlignmentOptions.TopRight);
-        ChatUiKit.Place(refs.OwnNameText.rectTransform, 0f, 32f, nameWidth, 38f);
-
-        refs.CopyButton = FriendsUiKit.CreateOutlineButton("Copy Button", group, assets, "SALIN", FriendsTheme.Teal,
-                                                           FriendsTheme.TealFill);
-        ChatUiKit.PlaceTopRight((RectTransform)refs.CopyButton.transform, 0f, 4f, copyWidth, 64f);
-        refs.CopyLabel = FriendsUiKit.LabelOf(refs.CopyButton);
-        refs.OwnNameGroup = group.gameObject;
     }
 
     private static void BuildTabs(RectTransform panel, ChatUiAssets assets, FriendsMenuRefs refs) {

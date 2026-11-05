@@ -27,6 +27,7 @@ public static class ChatSceneInstaller {
     private const string CheckIconPath = "Assets/Resources/UI/Icons/icon-check.png";
     private const string RefreshIconPath = "Assets/Resources/UI/Icons/icon-refresh.png";
     private const string FriendsUiObjectName = "Friends UI";
+    private const string ProfileUiObjectName = "Profile UI";
 
     [MenuItem("Go Vista/Chat/Pasang Chat di MainMultiplayerScene")]
     public static void Install() {
@@ -72,11 +73,62 @@ public static class ChatSceneInstaller {
         Debug.Log("[Friends] Friends UI terpasang di MainMultiplayerScene.", menu);
     }
 
+    /// Menu PROFIL: rapikan menu utama (tile PROFIL, tanpa sapaan) lalu pasang object Profile UI.
+    [MenuItem("Go Vista/Profile/Pasang Profile di MainMultiplayerScene")]
+    public static void InstallProfile() {
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            return;
+        FriendsMainMenuPatcher.PatchMainMenu();
+        Debug.Log("[Profile] CharacterSelectCanvas.prefab: " + CharacterSelectBuilder.RemoveLegacyUiFromPrefab());
+        AssignCharacterSelectAssets();
+        // Fase C: info akun & keluar akun pindah ke PROFIL; panel lobby & pengaturan memakai desain 08a/08b.
+        Debug.Log("[Profile] SettingsPanel.prefab: " + SettingsPanelRedesign.RemoveAccountRow());
+        LobyUISceneController.RebuildLobbyPanelInPrefab();
+        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        if (!scene.IsValid()) {
+            Debug.LogError($"[Profile] Scene tidak ditemukan: {ScenePath}");
+            return;
+        }
+        ProfileMenu menu = FindInScene<ProfileMenu>(scene);
+        if (menu == null) {
+            var uiObject = new GameObject(ProfileUiObjectName);
+            SceneManager.MoveGameObjectToScene(uiObject, scene);
+            Undo.RegisterCreatedObjectUndo(uiObject, "Pasang Profile UI");
+            menu = uiObject.AddComponent<ProfileMenu>();
+        }
+        var so = new SerializedObject(menu);
+        AssignUiAssets(so);
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log("[Profile] Profile UI terpasang di MainMultiplayerScene.", menu);
+    }
+
+    /// Font & ikon untuk menu GANTI KARAKTER, diisi langsung di CharacterSelectCanvas.prefab (dipakai 2 scene lobby).
+    private static void AssignCharacterSelectAssets() {
+        const string prefabPath = "Assets/Prefab/CharacterSelectCanvas.prefab";
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+            return;
+        GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
+        try {
+            CharacterSelectUI ui = root.GetComponent<CharacterSelectUI>();
+            if (ui == null)
+                return;
+            var so = new SerializedObject(ui);
+            AssignUiAssets(so);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+        } finally {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
     [MenuItem("Go Vista/Chat/Setup Semua (Emoji + Scene)")]
     public static void SetupAll() {
         ChatAssetSetup.SetupEmojiFont();
         Install();
         InstallFriends();
+        InstallProfile();
     }
 
     private static ChatRoom EnsureChatRoom(Scene scene) {

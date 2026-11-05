@@ -156,6 +156,12 @@ public static class FriendsManager {
         }
     }
 
+    /// Dipakai menu PROFIL setelah nama berhasil diganti (server sudah memberi nama lengkap + tag baru).
+    public static void SetLocalFriendName(string friendName) {
+        LocalFriendName = friendName ?? "";
+        NotifyChanged();
+    }
+
     /// Room yang sedang dimasuki pemain lokal (format sama dengan room terakhir lobby), atau null saat keluar.
     public static void SetCurrentRoom(string room) {
         string next = room ?? "";
