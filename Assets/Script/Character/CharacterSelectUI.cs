@@ -48,6 +48,8 @@ public class CharacterSelectUI : MonoBehaviour {
         if (backButton) backButton.onClick.AddListener(Close);
         if (playerNameInput) {
             playerNameInput.characterLimit = PlayerNameRules.MaxLength;
+            // Spasi (dan karakter terlarang lain) langsung ditolak saat diketik.
+            playerNameInput.onValidateInput += (_, _, c) => PlayerNameRules.IsAllowedChar(c) ? c : '\0';
             playerNameInput.onEndEdit.AddListener(_ => CommitPlayerName());
         }
         if (root) root.SetActive(false);

@@ -72,7 +72,7 @@ public sealed class ChatPanel : MonoBehaviour {
     }
 
     private void OnEnable() {
-        if (chatRoom == null) chatRoom = ChatRoom.Instance != null ? ChatRoom.Instance : FindFirstObjectByType<ChatRoom>();
+        if (chatRoom == null) chatRoom = ChatRoom.Instance != null ? ChatRoom.Instance : FindAnyObjectByType<ChatRoom>();
         if (chatRoom == null) {
             Debug.LogWarning("[Chat] ChatRoom tidak ditemukan. Jalankan menu Go Vista > Chat > Pasang Chat di MainMultiplayerScene.", this);
             return;

@@ -693,11 +693,15 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         AddIcon("Main Menu Play Chevron", playFace, "icon-chevron-right", new Color(1f, 1f, 1f, 0.75f),
                 486f, 52f, 44f);
 
-        // KARAKTER & PENGATURAN: dua tile berdampingan, ikon di kotak berwarna.
-        BuildMenuTile("Main Menu Character Button", card, 40f, "KARAKTER", "Ganti avatar", "icon-user",
+        // KARAKTER, TEMAN & PENGATURAN: tiga tile berdampingan, ikon di kotak berwarna (lihat MainMenuTiles).
+        BuildMenuTile("Main Menu Character Button", card, MainMenuTiles.X(0), "KARAKTER", "Ganti avatar", "icon-user",
                       PinkTopColor, PinkBottomColor);
-        BuildMenuTile("Main Menu Settings Button", card, 328f, "PENGATURAN", "Kontrol & suara", "icon-settings",
-                      CyanTopColor, CyanBottomColor);
+        BuildMenuTile(MainMenuTiles.FriendsTile, card, MainMenuTiles.X(1), "TEMAN", "Cari & undang", "icon-friends",
+                      MainMenuTiles.GreenTop, MainMenuTiles.GreenBottom);
+        MainMenuTiles.AddBadge(card.Find(MainMenuTiles.FriendsTile + "/" + MainMenuTiles.FriendsTile + " Face/" +
+                                         MainMenuTiles.FriendsTile + " Icon Box"));
+        BuildMenuTile("Main Menu Settings Button", card, MainMenuTiles.X(2), "PENGATURAN", "Kontrol & suara",
+                      "icon-settings", CyanTopColor, CyanBottomColor);
 
         // KELUAR GAME: merah kalem dengan ikon power. Isi diatur HorizontalLayoutGroup supaya selalu di tengah.
         Button quit = CreateMenuButton("Main Menu Quit Button", card, QuitFaceColor, QuitFaceColor, QuitLipColor,
@@ -721,14 +725,18 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
                                       string icon, Color iconTop, Color iconBottom) {
         Button tile = CreateMenuButton(name, card, TileTopColor, TileBottomColor, TileLipColor,
                                        new Color(1f, 1f, 1f, 0.12f), 1.2f, out RectTransform face);
-        Place((RectTransform)tile.transform, x, 330f, 272f, 188f);
-        RectTransform iconBox = Place(CreateRect(name + " Icon Box", face, Vector2.zero), 98f, 22f, 76f, 76f);
+        float width = MainMenuTiles.Width;
+        Place((RectTransform)tile.transform, x, 330f, width, 188f);
+        RectTransform iconBox = Place(CreateRect(name + " Icon Box", face, Vector2.zero), (width - 76f) * 0.5f, 22f,
+                                      76f, 76f);
         AddGradientShape(iconBox.gameObject, iconTop, iconBottom, cornerScale: 1.1f).raycastTarget = false;
         AddIcon(name + " Icon", iconBox, icon, Color.white, 18f, 18f, 40f);
-        Place(CreateText(name + " Label", face, label, 28, FontStyle.Bold, TextAnchor.MiddleCenter,
-                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f, 108f, 272f, 36f);
+        Place(CreateText(name + " Label", face, label, MainMenuTiles.LabelFontSize, FontStyle.Bold,
+                         TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              MainMenuTiles.TextPadding, 108f, MainMenuTiles.TextWidth, 36f);
         Place(CreateText(name + " Subtitle", face, subtitle, 20, FontStyle.Normal, TextAnchor.MiddleCenter,
-                         Vector2.zero, Vector2.zero, TileSubColor).rectTransform, 0f, 144f, 272f, 26f);
+                         Vector2.zero, Vector2.zero, TileSubColor).rectTransform,
+              MainMenuTiles.TextPadding, 144f, MainMenuTiles.TextWidth, 26f);
     }
 
     /// <summary>
@@ -988,6 +996,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.raycastTarget = false;
+        // Mengecil otomatis kalau tidak muat (layar HP kecil); ukuran desain tetap jadi batas atas.
+        UiTextFit.Apply(text);
         return text;
     }
 
@@ -1304,6 +1314,24 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         Connect(() => realtime.ConnectDirectlyToQuickmatchRoom(QuickmatchRoomGroup, code), "Memeriksa kode dan menghubungkan…");
     }
 
+    /// <summary>Root "Main Menu" (untuk tombol TEMAN yang ditempel FriendsMenu). Null sebelum canvas siap.</summary>
+    public Transform MainMenuRoot => _mainMenu != null ? _mainMenu.transform : null;
+
+    /// <summary>
+    /// GABUNG ke room teman dari menu teman (string room = format room terakhir: nama room atau "qm:KODE").
+    /// Mengembalikan pesan error, atau null kalau koneksi dimulai.
+    /// </summary>
+    public string JoinFriendRoom(string room) {
+        if (string.IsNullOrEmpty(room))
+            return "Temanmu sedang tidak di room.";
+        if (realtime == null)
+            return "Komponen Normcore Realtime tidak ditemukan.";
+        if (realtime.connected || _busy)
+            return "Keluar dari room yang sekarang dulu.";
+        JoinRecentRoom(room);
+        return null;
+    }
+
     private void JoinRecentRoom(string room) {
         if (room.StartsWith("qm:")) {
             string code = room.Substring(3);
@@ -1377,6 +1405,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             : connectedRealtime.roomName;
         RememberRoom(recentRoom);
         RefreshRecentRooms();
+        // Teman bisa menekan GABUNG di menu teman mereka (presence Unity Friends).
+        FriendsManager.SetCurrentRoom(recentRoom);
         PrepareWorldPreview();
     }
 
@@ -1388,6 +1418,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         ResetInGameMenu();
         _leaveRoomPending = false;
         ChatPanel.SetContext(ChatContext.Hidden);
+        FriendsManager.SetCurrentRoom(null);
         ResetVenueState();
         if (ReturnToLobbyIfRequested())
             return;
@@ -1422,6 +1453,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         _busy = false;
         HideModal();
         ChatPanel.SetContext(ChatContext.Hidden);
+        FriendsManager.SetCurrentRoom(null);
         ResetVenueState();
         if (ReturnToLobbyIfRequested())
             return;
@@ -1595,6 +1627,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             }
 
             RefreshPlayerRows(players);
+            // Untuk teman: "Di room X · 4/10 pemain" dan tombol PENUH (dikirim hanya kalau berubah).
+            FriendsManager.SetRoomPlayerCount(players.Count);
             yield return new WaitForSeconds(1f);
         }
         _playerListRoutine = null;
@@ -1651,7 +1685,10 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             // Nama dari menu KARAKTER (LobbyPresence), atau "Player N" kalau pemain belum mengisi nama.
             string playerName = LobbyPresence.NameOf(player.Key) + (isLocal ? " (Kamu)" : "");
             PlaceInRow(CreateText("Name", row, playerName, BodyFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
-                                  Vector2.zero, Vector2.zero, Color.white).rectTransform, 104f, 560f, 60f);
+                                  Vector2.zero, Vector2.zero, Color.white).rectTransform, 104f, 430f, 60f);
+            // Tombol tambah teman (disembunyikan sendiri untuk diri sendiri, guest, atau kalau sudah berteman).
+            if (!isLocal)
+                FriendAddButton.Create(row, player.Key, -330f);
 
             // Status: titik + teks berwarna (hijau = sudah di world, kuning = menunggu).
             bool inWorld = player.Value;

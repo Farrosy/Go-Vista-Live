@@ -344,6 +344,7 @@ public static class LoginCanvasBuilder {
         text.color = color;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Overflow;
+        UiTextFit.Apply(text); // mengecil sendiri kalau tidak muat (dilewati kalau ukurannya diatur layout group)
         return text;
     }
 

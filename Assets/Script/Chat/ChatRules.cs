@@ -69,6 +69,21 @@ public static class ChatRules {
         return NamePalette[index];
     }
 
+    /// Hash FNV-1a 32-bit yang hasilnya sama di semua platform (string.GetHashCode bisa beda antara Editor
+    /// dan build Android IL2CPP). Dipakai supaya warna nama dari kunci akun sama di semua client.
+    public static int StableHash(string value) {
+        if (string.IsNullOrEmpty(value))
+            return 0;
+        unchecked {
+            uint hash = 2166136261u;
+            foreach (char c in value) {
+                hash ^= c;
+                hash *= 16777619u;
+            }
+            return (int)(hash & 0x7FFFFFFF);
+        }
+    }
+
     /// Huruf/karakter pertama nama untuk lingkaran avatar ("rina" -> "R").
     public static string Initial(string name) {
         if (string.IsNullOrEmpty(name))
