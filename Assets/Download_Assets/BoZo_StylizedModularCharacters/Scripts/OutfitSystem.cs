@@ -1447,6 +1447,15 @@ namespace Bozo.ModularCharacters
         [ContextMenu("SaveToPrefab")]
         public async void SaveCharacterToPrefab()
         {
+            await SaveCharacterToPrefabAsync(null);
+        }
+
+        /// Go Vista: same as SaveCharacterToPrefab, but awaitable, returns the saved prefab, and can
+        /// write to a specific folder (e.g. "Assets/Characters/NPC/Sally"). folderOverride = null keeps
+        /// BoZo's default: CharacterToolSettings prefab folder + "/" + prefabName.
+        /// NOTE: like the original, this strips outfits and makes THIS character static.
+        public async Task<GameObject> SaveCharacterToPrefabAsync(string folderOverride)
+        {
 #if UNITY_EDITOR
 
             animator.Rebind();
@@ -1473,10 +1482,9 @@ namespace Bozo.ModularCharacters
 
             var saveName = prefabName;
             if (string.IsNullOrEmpty(saveName)) saveName = "NewCharacter";
-            var assetPath = $"{path}/{saveName}";
-            var savePath = $"Assets/{path}/{saveName}";
+            var assetPath = string.IsNullOrEmpty(folderOverride) ? $"{path}/{saveName}" : folderOverride.TrimEnd('/');
 
-            if (!System.IO.Directory.Exists($"{Application.dataPath}{path}/{saveName}"))
+            if (!System.IO.Directory.Exists(assetPath))
             {
                 System.IO.Directory.CreateDirectory(assetPath);
                 AssetDatabase.Refresh();
@@ -1594,8 +1602,10 @@ namespace Bozo.ModularCharacters
             AssetDatabase.Refresh();
 
             Debug.Log($"Saved Prefab at: {prefabPath}");
-
-
+            return prefab;
+#else
+            await Task.Yield();
+            return null;
 #endif
 
 
