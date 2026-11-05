@@ -85,6 +85,8 @@ public static class ChatPanelBuilder {
         refs.PanelGroup = panel.gameObject.AddComponent<CanvasGroup>();
 
         BuildHeader(panel, assets, refs);
+        // Hanya header (judul, jumlah online) yang auto-fit. Bubble pesan TIDAK: ukurannya dihitung dari teks.
+        UiTextFit.ApplyAll(panel);
         BuildMessageList(panel, assets, refs);
         BuildInputBar(panel, assets, refs);
         // Panel TIDAK pernah di-SetActive(false): teks TMP di object nonaktif belum ter-inisialisasi, sehingga
@@ -186,7 +188,7 @@ public static class ChatPanelBuilder {
         viewport.gameObject.AddComponent<RectMask2D>();
 
         TextMeshProUGUI placeholder = ChatUiKit.CreateText("Placeholder", viewport, assets.font,
-                                                           "Ketuk di sini untuk chat…", ChatTheme.BodySize, ChatTheme.Muted);
+                                                           "Ketuk di sini untuk chat...", ChatTheme.BodySize, ChatTheme.Muted);
         ChatUiKit.Stretch(placeholder.rectTransform, 0, 0, 0, 0);
         placeholder.fontStyle = FontStyles.Italic;
         TextMeshProUGUI text = ChatUiKit.CreateText("Text", viewport, assets.font, "", ChatTheme.BodySize, Color.white);

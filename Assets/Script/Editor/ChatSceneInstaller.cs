@@ -21,6 +21,12 @@ public static class ChatSceneInstaller {
     private const string RoundedPath = "Assets/Resources/UI/ui-rounded.png";
     private const string CirclePath = "Assets/Resources/UI/ui-circle.png";
     private const string ChevronPath = "Assets/Resources/UI/Icons/icon-chevron-right.png";
+    private const string FriendsIconPath = "Assets/Resources/UI/Icons/icon-friends.png";
+    private const string UserPlusIconPath = "Assets/Resources/UI/Icons/icon-user-plus.png";
+    private const string CloseIconPath = "Assets/Resources/UI/Icons/icon-x.png";
+    private const string CheckIconPath = "Assets/Resources/UI/Icons/icon-check.png";
+    private const string RefreshIconPath = "Assets/Resources/UI/Icons/icon-refresh.png";
+    private const string FriendsUiObjectName = "Friends UI";
 
     [MenuItem("Go Vista/Chat/Pasang Chat di MainMultiplayerScene")]
     public static void Install() {
@@ -40,10 +46,37 @@ public static class ChatSceneInstaller {
                   "RealtimeView harus berisi ChatRoom.", room);
     }
 
+    [MenuItem("Go Vista/Friends/Pasang Friends di MainMultiplayerScene")]
+    public static void InstallFriends() {
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            return;
+        // Tile TEMAN di menu utama (LobbyCanvas.prefab) dulu, baru object Friends UI di scene.
+        FriendsMainMenuPatcher.EnsureFriendsTile();
+        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        if (!scene.IsValid()) {
+            Debug.LogError($"[Friends] Scene tidak ditemukan: {ScenePath}");
+            return;
+        }
+        FriendsMenu menu = FindInScene<FriendsMenu>(scene);
+        if (menu == null) {
+            var uiObject = new GameObject(FriendsUiObjectName);
+            SceneManager.MoveGameObjectToScene(uiObject, scene);
+            Undo.RegisterCreatedObjectUndo(uiObject, "Pasang Friends UI");
+            menu = uiObject.AddComponent<FriendsMenu>();
+        }
+        var so = new SerializedObject(menu);
+        AssignUiAssets(so);
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log("[Friends] Friends UI terpasang di MainMultiplayerScene.", menu);
+    }
+
     [MenuItem("Go Vista/Chat/Setup Semua (Emoji + Scene)")]
     public static void SetupAll() {
         ChatAssetSetup.SetupEmojiFont();
         Install();
+        InstallFriends();
     }
 
     private static ChatRoom EnsureChatRoom(Scene scene) {
@@ -98,6 +131,12 @@ public static class ChatSceneInstaller {
 
         var so = new SerializedObject(panel);
         so.FindProperty("chatRoom").objectReferenceValue = room;
+        AssignUiAssets(so);
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// Isi field "assets" (ChatUiAssets) milik ChatPanel / FriendsMenu.
+    private static void AssignUiAssets(SerializedObject so) {
         SetAsset(so, "assets.font", AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath), FontPath);
         SetAsset(so, "assets.chatIcon", LoadSprite(ChatIconPath), ChatIconPath);
         SetAsset(so, "assets.sendButton", LoadSprite(SendPath), SendPath);
@@ -105,7 +144,11 @@ public static class ChatSceneInstaller {
         SetAsset(so, "assets.rounded", LoadSprite(RoundedPath), RoundedPath);
         SetAsset(so, "assets.circle", LoadSprite(CirclePath), CirclePath);
         SetAsset(so, "assets.chevron", LoadSprite(ChevronPath), ChevronPath);
-        so.ApplyModifiedPropertiesWithoutUndo();
+        SetAsset(so, "assets.friendsIcon", LoadSprite(FriendsIconPath), FriendsIconPath);
+        SetAsset(so, "assets.userPlusIcon", LoadSprite(UserPlusIconPath), UserPlusIconPath);
+        SetAsset(so, "assets.closeIcon", LoadSprite(CloseIconPath), CloseIconPath);
+        SetAsset(so, "assets.checkIcon", LoadSprite(CheckIconPath), CheckIconPath);
+        SetAsset(so, "assets.refreshIcon", LoadSprite(RefreshIconPath), RefreshIconPath);
     }
 
     private static void SetAsset(SerializedObject so, string property, Object value, string path) {

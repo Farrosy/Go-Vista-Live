@@ -4,6 +4,8 @@ public sealed class ChatMessage {
     public const int NoSender = -1;
 
     public int SenderId { get; }
+    /// Dasar warna nama/avatar. Dari kunci akun (stabil walau rejoin), atau clientID kalau tidak ada.
+    public int ColorSeed { get; }
     public string SenderName { get; }
     public string Text { get; }
     public double SentAt { get; }
@@ -11,8 +13,10 @@ public sealed class ChatMessage {
     /// Pesan sistem lokal ("Budi bergabung ke room"). Tidak dikirim ke server; tiap client membuatnya sendiri.
     public bool IsSystem { get; }
 
-    private ChatMessage(int senderId, string senderName, string text, double sentAt, bool isLocal, bool isSystem) {
+    private ChatMessage(int senderId, int colorSeed, string senderName, string text, double sentAt, bool isLocal,
+                        bool isSystem) {
         SenderId = senderId;
+        ColorSeed = colorSeed;
         SenderName = senderName;
         Text = text;
         SentAt = sentAt;
@@ -20,12 +24,13 @@ public sealed class ChatMessage {
         IsSystem = isSystem;
     }
 
-    public static ChatMessage FromPlayer(int senderId, string senderName, string text, double sentAt, bool isLocal) {
-        return new ChatMessage(senderId, senderName, text, sentAt, isLocal, false);
+    public static ChatMessage FromPlayer(int senderId, int colorSeed, string senderName, string text, double sentAt,
+                                         bool isLocal) {
+        return new ChatMessage(senderId, colorSeed, senderName, text, sentAt, isLocal, false);
     }
 
     public static ChatMessage CreateSystem(string text, double sentAt) {
-        return new ChatMessage(NoSender, "", text, sentAt, false, true);
+        return new ChatMessage(NoSender, 0, "", text, sentAt, false, true);
     }
 
     /// Urutan tampil: waktu server, lalu clientID supaya dua pesan di waktu yang sama tetap stabil.
