@@ -137,6 +137,15 @@ public class NpcNavigation : MonoBehaviour
         waitTimer = Random.Range(waitTime.x, waitTime.y);
     }
 
+    /// Dipanggil NpcObstacleAvoidance saat jalan terhalang total: langsung pilih tujuan lain.
+    public void PickNewDestination()
+    {
+        if (isTalking || !agent.isOnNavMesh) return;
+        if (TryGetNextDestination(out var dest)) agent.SetDestination(dest);
+        else agent.ResetPath();
+        waitTimer = 0f;
+    }
+
     private bool TryGetNextDestination(out Vector3 destination)
     {
         destination = transform.position;
