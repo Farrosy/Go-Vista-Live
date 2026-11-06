@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Normal.Realtime;
 using UnityEngine;
 
@@ -11,6 +12,30 @@ using UnityEngine;
 [RequireComponent(typeof(PlayerController))]
 public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
 {
+    private static readonly List<PlayerVenueSync> _all = new List<PlayerVenueSync>();
+
+    /// Semua avatar di room ini (lokal dan pemain lain). Dipakai TrafficNetwork.
+    public static IReadOnlyList<PlayerVenueSync> All => _all;
+
+    private RealtimeView _view;
+
+    /// clientID pemilik avatar ini, -1 selama model Normcore belum ada.
+    public int OwnerClientId
+    {
+        get
+        {
+            if (model == null) return -1;
+            if (_view == null) _view = GetComponent<RealtimeView>();
+            return _view != null ? _view.ownerIDSelf : -1;
+        }
+    }
+
+    private void OnEnable() => _all.Add(this);
+    private void OnDisable() => _all.Remove(this);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => _all.Clear();
+
     /// Dipicu saat venue avatar INI berubah (nilai baru disertakan). Dipakai VenueVisibilityFilter.
     public event Action<PlayerVenueSync, VenueId> VenueChanged;
 

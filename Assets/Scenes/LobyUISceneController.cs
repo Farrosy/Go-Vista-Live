@@ -1228,20 +1228,16 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             return;
         _busy = true;
         _connectCancelled = false;
+        _connectAction = connect;
+        _connectStatus = status;
+        _connectAttempt = 1;
         SetStatus(status, StatusKind.Busy);
         ShowConnectingModal(status);
-        try {
-            connect();
-        } catch (System.Exception exception) {
-            _busy = false;
-            _quickmatchIntent = QuickmatchIntent.None;
-            HideModal();
-            SetStatus("Gagal memulai koneksi: " + exception.Message, StatusKind.Error);
-            Debug.LogException(exception);
-        }
+        RunConnectAttempt();
     }
 
     private void DidConnectToRoom(Realtime connectedRealtime) {
+        ClearConnectRetry();
         if (IgnoreCancelledConnect(connectedRealtime))
             return;
         if (InterceptQuickmatchConnect(connectedRealtime))
@@ -1293,7 +1289,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     }
 
     private void DidDisconnectFromRoom(Realtime disconnectedRealtime) {
-        if (IgnoreCancelledConnect(null) || HandleQuickmatchDisconnect())
+        DisconnectEvent disconnectEvent = disconnectedRealtime.room != null ? disconnectedRealtime.room.disconnectEvent : null;
+        if (IgnoreCancelledConnect(null) || TryRetryConnect(disconnectEvent) || HandleQuickmatchDisconnect())
             return;
         _busy = false;
         HideModal();
@@ -1330,7 +1327,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     }
 
     private void DidDisconnectFromRoomWithEvent(Realtime disconnectedRealtime, DisconnectEvent disconnectEvent) {
-        if (IgnoreCancelledConnect(null) || HandleQuickmatchDisconnect())
+        if (IgnoreCancelledConnect(null) || TryRetryConnect(disconnectEvent) || HandleQuickmatchDisconnect())
             return;
         _busy = false;
         HideModal();
@@ -1362,7 +1359,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             ShowAlertModal(ConnectionLostTitle, ConnectionLostMessage);
             return;
         }
-        string detail = !string.IsNullOrEmpty(disconnectEvent.message) ? disconnectEvent.message : JoinFailedFallback;
+        string detail = IsNetworkConnectFailure(disconnectEvent) ? ConnectFailedMessage
+            : !string.IsNullOrEmpty(disconnectEvent.message) ? disconnectEvent.message : JoinFailedFallback;
         SetStatus("Gagal masuk room: " + detail, StatusKind.Error);
         ShowAlertModal(JoinFailedTitle, detail);
     }
