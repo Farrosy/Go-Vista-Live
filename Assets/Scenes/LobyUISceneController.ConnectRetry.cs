@@ -6,12 +6,12 @@ using UnityEngine;
 /// Network failures are retried here so the player does not have to; other failures (room full,
 /// wrong code) are final and go through the normal handlers.
 public partial class LobyUISceneController {
-    private const int MaxConnectAttempts = 3;
+    private const int MaxConnectAttempts = 2;
     private const float ConnectRetryDelaySeconds = 1.5f;
     // A failed attempt normally reports after about 24 s, but some never report at all.
     private const float ConnectAttemptTimeoutSeconds = 28f;
     private const string ConnectFailedMessage =
-        "Koneksi ke server gagal setelah beberapa kali percobaan. Periksa internetmu, lalu coba lagi.";
+        "Server room tidak bisa dijangkau dari jaringan ini. Coba lagi, atau pakai jaringan lain (hotspot/VPN).";
 
     private System.Action _connectAction;
     private string _connectStatus;
