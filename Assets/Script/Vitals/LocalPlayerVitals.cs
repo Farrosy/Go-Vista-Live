@@ -1,10 +1,12 @@
 using System;
+using Normal.Realtime;
 using UnityEngine;
 
 /// Menghitung HP dan O₂ avatar lokal setiap frame. Hanya berjalan untuk pemain ini; pemain lain cukup
 /// tahu avatar ini tersembunyi atau tidak (lihat PlayerVenueSync).
 public sealed class LocalPlayerVitals : MonoBehaviour {
-    private static readonly SpawnSlot[] FallbackSlots = { SpawnSlot.Docks, SpawnSlot.CentralPlaza, SpawnSlot.VenueCube };
+    // World memakai CentralPlaza, venue memakai VenueCube. Docks hanya cadangan.
+    private static readonly SpawnSlot[] RespawnSlots = { SpawnSlot.CentralPlaza, SpawnSlot.VenueCube, SpawnSlot.Docks };
 
     public VitalsState State { get; private set; } = VitalsState.Full;
     public bool HeadUnderWater { get; private set; }
@@ -17,10 +19,6 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
     private PlayerController _player;
     private CharacterController _controller;
     private bool _dead;
-    private bool _hasSafePose;
-    private VenueId _safeVenue;
-    private Vector3 _safePosition;
-    private Quaternion _safeRotation;
 
     private void Update() {
         PlayerController local = PlayerController.Local;
@@ -39,7 +37,6 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
 
         UpdateFallDamage(landedInWater: feetDepth > 0f);
         if (!paused) State = State.TickOxygen(Time.deltaTime, HeadUnderWater);
-        UpdateSafePose(feetDepth, paused);
 
         if (State.IsDead && !paused) {
             _dead = true;
@@ -47,18 +44,15 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
         }
     }
 
-    /// Posisi bangkit: darat aman terakhir, atau titik spawn venue kalau belum pernah menapak di venue ini.
+    /// Posisi bangkit: titik spawn venue tempat pemain berada, disebar supaya pemain tidak saling tumpuk.
     public void GetRespawnPose(out Vector3 position, out Quaternion rotation) {
         VenueId venue = VenueTravelManager.LocalVenue;
-        if (_hasSafePose && _safeVenue == venue) {
-            position = _safePosition;
-            rotation = _safeRotation;
-            return;
-        }
-        foreach (SpawnSlot slot in FallbackSlots) {
+        Realtime realtime = FindAnyObjectByType<Realtime>();
+        int clientId = realtime != null ? Mathf.Max(0, realtime.clientID) : 0;
+        foreach (SpawnSlot slot in RespawnSlots) {
             PlayerSpawnPoint spawn = PlayerSpawnPoint.Find(venue, slot);
             if (spawn == null) continue;
-            position = spawn.GetPosition(0);
+            position = spawn.GetPosition(clientId);
             rotation = spawn.Rotation;
             return;
         }
@@ -77,7 +71,6 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
     private void Bind(PlayerController local) {
         _player = local;
         _controller = local != null ? local.GetComponent<CharacterController>() : null;
-        _hasSafePose = false;
         LastDamageTime = float.NegativeInfinity;
         Revive();
     }
@@ -93,13 +86,5 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
         if (damage <= 0) return;
         State = State.ApplyDamage(damage);
         LastDamageTime = Time.time;
-    }
-
-    private void UpdateSafePose(float feetDepth, bool paused) {
-        if (paused || feetDepth > 0f || !_controller.isGrounded) return;
-        _hasSafePose = true;
-        _safeVenue = VenueTravelManager.LocalVenue;
-        _safePosition = _player.transform.position;
-        _safeRotation = _player.transform.rotation;
     }
 }
