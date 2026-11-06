@@ -1936,6 +1936,9 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             labelText.text = joined ? "SEDANG BERMAIN" : "MULAI";
     }
 
+    /// Keluar room dan kembali ke lobby, lewat alur yang sama dengan tombol keluar di menu pause.
+    public void LeaveRoomToLobby() => Disconnect();
+
     private void Disconnect() {
         if (_leaveRoomPending)
             return;

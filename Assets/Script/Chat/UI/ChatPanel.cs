@@ -51,6 +51,10 @@ public sealed class ChatPanel : MonoBehaviour {
         if (Instance != null) Instance.ApplyContext(context);
     }
 
+    /// True selama panel chat terbuka dan terlihat. HUD memakainya supaya bar tidak tertutup panel.
+    public static bool IsPanelOpen =>
+        Instance != null && Instance._expanded && !Instance._suppressed && Instance._context != ChatContext.Hidden;
+
     /// Sembunyikan sementara (mis. menu pause terbuka) tanpa mengubah konteks.
     public static void SetSuppressed(bool suppressed) {
         if (Instance == null || Instance._suppressed == suppressed) return;
