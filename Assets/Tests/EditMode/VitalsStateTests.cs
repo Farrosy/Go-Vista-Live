@@ -1,0 +1,91 @@
+using NUnit.Framework;
+
+public class VitalsStateTests {
+    private const float Tolerance = 0.001f;
+
+    [Test]
+    public void Full_StartsAtMaxHealthAndOxygen() {
+        VitalsState state = VitalsState.Full;
+
+        Assert.AreEqual(100, state.Health);
+        Assert.AreEqual(1f, state.OxygenFraction, Tolerance);
+        Assert.IsFalse(state.IsDead);
+    }
+
+    [Test]
+    public void TickOxygen_LosesOneSegmentPerSecondWhileHeadIsUnderWater() {
+        VitalsState state = VitalsState.Full.TickOxygen(1f, headUnderWater: true);
+
+        Assert.AreEqual(9, state.OxygenSegments);
+    }
+
+    [Test]
+    public void TickOxygen_KillsAfterExactlyTenSecondsUnderWater() {
+        VitalsState almost = VitalsState.Full.TickOxygen(9.99f, headUnderWater: true);
+        VitalsState dead = almost.TickOxygen(0.01f, headUnderWater: true);
+
+        Assert.IsFalse(almost.IsDead);
+        Assert.IsTrue(dead.IsDead);
+        Assert.AreEqual(0, dead.OxygenSegments);
+    }
+
+    [Test]
+    public void TickOxygen_RefillsFromEmptyInTwoSecondsAfterSurfacing() {
+        VitalsState empty = VitalsState.Full.TickOxygen(9.9f, headUnderWater: true);
+
+        VitalsState partial = empty.TickOxygen(1f, headUnderWater: false);
+        VitalsState full = empty.TickOxygen(2f, headUnderWater: false);
+
+        Assert.Less(partial.OxygenFraction, 1f);
+        Assert.AreEqual(1f, full.OxygenFraction, Tolerance);
+    }
+
+    [Test]
+    public void TickOxygen_DoesNotChangeTheOriginalState() {
+        VitalsState original = VitalsState.Full;
+
+        original.TickOxygen(5f, headUnderWater: true);
+
+        Assert.AreEqual(1f, original.OxygenFraction, Tolerance);
+    }
+
+    [TestCase(1f, OxygenLevel.Normal)]
+    [TestCase(0.51f, OxygenLevel.Normal)]
+    [TestCase(0.5f, OxygenLevel.Warning)]
+    [TestCase(0.21f, OxygenLevel.Warning)]
+    [TestCase(0.2f, OxygenLevel.Danger)]
+    [TestCase(0f, OxygenLevel.Danger)]
+    public void Level_FollowsWarningAndDangerThresholds(float fraction, OxygenLevel expected) {
+        float secondsUnderWater = (1f - fraction) * VitalsRules.OxygenDurationSeconds;
+
+        VitalsState state = VitalsState.Full.TickOxygen(secondsUnderWater, headUnderWater: true);
+
+        Assert.AreEqual(expected, state.Level);
+    }
+
+    [Test]
+    public void ApplyDamage_ClampsHealthAtZeroAndKills() {
+        VitalsState state = VitalsState.Full.ApplyDamage(250);
+
+        Assert.AreEqual(0, state.Health);
+        Assert.IsTrue(state.IsDead);
+    }
+
+    [TestCase(20, false)]
+    [TestCase(19, true)]
+    public void IsHealthCritical_IsTrueBelowTwentyPercent(int health, bool expected) {
+        VitalsState state = VitalsState.Full.ApplyDamage(100 - health);
+
+        Assert.AreEqual(expected, state.IsHealthCritical);
+    }
+
+    [TestCase(0f, 0)]
+    [TestCase(1.5f, 0)]
+    [TestCase(3f, 0)]
+    [TestCase(4f, 10)]
+    [TestCase(5.5f, 25)]
+    [TestCase(13f, 100)]
+    public void FallDamage_IsSafeUpToThreeMetresThenTenPerMetre(float metres, int expected) {
+        Assert.AreEqual(expected, VitalsRules.FallDamage(metres));
+    }
+}

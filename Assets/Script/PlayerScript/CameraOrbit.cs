@@ -38,6 +38,9 @@ public class CameraOrbit : MonoBehaviour
     private float fDistance, fHeight, fSide;
     private float blend;   // 0 = kamera normal, 1 = fokus penuh
 
+    /// Pengali jarak kamera. Di bawah 1 = zoom mendekat (dipakai saat layar mati).
+    public float DistanceScale { get; set; } = 1f;
+
     public void SetTarget(Transform value)
     {
         target = value;
@@ -77,7 +80,7 @@ public class CameraOrbit : MonoBehaviour
         // Pose kamera normal (selalu dihitung, jadi saat kembali posisinya persis seperti sebelum fokus)
         Quaternion orbitRot = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 pivot = target.position + pivotOffset;
-        Vector3 orbitPos = pivot - orbitRot * Vector3.forward * distance;
+        Vector3 orbitPos = pivot - orbitRot * Vector3.forward * (distance * DistanceScale);
 
         blend = Mathf.MoveTowards(blend, focusing ? 1f : 0f, Time.deltaTime / Mathf.Max(0.01f, focusBlendTime));
 
