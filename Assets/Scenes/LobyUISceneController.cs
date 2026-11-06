@@ -1630,11 +1630,12 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
 
     private void PrepareWorldPreview() {
         _unloadWorldWhenReady = false;
+        // Kunci MULAI juga saat masuk ulang selagi pemuatan lama masih berjalan; pemuatan itu yang membukanya lagi.
+        SetWaitingJoinButtonLoading(true);
         if (_worldLoading)
             return;
 
         _worldLoading = true;
-        SetWaitingJoinButtonLoading(true);
         StartCoroutine(LoadWorldPreview());
     }
 
@@ -1716,6 +1717,15 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         _startingGame = true;
         SetStatus("Memuat world…", StatusKind.Busy);
 
+        // Scene yang sedang dimuat belum terhitung isLoaded, jadi tanpa ini WorldScene termuat dua kali.
+        while (_worldLoading)
+            yield return null;
+
+        if (realtime == null || !realtime.connected) {
+            _startingGame = false;
+            yield break;
+        }
+
         Scene worldScene = SceneManager.GetSceneByName(WorldSceneName);
         if (!worldScene.isLoaded) {
             SceneLoadPriority.UseLow();
@@ -1733,6 +1743,13 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
 
         if (worldScene.IsValid() && worldScene.isLoaded)
             DisableWorldCameras(worldScene);
+
+        // Koneksi putus selama pemuatan: lobby sudah tampil, jadi jangan masuk gameplay atau meninggalkan world.
+        if (realtime == null || !realtime.connected) {
+            UnloadWorldScene();
+            _startingGame = false;
+            yield break;
+        }
 
         playerManager.BeginGame();
 
