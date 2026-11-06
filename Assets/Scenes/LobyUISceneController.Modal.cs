@@ -50,6 +50,7 @@ public sealed partial class LobyUISceneController {
         if (!_busy)
             return;
         _connectCancelled = true;
+        ClearConnectRetry();
         StopQuickmatchRoutines();
         _quickmatchIntent = QuickmatchIntent.None;
         _quickmatchDisconnecting = false;

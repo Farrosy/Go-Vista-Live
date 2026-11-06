@@ -82,6 +82,7 @@ public sealed class TrafficRoute
         return Mathf.Sqrt(best);
     }
 
+    /// Bumper-to-bumper distance to the nearest car ahead; negative when the bodies overlap.
     public float GapAhead(TrafficCar self)
     {
         float best = float.PositiveInfinity;
@@ -101,7 +102,10 @@ public sealed class TrafficRoute
                 continue;
             }
 
-            if (gap > 0.01f && gap < best) best = gap;
+            if (gap <= 0.01f) continue;
+
+            float bumperGap = gap - self.FrontExtent - car.RearExtent;
+            if (bumperGap < best) best = bumperGap;
         }
 
         return best;
