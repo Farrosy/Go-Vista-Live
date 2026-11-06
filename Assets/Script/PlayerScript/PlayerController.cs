@@ -17,6 +17,12 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float turnSpeed = 720f;
     [SerializeField] private float gravity = -20f;
 
+    [Header("Air")]
+    [Tooltip("Kecepatan berjalan di air (meter/detik). Tidak bisa lari atau lompat.")]
+    [SerializeField] private float wadingSpeed = 1f;
+    [Tooltip("Nilai Speed animator saat berjalan di air. 0.5 = animasi jalan penuh.")]
+    [SerializeField] private float wadingAnimSpeed = 0.25f;
+
     [Header("Lompat")]
     [SerializeField] private float jumpHeight = 1.5f;
     [SerializeField] private float jumpCooldown = 0.5f;
@@ -57,6 +63,8 @@ public class PlayerController : MonoBehaviour
     private bool launchPending;
     private float launchTimer;
     private float lastGroundedTime;
+    private bool wading;
+    private bool frozen;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
@@ -111,8 +119,37 @@ public class PlayerController : MonoBehaviour
     /// Kamera yang dipakai untuk arah gerak. Dipanggil PlayerManager saat spawn.
     public void SetCamera(Transform cam) => cameraTransform = cam;
 
+    /// True selama kaki cukup dalam di air: berjalan lambat, tidak bisa lari atau lompat.
+    public void SetWading(bool value) => wading = value;
+
+    /// Hentikan semua gerakan avatar (dipakai selama layar mati).
+    public void SetFrozen(bool value)
+    {
+        frozen = value;
+        launchPending = false;
+        verticalVel = 0f;
+    }
+
+    /// Pindahkan avatar tanpa terhalang CharacterController.
+    public void TeleportTo(Vector3 position, Quaternion rotation)
+    {
+        cc.enabled = false;
+        transform.SetPositionAndRotation(position, rotation);
+        Physics.SyncTransforms();
+        cc.enabled = true;
+    }
+
     void Update()
     {
+        if (frozen)
+        {
+            IsSprinting = false;
+            Speed01 = 0f;
+            lastGroundedTime = Time.time;
+            UpdateAnimator();
+            return;
+        }
+
         if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
 
         var input = PlayerInputHub.Instance;
@@ -125,9 +162,9 @@ public class PlayerController : MonoBehaviour
         dir = Vector3.ClampMagnitude(dir, 1f);
 
         bool moving = dir.sqrMagnitude > 0.0001f;
-        IsSprinting = input && input.Sprint && moving;
-        float speed = IsSprinting ? sprintSpeed : walkSpeed;
-        Speed01 = dir.magnitude * (IsSprinting ? 1f : 0.5f);
+        IsSprinting = input && input.Sprint && moving && !wading;
+        float speed = wading ? wadingSpeed : IsSprinting ? sprintSpeed : walkSpeed;
+        Speed01 = dir.magnitude * (wading ? wadingAnimSpeed : IsSprinting ? 1f : 0.5f);
 
         if (moving)
         {
@@ -161,7 +198,8 @@ public class PlayerController : MonoBehaviour
     public void TryJump()
     {
         var input = PlayerInputHub.Instance;
-        if (!IsLocal || (input && input.InputLocked) || !cc.isGrounded || launchPending || Time.time < nextJumpTime)
+        if (!IsLocal || frozen || wading || (input && input.InputLocked) || !cc.isGrounded || launchPending ||
+            Time.time < nextJumpTime)
             return;
 
         nextJumpTime = Time.time + Mathf.Max(0f, jumpCooldown);
