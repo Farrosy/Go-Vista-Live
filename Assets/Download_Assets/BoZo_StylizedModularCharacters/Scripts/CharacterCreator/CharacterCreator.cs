@@ -72,6 +72,8 @@ namespace Bozo.ModularCharacters
 
         [Header("Save Options")]
         public TMP_InputField CharacterName;
+        [Tooltip("Go Vista: setiap Save juga membuat prefab model + NPC siap pakai di Assets/Characters/NPC/<Nama>/ (Editor saja)")]
+        public bool exportNpcPrefabOnSave = true;
 
         [Header("Debug Options")]
         public string ShowOnlyPack;
@@ -420,6 +422,16 @@ namespace Bozo.ModularCharacters
             BMAC_SaveSystem.SaveCharacter(character, CharacterName.text, characterIcon);
 
             UpdateCharacterSaves();
+
+#if UNITY_EDITOR
+            // Go Vista: also export prefabs. Bakes a hidden copy, so the character being edited is untouched.
+            if (exportNpcPrefabOnSave)
+            {
+                var npcData = BMAC_SaveSystem.GetCharacterData(character);
+                npcData.characterName = CharacterName.text;
+                yield return BoZo_NpcPrefabExporter.BakeAndExport(npcData, CharacterName.text);
+            }
+#endif
         }
         public void UpdateCharacterSaves()
         {

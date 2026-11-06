@@ -117,6 +117,7 @@ internal static class RedesignUiKit {
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.raycastTarget = false;
+        UiTextFit.Apply(text); // mengecil sendiri kalau tidak muat (dilewati kalau ukurannya diatur layout group)
         return text;
     }
 

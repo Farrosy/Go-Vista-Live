@@ -35,6 +35,18 @@ public sealed class LobbyPresence : RealtimeComponent<LobbyPresenceModel> {
     /// <summary>Nama mentah dari model (bisa kosong). Untuk tampilan pakai NameOf().</summary>
     public string PlayerName => model != null ? model.playerName : "";
 
+    /// <summary>PlayerId akun terdaftar pemilik (kosong = guest / belum ada). Hanya pemilik yang bisa menulisnya.</summary>
+    public string AccountId => model != null ? model.accountId ?? "" : "";
+
+    /// <summary>Presence milik clientID ini, atau null.</summary>
+    public static LobbyPresence Find(int clientId) {
+        foreach (LobbyPresence presence in _all) {
+            if (presence.ClientID == clientId)
+                return presence;
+        }
+        return null;
+    }
+
     public static bool HasLocal() {
         foreach (LobbyPresence presence in _all) {
             if (presence.IsLocal)
@@ -79,8 +91,10 @@ public sealed class LobbyPresence : RealtimeComponent<LobbyPresenceModel> {
     }
 
     protected override void OnRealtimeModelReplaced(LobbyPresenceModel previousModel, LobbyPresenceModel currentModel) {
-        if (currentModel != null && IsLocal)
+        if (currentModel != null && IsLocal) {
             PublishName(ProgressService.Current.playerName);
+            PublishAccount();
+        }
         if (currentModel != null && _all.Contains(this))
             Ready?.Invoke(this);
     }
@@ -88,6 +102,12 @@ public sealed class LobbyPresence : RealtimeComponent<LobbyPresenceModel> {
     private void OnLocalPlayerNameChanged(string playerName) {
         if (IsLocal)
             PublishName(playerName);
+    }
+
+    private void PublishAccount() {
+        string accountId = AuthService.IsSignedIn && !AuthService.IsGuest ? AuthService.PlayerId : "";
+        if (model.accountId != accountId)
+            model.accountId = accountId;
     }
 
     private void PublishName(string playerName) {

@@ -18,4 +18,7 @@ public partial class ChatMessageModel {
     [RealtimeProperty(3, true)] private string _text;
     // Waktu server Normcore (detik sejak epoch Unix), sama untuk semua client, dipakai untuk urutan.
     [RealtimeProperty(4, true)] private double _sentAt;
+    // Hash akun pengirim (ChatIdentity.LocalKey). Tetap sama walau pengirim rejoin dengan clientID baru,
+    // jadi pesan lamanya tetap dikenali sebagai miliknya sendiri.
+    [RealtimeProperty(5, true)] private string _senderAccount;
 }

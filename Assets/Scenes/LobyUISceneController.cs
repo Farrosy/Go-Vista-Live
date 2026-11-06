@@ -118,7 +118,6 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private Text _copyButtonLabel;
     private Coroutine _copyFeedbackRoutine;
     private Coroutine _pauseCopyFeedbackRoutine;
-    private Coroutine _guestSignOutConfirmRoutine;
     private string _waitingRosterSignature;
     private string _pauseRosterSignature;
     private Button _waitingJoinButton;
@@ -208,7 +207,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (realtime == null)
             realtime = GetComponent<Realtime>();
         if (realtime == null)
-            realtime = FindFirstObjectByType<Realtime>();
+            realtime = FindAnyObjectByType<Realtime>();
 
         EnsureCanvasExists();
         EnsureWaitingCanvasExists();
@@ -231,9 +230,10 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         AddClickListener("Lobby Join Button", ConnectByRoomName);
         AddClickListener("Lobby Join Code Button", ConnectQuickmatchCode);
         AddClickListener("Lobby Close Button", ShowMainMenu);
-        AddClickListener("Lobby Sign Out Button", SignOutAccount);
         AddClickListener("Main Menu Play Button", OpenLobby);
-        AddClickListener("Main Menu Character Button", OpenCharacterSelect);
+        // PROFIL (dulu KARAKTER). Nama lama tetap didengar kalau prefab belum di-patch installer.
+        AddClickListener(MainMenuTiles.ProfileTile, OpenProfile);
+        AddClickListener(MainMenuTiles.CharacterTile, OpenProfile);
         AddClickListener("Main Menu Settings Button", OpenSettings);
         AddClickListener("Main Menu Quit Button", OpenExitConfirm);
         AddClickListener("Exit Cancel Button", CloseExitConfirm);
@@ -545,80 +545,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     // bawah = status + keluar akun. Koordinat = jarak dari kiri/atas panel (lihat Place).
     private static void BuildCanvasContents(Transform canvas) {
         RectTransform safeArea = CreateSafeArea("Lobby Safe Area", canvas);
-        RectTransform panel = CreateResponsivePanel("Lobby Panel", safeArea, new Vector2(1680f, 960f));
-        AddShape(panel.gameObject, PanelColor, cornerScale: 1.8f);
-        AddOutline(panel, LineColor, cornerScale: 1.8f);
-
-        Place(CreateText("Lobby Title", panel, "GO VISTA LOBBY", 56, FontStyle.Bold, TextAnchor.MiddleLeft,
-                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 53f, 38f, 1000f, 72f);
-        Place(CreateText("Lobby Subtitle", panel,
-                         "Cari room cepat, buat room, atau masuk dengan kode / nama room privat.",
-                         LabelFontSize, FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero,
-                         MutedColor).rectTransform, 53f, 112f, 1000f, 40f);
-
-        // Chip akun (siapa yang sedang login) di kiri tombol tutup panel.
-        RectTransform chip = Place(CreateRect("Lobby Account Chip", panel, Vector2.zero), 1149f, 54f, 360f, 80f);
-        AddShape(chip.gameObject, CardColor, cornerScale: 2.5f);
-        RectTransform avatar = Place(CreateRect("Lobby Account Avatar", chip, Vector2.zero), 12f, 12f, 56f, 56f);
-        AddShape(avatar.gameObject, QuickmatchColor, "ui-circle");
-        Stretch(CreateText("Lobby Account Initial", avatar, "?", 28, FontStyle.Bold, TextAnchor.MiddleCenter,
-                           Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f);
-        Place(CreateText("Lobby Account Name", chip, "-", 28, FontStyle.Normal, TextAnchor.MiddleLeft,
-                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 84f, 0f, 262f, 80f);
-        Place(CreateButton("Lobby Close Button", panel, "×", CardColor, 48).GetComponent<RectTransform>(),
-              1533f, 49f, 90f, 90f);
-
-        // Kolom kiri: CARI ROOM CEPAT (hanya mencari) = aksi utama, lalu BUAT ROOM publik,
-        // lalu cara manual: kode room dan room privat (nama). Lihat LobyUISceneController.Quickmatch.cs.
-        Place(CreateButton("Lobby Quickmatch Button", panel, "CARI ROOM CEPAT", QuickmatchColor, 34)
-                  .GetComponent<RectTransform>(), 53f, 178f, 910f, 110f);
-        Place(CreateButton("Lobby Create Button", panel, "BUAT ROOM", PrimaryColor).GetComponent<RectTransform>(),
-              53f, 308f, 910f, 84f);
-        AddLine(panel, "Lobby Divider Left", 53f, 425f, 390f);
-        Place(CreateText("Lobby Divider Text", panel, "ATAU", SmallFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
-                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 443f, 408f, 130f, 36f);
-        AddLine(panel, "Lobby Divider Right", 573f, 425f, 390f);
-        Place(CreateText("Code Room Label", panel, "KODE ROOM", LabelFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
-                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 53f, 452f, 910f, 32f);
-        Place(CreateInputField("Lobby Code Input", panel, "Masukkan kode room").GetComponent<RectTransform>(),
-              53f, 490f, 578f, 84f);
-        Place(CreateButton("Lobby Join Code Button", panel, "GABUNG DENGAN KODE", SuccessTextColor, SmallFontSize, true)
-                  .GetComponent<RectTransform>(), 656f, 490f, 307f, 84f);
-        Place(CreateText("Room Name Label", panel, "ROOM PRIVAT", LabelFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
-                         Vector2.zero, Vector2.zero, MutedColor).rectTransform, 53f, 600f, 910f, 32f);
-        Place(CreateInputField("Lobby Room Input", panel, "Nama room privat").GetComponent<RectTransform>(),
-              53f, 638f, 578f, 84f);
-        Place(CreateButton("Lobby Join Button", panel, "MASUK", PrimaryColor).GetComponent<RectTransform>(),
-              656f, 638f, 307f, 84f);
-
-        // Kolom kanan: kartu room terakhir (dibuat saat runtime di RefreshRecentRooms).
-        Place(CreateText("Recent Rooms Label", panel, "ROOM TERAKHIR", LabelFontSize, FontStyle.Bold,
-                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
-              1017f, 178f, 606f, 36f);
-        RectTransform recent = Place(CreateRect("Lobby Recent Rooms", panel, Vector2.zero), 1017f, 223f, 606f, 320f);
-        recent.gameObject.AddComponent<RectMask2D>();
-        ScrollRect recentScroll = recent.gameObject.AddComponent<ScrollRect>();
-        recentScroll.horizontal = false;
-        recentScroll.movementType = ScrollRect.MovementType.Clamped;
-        recentScroll.scrollSensitivity = 28f;
-        recentScroll.viewport = recent;
-        RectTransform recentContent = CreateRect("Lobby Recent Rooms Content", recent, new Vector2(0f, 320f));
-        recentContent.anchorMin = new Vector2(0f, 1f);
-        recentContent.anchorMax = new Vector2(1f, 1f);
-        recentScroll.content = recentContent;
-        Place(CreateText("Global Rooms Note", panel, "Room publik bisa ditemukan lewat CARI ROOM CEPAT.", SmallFontSize,
-                         FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
-              1017f, 556f, 606f, 40f);
-
-        // Footer: status bar (titik berwarna sesuai kondisi) + keluar akun.
-        AddLine(panel, "Lobby Footer Line", 53f, 797f, 1574f);
-        RectTransform dot = Place(CreateRect("Lobby Status Dot", panel, Vector2.zero), 53f, 858f, 20f, 20f);
-        AddShape(dot.gameObject, SuccessTextColor, "ui-circle");
-        Place(CreateText("Lobby Status", panel, ReadyStatusMessage, 28, FontStyle.Normal,
-                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
-              90f, 832f, 1130f, 72f);
-        Place(CreateButton("Lobby Sign Out Button", panel, "Keluar akun", DangerTextColor, LabelFontSize, true)
-                  .GetComponent<RectTransform>(), 1363f, 832f, 260f, 72f);
+        // Panel lobby (desain 08b) ada di LobyUISceneController.LobbyPanel.cs.
+        BuildLobbyPanel(safeArea);
 
         BuildMainMenu(safeArea);
         BuildSettingsOverlay(canvas);
@@ -657,31 +585,17 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     /// </summary>
     private static void BuildMainMenu(RectTransform safeArea) {
         RectTransform menu = Stretch(CreateRect("Main Menu", safeArea, Vector2.zero), 0f);
-        RectTransform card = CreateRect("Main Menu Card", menu, new Vector2(640f, 668f));
+        RectTransform card = CreateRect("Main Menu Card", menu, new Vector2(640f, MainMenuTiles.CardHeight));
         card.anchorMin = card.anchorMax = card.pivot = new Vector2(1f, 0.5f);
         card.anchoredPosition = new Vector2(-100f, -40f);
         AddShape(card.gameObject, MenuCardColor, cornerScale: 1.8f);
         AddOutline(card, LineColor, cornerScale: 1.8f);
 
-        // Header: avatar inisial + sapaan. Teks diisi RefreshAccountChip (Main Menu Initial / Name):
-        // nama pemain dari menu KARAKTER, atau username kalau belum diisi.
-        RectTransform ring = Place(CreateRect("Main Menu Avatar Ring", card, Vector2.zero), 37f, 37f, 86f, 86f);
-        AddShape(ring.gameObject, new Color(1f, 1f, 1f, 0.22f), "ui-circle").raycastTarget = false;
-        RectTransform avatar = Place(CreateRect("Main Menu Avatar", card, Vector2.zero), 40f, 40f, 80f, 80f);
-        AddGradientShape(avatar.gameObject, PinkTopColor, AvatarBottomColor, "ui-circle").raycastTarget = false;
-        Stretch(CreateText("Main Menu Initial", avatar, "?", 38, FontStyle.Bold, TextAnchor.MiddleCenter,
-                           Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f);
-        Place(CreateText("Main Menu Greeting", card, "Selamat datang,", 24, FontStyle.Normal,
-                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor).rectTransform,
-              142f, 44f, 420f, 32f);
-        Place(CreateText("Main Menu Name", card, "Pemain", 40, FontStyle.Bold,
-                         TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, Color.white).rectTransform,
-              142f, 76f, 420f, 48f);
-
+        // Tanpa header sapaan (Docs/Profil/01-main-menu.png): nama pemain tampil di subtitle tile PROFIL.
         // MAIN: tombol utama, gradasi biru -> ungu, ikon play di lingkaran putih.
         Button play = CreateMenuButton("Main Menu Play Button", card, PlayTopColor, PlayBottomColor, PlayLipColor,
                                        new Color(1f, 1f, 1f, 0.18f), 1.2f, out RectTransform playFace);
-        Place((RectTransform)play.transform, 40f, 152f, 560f, 156f);
+        Place((RectTransform)play.transform, 40f, MainMenuTiles.PlayY, 560f, 156f);
         RectTransform badge = Place(CreateRect("Main Menu Play Badge", playFace, Vector2.zero), 32f, 28f, 92f, 92f);
         AddShape(badge.gameObject, Color.white, "ui-circle").raycastTarget = false;
         AddIcon("Main Menu Play Icon", badge, "icon-play", PlayIconColor, 26f, 22f, 48f);
@@ -693,16 +607,20 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         AddIcon("Main Menu Play Chevron", playFace, "icon-chevron-right", new Color(1f, 1f, 1f, 0.75f),
                 486f, 52f, 44f);
 
-        // KARAKTER & PENGATURAN: dua tile berdampingan, ikon di kotak berwarna.
-        BuildMenuTile("Main Menu Character Button", card, 40f, "KARAKTER", "Ganti avatar", "icon-user",
+        // KARAKTER, TEMAN & PENGATURAN: tiga tile berdampingan, ikon di kotak berwarna (lihat MainMenuTiles).
+        BuildMenuTile(MainMenuTiles.ProfileTile, card, MainMenuTiles.X(0), "PROFIL", "Pemain", "icon-user",
                       PinkTopColor, PinkBottomColor);
-        BuildMenuTile("Main Menu Settings Button", card, 328f, "PENGATURAN", "Kontrol & suara", "icon-settings",
-                      CyanTopColor, CyanBottomColor);
+        BuildMenuTile(MainMenuTiles.FriendsTile, card, MainMenuTiles.X(1), "TEMAN", "Cari & undang", "icon-friends",
+                      MainMenuTiles.GreenTop, MainMenuTiles.GreenBottom);
+        MainMenuTiles.AddBadge(card.Find(MainMenuTiles.FriendsTile + "/" + MainMenuTiles.FriendsTile + " Face/" +
+                                         MainMenuTiles.FriendsTile + " Icon Box"));
+        BuildMenuTile("Main Menu Settings Button", card, MainMenuTiles.X(2), "PENGATURAN", "Kontrol & suara",
+                      "icon-settings", CyanTopColor, CyanBottomColor);
 
         // KELUAR GAME: merah kalem dengan ikon power. Isi diatur HorizontalLayoutGroup supaya selalu di tengah.
         Button quit = CreateMenuButton("Main Menu Quit Button", card, QuitFaceColor, QuitFaceColor, QuitLipColor,
                                        QuitBorderColor, 1.2f, out RectTransform quitFace);
-        Place((RectTransform)quit.transform, 40f, 540f, 560f, 88f);
+        Place((RectTransform)quit.transform, 40f, MainMenuTiles.QuitY, 560f, 88f);
         RectTransform quitContent = Stretch(CreateRect("Main Menu Quit Content", quitFace, Vector2.zero), 0f);
         HorizontalLayoutGroup row = quitContent.gameObject.AddComponent<HorizontalLayoutGroup>();
         row.childAlignment = TextAnchor.MiddleCenter;
@@ -721,14 +639,18 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
                                       string icon, Color iconTop, Color iconBottom) {
         Button tile = CreateMenuButton(name, card, TileTopColor, TileBottomColor, TileLipColor,
                                        new Color(1f, 1f, 1f, 0.12f), 1.2f, out RectTransform face);
-        Place((RectTransform)tile.transform, x, 330f, 272f, 188f);
-        RectTransform iconBox = Place(CreateRect(name + " Icon Box", face, Vector2.zero), 98f, 22f, 76f, 76f);
+        float width = MainMenuTiles.Width;
+        Place((RectTransform)tile.transform, x, MainMenuTiles.TileY, width, 188f);
+        RectTransform iconBox = Place(CreateRect(name + " Icon Box", face, Vector2.zero), (width - 76f) * 0.5f, 22f,
+                                      76f, 76f);
         AddGradientShape(iconBox.gameObject, iconTop, iconBottom, cornerScale: 1.1f).raycastTarget = false;
         AddIcon(name + " Icon", iconBox, icon, Color.white, 18f, 18f, 40f);
-        Place(CreateText(name + " Label", face, label, 28, FontStyle.Bold, TextAnchor.MiddleCenter,
-                         Vector2.zero, Vector2.zero, Color.white).rectTransform, 0f, 108f, 272f, 36f);
+        Place(CreateText(name + " Label", face, label, MainMenuTiles.LabelFontSize, FontStyle.Bold,
+                         TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, Color.white).rectTransform,
+              MainMenuTiles.TextPadding, 108f, MainMenuTiles.TextWidth, 36f);
         Place(CreateText(name + " Subtitle", face, subtitle, 20, FontStyle.Normal, TextAnchor.MiddleCenter,
-                         Vector2.zero, Vector2.zero, TileSubColor).rectTransform, 0f, 144f, 272f, 26f);
+                         Vector2.zero, Vector2.zero, TileSubColor).rectTransform,
+              MainMenuTiles.TextPadding, 144f, MainMenuTiles.TextWidth, 26f);
     }
 
     /// <summary>
@@ -988,6 +910,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.raycastTarget = false;
+        // Mengecil otomatis kalau tidak muat (layar HP kecil); ukuran desain tetap jadi batas atas.
+        UiTextFit.Apply(text);
         return text;
     }
 
@@ -1078,7 +1002,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     }
 
     private static void EnsureEventSystem() {
-        if (FindFirstObjectByType<EventSystem>() != null)
+        if (FindAnyObjectByType<EventSystem>() != null)
             return;
 
         new GameObject("Lobby EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
@@ -1211,38 +1135,6 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             _mainMenuInitial.text = greetingName.Length > 0 ? greetingName.Substring(0, 1).ToUpperInvariant() : "?";
     }
 
-    private void SignOutAccount() {
-        // Akun tamu hilang permanen saat keluar, jadi minta tap kedua sebagai konfirmasi.
-        if (AuthService.IsGuest && _guestSignOutConfirmRoutine == null) {
-            _guestSignOutConfirmRoutine = StartCoroutine(ConfirmGuestSignOut());
-            return;
-        }
-        if (_guestSignOutConfirmRoutine != null) {
-            StopCoroutine(_guestSignOutConfirmRoutine);
-            _guestSignOutConfirmRoutine = null;
-            SetSignOutLabel("Keluar akun");
-        }
-
-        LoginUIController login = FindFirstObjectByType<LoginUIController>();
-        if (login != null)
-            login.SignOut();
-    }
-
-    private IEnumerator ConfirmGuestSignOut() {
-        SetSignOutLabel("Yakin? Tap lagi");
-        SetStatus("Kamu masuk sebagai tamu. Keluar akan menghapus progres tamu di perangkat ini.", StatusKind.Error);
-        yield return new WaitForSeconds(3f);
-        SetSignOutLabel("Keluar akun");
-        SetStatus(ReadyStatusMessage, StatusKind.Success);
-        _guestSignOutConfirmRoutine = null;
-    }
-
-    private void SetSignOutLabel(string label) {
-        Text text = _signOutButton != null ? _signOutButton.GetComponentInChildren<Text>() : null;
-        if (text != null)
-            text.text = label;
-    }
-
     private static Transform FindChild(Transform parent, string name) {
         Transform found = parent.Find(name);
         if (found != null)
@@ -1302,6 +1194,24 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             return;
         }
         Connect(() => realtime.ConnectDirectlyToQuickmatchRoom(QuickmatchRoomGroup, code), "Memeriksa kode dan menghubungkan…");
+    }
+
+    /// <summary>Root "Main Menu" (untuk tombol TEMAN yang ditempel FriendsMenu). Null sebelum canvas siap.</summary>
+    public Transform MainMenuRoot => _mainMenu != null ? _mainMenu.transform : null;
+
+    /// <summary>
+    /// GABUNG ke room teman dari menu teman (string room = format room terakhir: nama room atau "qm:KODE").
+    /// Mengembalikan pesan error, atau null kalau koneksi dimulai.
+    /// </summary>
+    public string JoinFriendRoom(string room) {
+        if (string.IsNullOrEmpty(room))
+            return "Temanmu sedang tidak di room.";
+        if (realtime == null)
+            return "Komponen Normcore Realtime tidak ditemukan.";
+        if (realtime.connected || _busy)
+            return "Keluar dari room yang sekarang dulu.";
+        JoinRecentRoom(room);
+        return null;
     }
 
     private void JoinRecentRoom(string room) {
@@ -1377,6 +1287,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             : connectedRealtime.roomName;
         RememberRoom(recentRoom);
         RefreshRecentRooms();
+        // Teman bisa menekan GABUNG di menu teman mereka (presence Unity Friends).
+        FriendsManager.SetCurrentRoom(recentRoom);
         PrepareWorldPreview();
     }
 
@@ -1388,6 +1300,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         ResetInGameMenu();
         _leaveRoomPending = false;
         ChatPanel.SetContext(ChatContext.Hidden);
+        FriendsManager.SetCurrentRoom(null);
         ResetVenueState();
         if (ReturnToLobbyIfRequested())
             return;
@@ -1422,6 +1335,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         _busy = false;
         HideModal();
         ChatPanel.SetContext(ChatContext.Hidden);
+        FriendsManager.SetCurrentRoom(null);
         ResetVenueState();
         if (ReturnToLobbyIfRequested())
             return;
@@ -1481,8 +1395,18 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             _panel.SetActive(true);
     }
 
+    private void OpenProfile() {
+        if (ProfileMenu.Instance == null) {
+            Debug.LogWarning("[Profile] ProfileMenu tidak ada di scene. Jalankan Go Vista > Profile > " +
+                             "Pasang Profile di MainMultiplayerScene. Membuka menu karakter sebagai gantinya.");
+            OpenCharacterSelect();
+            return;
+        }
+        ProfileMenu.Instance.Open();
+    }
+
     private void OpenCharacterSelect() {
-        CharacterSelectUI characterSelect = FindFirstObjectByType<CharacterSelectUI>(FindObjectsInactive.Include);
+        CharacterSelectUI characterSelect = FindAnyObjectByType<CharacterSelectUI>(FindObjectsInactive.Include);
         if (characterSelect == null) {
             Debug.LogWarning("[CharacterSelect] CharacterSelectCanvas tidak ada di scene. " +
                              "Jalankan Go Vista > Setup Pilih Karakter.");
@@ -1571,7 +1495,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
                 if (presence.ClientID >= 0)
                     players[presence.ClientID] = false;
             }
-            foreach (PlayerController player in FindObjectsByType<PlayerController>(FindObjectsSortMode.None)) {
+            foreach (PlayerController player in FindObjectsByType<PlayerController>()) {
                 RealtimeView view = player.GetComponent<RealtimeView>();
                 if (view != null && view.ownerIDSelf >= 0)
                     players[view.ownerIDSelf] = true;
@@ -1595,6 +1519,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             }
 
             RefreshPlayerRows(players);
+            // Untuk teman: "Di room X · 4/10 pemain" dan tombol PENUH (dikirim hanya kalau berubah).
+            FriendsManager.SetRoomPlayerCount(players.Count);
             yield return new WaitForSeconds(1f);
         }
         _playerListRoutine = null;
@@ -1651,7 +1577,10 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             // Nama dari menu KARAKTER (LobbyPresence), atau "Player N" kalau pemain belum mengisi nama.
             string playerName = LobbyPresence.NameOf(player.Key) + (isLocal ? " (Kamu)" : "");
             PlaceInRow(CreateText("Name", row, playerName, BodyFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
-                                  Vector2.zero, Vector2.zero, Color.white).rectTransform, 104f, 560f, 60f);
+                                  Vector2.zero, Vector2.zero, Color.white).rectTransform, 104f, 430f, 60f);
+            // Tombol tambah teman (disembunyikan sendiri untuk diri sendiri, guest, atau kalau sudah berteman).
+            if (!isLocal)
+                FriendAddButton.Create(row, player.Key, -330f);
 
             // Status: titik + teks berwarna (hijau = sudah di world, kuning = menunggu).
             bool inWorld = player.Value;
@@ -1690,7 +1619,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private void BeginGame() {
         if (_startingGame)
             return;
-        PlayerManager playerManager = FindFirstObjectByType<PlayerManager>();
+        PlayerManager playerManager = FindAnyObjectByType<PlayerManager>();
         if (playerManager == null) {
             SetStatus("Player Manager tidak ditemukan.", StatusKind.Error);
             return;
@@ -1893,7 +1822,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     }
 
     private static ControlLayoutEditor FindControlLayoutEditor() {
-        return FindFirstObjectByType<ControlLayoutEditor>(FindObjectsInactive.Include);
+        return FindAnyObjectByType<ControlLayoutEditor>(FindObjectsInactive.Include);
     }
 
     // Pause > Pengaturan > ATUR KONTROL. Input tetap terkunci (pause lock) selama mengatur,
@@ -2111,54 +2040,6 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     }
 
     /// <summary>Kartu room terakhir: ketuk kartu = langsung gabung, × = hapus dari daftar.</summary>
-    private void RefreshRecentRooms() {
-        if (_recentList == null || _recentScroll == null)
-            return;
-
-        ClearChildren(_recentList);
-        List<string> rooms = GetRecentRooms();
-        int visibleCount = Mathf.Min(rooms.Count, MaxRecentRooms);
-        var contentRect = (RectTransform)_recentList;
-        contentRect.sizeDelta = new Vector2(0f, visibleCount * RecentRowHeight +
-                                                Mathf.Max(0, visibleCount - 1) * RecentRowSpacing);
-
-        if (visibleCount == 0) {
-            RectTransform empty = CreateListRow(_recentList, "Recent Rooms Empty", 0, RecentRowHeight, 0f, 0f);
-            AddShape(empty.gameObject, new Color(1f, 1f, 1f, 0.18f), "ui-dashed");
-            Stretch(CreateText("Label", empty, "Belum ada. Room yang kamu masuki muncul di sini.", SmallFontSize,
-                               FontStyle.Normal, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero, MutedColor)
-                        .rectTransform, 28f);
-            contentRect.sizeDelta = new Vector2(0f, RecentRowHeight);
-        }
-
-        for (int i = 0; i < visibleCount; i++) {
-            string room = rooms[i];
-            bool isQuickmatch = room.StartsWith("qm:");
-            string label = isQuickmatch ? "Kode " + room.Substring(3) : room;
-
-            RectTransform card = CreateListRow(_recentList, "Recent Room " + i, i, RecentRowHeight, RecentRowSpacing, 0f);
-            Image background = AddShape(card.gameObject, CardColor);
-            Button join = card.gameObject.AddComponent<Button>();
-            join.targetGraphic = background;
-            join.colors = PressTint();
-            join.onClick.AddListener(() => JoinRecentRoom(room));
-
-            PlaceInRow(CreateText("Name", card, label, BodyFontSize, FontStyle.Bold, TextAnchor.MiddleLeft,
-                                  Vector2.zero, Vector2.zero, Color.white).rectTransform, 28f, 360f, 60f);
-            PlaceInRow(CreateText("Join Hint", card, "Gabung ›", SmallFontSize, FontStyle.Normal, TextAnchor.MiddleRight,
-                                  Vector2.zero, Vector2.zero, LinkColor).rectTransform, -84f, 130f, 60f);
-            Button remove = CreateButton("Remove", card, "×", InputColor, 40);
-            remove.GetComponentInChildren<Text>().color = MutedColor;
-            PlaceInRow(remove.GetComponent<RectTransform>(), -15f, 64f, 64f);
-            remove.onClick.AddListener(() => {
-                ForgetRoom(room);
-                RefreshRecentRooms();
-                SetStatus("Room dihapus dari daftar.");
-            });
-        }
-        _recentScroll.verticalNormalizedPosition = 1f;
-    }
-
     private static List<string> GetRecentRooms() {
         string saved = PlayerPrefs.GetString(RecentRoomsKey, "");
         var rooms = new List<string>();
@@ -2180,6 +2061,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             rooms.RemoveRange(MaxRecentRooms, rooms.Count - MaxRecentRooms);
         PlayerPrefs.SetString(RecentRoomsKey, string.Join("|", rooms));
         PlayerPrefs.Save();
+        SaveRecentRoomTime(room, remove: false); // untuk "Room privat · 2 jam lalu"
     }
 
     private static void ForgetRoom(string room) {
@@ -2192,6 +2074,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
 
         PlayerPrefs.SetString(RecentRoomsKey, string.Join("|", rooms));
         PlayerPrefs.Save();
+        SaveRecentRoomTime(room, remove: true);
     }
 }
 

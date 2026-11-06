@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// Aset UI chat. Diisi otomatis oleh menu "Go Vista > Chat > Pasang Chat di MainMultiplayerScene".
+/// Aset UI chat & friendlist. Diisi otomatis oleh menu "Go Vista > Chat > Pasang Chat di MainMultiplayerScene".
 /// Sprite bersama (sudut membulat, lingkaran, chevron) diambil dari Assets/Resources/UI kalau kosong.
 [Serializable]
 public sealed class ChatUiAssets {
@@ -15,12 +15,23 @@ public sealed class ChatUiAssets {
     public Sprite rounded;
     public Sprite circle;
     public Sprite chevron;
+    // Ikon friendlist (Assets/Resources/UI/Icons). Kosong = dimuat otomatis dari Resources.
+    public Sprite friendsIcon;
+    public Sprite userPlusIcon;
+    public Sprite closeIcon;
+    public Sprite checkIcon;
+    public Sprite refreshIcon;
 
     public void ResolveFallbacks() {
         if (font == null) font = TMP_Settings.defaultFontAsset;
         if (rounded == null) rounded = Resources.Load<Sprite>("UI/ui-rounded");
         if (circle == null) circle = Resources.Load<Sprite>("UI/ui-circle");
         if (chevron == null) chevron = Resources.Load<Sprite>("UI/Icons/icon-chevron-right");
+        if (friendsIcon == null) friendsIcon = Resources.Load<Sprite>("UI/Icons/icon-friends");
+        if (userPlusIcon == null) userPlusIcon = Resources.Load<Sprite>("UI/Icons/icon-user-plus");
+        if (closeIcon == null) closeIcon = Resources.Load<Sprite>("UI/Icons/icon-x");
+        if (checkIcon == null) checkIcon = Resources.Load<Sprite>("UI/Icons/icon-check");
+        if (refreshIcon == null) refreshIcon = Resources.Load<Sprite>("UI/Icons/icon-refresh");
     }
 }
 
@@ -117,7 +128,8 @@ public static class ChatUiKit {
         text.richText = false;
         text.raycastTarget = false;
         text.textWrappingMode = TextWrappingModes.NoWrap;
-        text.overflowMode = TextOverflowModes.Ellipsis;
+        // Truncate, bukan Ellipsis: font Fredoka SDF tidak punya karakter "…" (TMP akan memberi warning tiap teks).
+        text.overflowMode = TextOverflowModes.Truncate;
         return text;
     }
 
@@ -138,6 +150,8 @@ public static class ChatUiKit {
             Transform child = parent.GetChild(i);
             if (keep != null && keep.Contains(child))
                 continue;
+            // Nonaktifkan dulu: Destroy baru terjadi di akhir frame, dan layout group masih menghitung anak aktif.
+            child.gameObject.SetActive(false);
             UnityEngine.Object.Destroy(child.gameObject);
         }
     }

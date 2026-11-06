@@ -661,6 +661,63 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &697745145
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 697745147}
+  - component: {fileID: 697745146}
+  m_Layer: 0
+  m_Name: Profile UI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &697745146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 697745145}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 193b444701d2d024185f8dc24a0de209, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProfileMenu
+  assets:
+    font: {fileID: 11400000, guid: b51443edd50c94546a29f4cffc611e8a, type: 2}
+    chatIcon: {fileID: 21300000, guid: c916a74bfa81f0ea189cbf7006acff4e, type: 3}
+    sendButton: {fileID: 21300000, guid: 8e4cad0d9e1ca1ce780bfc046e9b37e2, type: 3}
+    sendButtonPressed: {fileID: 21300000, guid: 231467df8516300f5889a8b650421718, type: 3}
+    rounded: {fileID: 21300000, guid: e01237b0fd1547c1b80c48f0d18203a9, type: 3}
+    circle: {fileID: 21300000, guid: 3fb90f005db44ee0b3df8833cde94082, type: 3}
+    chevron: {fileID: 21300000, guid: a0fde92a2a9b4a92ba29c58e9f87e83c, type: 3}
+    friendsIcon: {fileID: 21300000, guid: c43728f7d2724126b468f41ca922fef9, type: 3}
+    userPlusIcon: {fileID: 21300000, guid: 17616cb4d2d24e4d8b20a50ce8931c33, type: 3}
+    closeIcon: {fileID: 21300000, guid: 6fff89a39f0443f8b728090093811a37, type: 3}
+    checkIcon: {fileID: 21300000, guid: 78a8ab6e34074fcbb7a55372729e7a33, type: 3}
+    refreshIcon: {fileID: 21300000, guid: 480bb8559fd44582a2643572eb9e63c9, type: 3}
+--- !u!4 &697745147
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 697745145}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &901329300
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -884,6 +941,63 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 7606531919527334328, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
   m_PrefabInstance: {fileID: 1340728033}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1456235800
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1456235802}
+  - component: {fileID: 1456235801}
+  m_Layer: 0
+  m_Name: Friends UI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1456235801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1456235800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62ad3d3d9ae8fd421824efe4f95d196a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FriendsMenu
+  assets:
+    font: {fileID: 11400000, guid: b51443edd50c94546a29f4cffc611e8a, type: 2}
+    chatIcon: {fileID: 21300000, guid: c916a74bfa81f0ea189cbf7006acff4e, type: 3}
+    sendButton: {fileID: 21300000, guid: 8e4cad0d9e1ca1ce780bfc046e9b37e2, type: 3}
+    sendButtonPressed: {fileID: 21300000, guid: 231467df8516300f5889a8b650421718, type: 3}
+    rounded: {fileID: 21300000, guid: e01237b0fd1547c1b80c48f0d18203a9, type: 3}
+    circle: {fileID: 21300000, guid: 3fb90f005db44ee0b3df8833cde94082, type: 3}
+    chevron: {fileID: 21300000, guid: a0fde92a2a9b4a92ba29c58e9f87e83c, type: 3}
+    friendsIcon: {fileID: 21300000, guid: c43728f7d2724126b468f41ca922fef9, type: 3}
+    userPlusIcon: {fileID: 21300000, guid: 17616cb4d2d24e4d8b20a50ce8931c33, type: 3}
+    closeIcon: {fileID: 21300000, guid: 6fff89a39f0443f8b728090093811a37, type: 3}
+    checkIcon: {fileID: 21300000, guid: 78a8ab6e34074fcbb7a55372729e7a33, type: 3}
+    refreshIcon: {fileID: 21300000, guid: 480bb8559fd44582a2643572eb9e63c9, type: 3}
+--- !u!4 &1456235802
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1456235800}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1810142199
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1273,6 +1387,11 @@ MonoBehaviour:
     rounded: {fileID: 21300000, guid: e01237b0fd1547c1b80c48f0d18203a9, type: 3}
     circle: {fileID: 21300000, guid: 3fb90f005db44ee0b3df8833cde94082, type: 3}
     chevron: {fileID: 21300000, guid: a0fde92a2a9b4a92ba29c58e9f87e83c, type: 3}
+    friendsIcon: {fileID: 0}
+    userPlusIcon: {fileID: 0}
+    closeIcon: {fileID: 0}
+    checkIcon: {fileID: 0}
+    refreshIcon: {fileID: 0}
   fadeDelay: 10
   fadedAlpha: 0.4
   fadeSpeed: 3
@@ -1793,11 +1912,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4336829993428079430, guid: 3aecf1c0c3aacfe1885a7d9908e11988, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1
+      value: 0.9167685
       objectReference: {fileID: 0}
     - target: {fileID: 4336829993428079430, guid: 3aecf1c0c3aacfe1885a7d9908e11988, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1
+      value: 0.9167685
       objectReference: {fileID: 0}
     - target: {fileID: 4391541893858399897, guid: 3aecf1c0c3aacfe1885a7d9908e11988, type: 3}
       propertyPath: m_AnchorMax.x
@@ -3312,3 +3431,5 @@ SceneRoots:
   - {fileID: 2006033948}
   - {fileID: 1849964386}
   - {fileID: 2113591066}
+  - {fileID: 1456235802}
+  - {fileID: 697745147}
