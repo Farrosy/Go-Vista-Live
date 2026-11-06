@@ -36,7 +36,8 @@ public sealed partial class LobyUISceneController {
         if (_busy)
             return;
         _quickmatchIntent = QuickmatchIntent.Search;
-        Connect(() => realtime.ConnectToNextAvailableQuickmatchRoom(QuickmatchRoomGroup, MaxRoomPlayers),
+        Connect(options => realtime.ConnectToNextAvailableQuickmatchRoom(QuickmatchRoomGroup, MaxRoomPlayers, options,
+                                                                          QuickmatchOptionsExcludingRooms()),
                 "Mencari room…");
     }
 
@@ -51,9 +52,8 @@ public sealed partial class LobyUISceneController {
 
     private void ConnectNewPublicRoom() {
         _createRoomAttempts++;
-        var options = new Room.QuickmatchOptions { excludeRoomCodes = _excludedRoomCodes.ToArray() };
-        Connect(() => realtime.ConnectToNextAvailableQuickmatchRoom(QuickmatchRoomGroup, MaxRoomPlayers,
-                                                                    quickmatchOptions: options),
+        Connect(options => realtime.ConnectToNextAvailableQuickmatchRoom(QuickmatchRoomGroup, MaxRoomPlayers, options,
+                                                                          QuickmatchOptionsExcludingRooms()),
                 "Membuat room…");
     }
 

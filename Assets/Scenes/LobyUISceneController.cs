@@ -1170,7 +1170,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private void ConnectByRoomName() {
         string requestedRoom = ReadRoomName();
         if (requestedRoom != null)
-            Connect(() => realtime.Connect(requestedRoom), "Masuk ke room privat…");
+            Connect(options => realtime.Connect(requestedRoom, options), "Masuk ke room privat…");
     }
 
     /// <summary>Nama room dari input, atau null (dengan pesan error) kalau tidak valid.</summary>
@@ -1193,7 +1193,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             SetStatus("Masukkan kode room terlebih dahulu.", StatusKind.Error);
             return;
         }
-        Connect(() => realtime.ConnectDirectlyToQuickmatchRoom(QuickmatchRoomGroup, code), "Memeriksa kode dan menghubungkan…");
+        Connect(options => realtime.ConnectDirectlyToQuickmatchRoom(QuickmatchRoomGroup, code, options), "Memeriksa kode dan menghubungkan…");
     }
 
     /// <summary>Root "Main Menu" (untuk tombol TEMAN yang ditempel FriendsMenu). Null sebelum canvas siap.</summary>
@@ -1217,13 +1217,13 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private void JoinRecentRoom(string room) {
         if (room.StartsWith("qm:")) {
             string code = room.Substring(3);
-            Connect(() => realtime.ConnectDirectlyToQuickmatchRoom(QuickmatchRoomGroup, code), "Memeriksa kode dan menghubungkan…");
+            Connect(options => realtime.ConnectDirectlyToQuickmatchRoom(QuickmatchRoomGroup, code, options), "Memeriksa kode dan menghubungkan…");
         } else {
-            Connect(() => realtime.Connect(room), "Menghubungkan ke room…");
+            Connect(options => realtime.Connect(room, options), "Menghubungkan ke room…");
         }
     }
 
-    private void Connect(System.Action connect, string status) {
+    private void Connect(System.Action<Room.ConnectOptions> connect, string status) {
         if (realtime == null || _busy)
             return;
         _busy = true;
@@ -1233,7 +1233,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         _connectAttempt = 1;
         SetStatus(status, StatusKind.Busy);
         ShowConnectingModal(status);
-        RunConnectAttempt();
+        BeginConnect();
     }
 
     private void DidConnectToRoom(Realtime connectedRealtime) {
