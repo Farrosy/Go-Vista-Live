@@ -3,38 +3,63 @@ using UnityEngine;
 
 public sealed class TrafficCar : MonoBehaviour
 {
-    private const float k_FollowStopGap = 3f;
-    private const float k_FollowSlowGap = 10f;
+    // Bumper-to-bumper distances in metres, not pivot-to-pivot: the cars are 4.8-6.6 m long.
+    private const float k_FollowStopGap = 2f;
+    private const float k_FollowSlowGap = 8f;
+    private const float k_DefaultHalfLength = 3f;
     private const float k_HideDuration = 0.4f;
     private const float k_WheelRadius = 0.45f;
-    private const float k_SameDirectionDot = 0.7f;
+    private const float k_SameDirectionDot = 0.5f;
+    private const float k_PathScanStep = 1f;
+    private const float k_RespawnClearance = 12f;
+    private const float k_PathHalfWidth = 1.2f;
+    private const float k_PathMaxHeightGap = 2f;
+    private const float k_SnapError = 12f;
+    private const float k_CorrectionRate = 2.5f;
+    private const float k_PredictionWindow = 1f;
 
     private static readonly Collider[] k_OverlapBuffer = new Collider[64];
+    private static readonly List<TrafficCar> k_NearbyBuffer = new List<TrafficCar>(32);
 
     private TrafficRoute route;
+    private IReadOnlyList<TrafficCar> peers;
+    private TrafficCar blocker;
+    private int peerIndex;
     private Rigidbody body;
     private Renderer[] renderers;
     private Collider[] colliders;
     private Transform[] wheels;
 
     private float distance;
+    private float targetDistance;
     private float speed;
     private float maxSpeed;
     private float acceleration;
     private float brake;
     private float lookAhead;
     private float stopDistance;
+    private float frontExtent = k_DefaultHalfLength;
+    private float rearExtent = k_DefaultHalfLength;
     private float hideTimer;
     private bool hidden;
+    private bool simulating = true;
+    private byte epoch;
+    private float lastStateTime;
 
+    public float Speed => speed;
+    public bool Hidden => hidden;
+    public byte Epoch => epoch;
     public float Distance => distance;
     public TrafficRoute Route => route;
+    public float FrontExtent => frontExtent;
+    public float RearExtent => rearExtent;
 
-    public void Initialize(TrafficRoute route, float distance, float maxSpeed, float acceleration,
-        float brake, float lookAhead, float stopDistance)
+    /// The car stays hidden until Place or ApplyState gives it a position.
+    public void Initialize(IReadOnlyList<TrafficCar> peers, float maxSpeed, float acceleration, float brake,
+        float lookAhead, float stopDistance)
     {
-        this.route = route;
-        this.distance = distance;
+        this.peers = peers;
+        peerIndex = peers.Count;
         this.maxSpeed = maxSpeed;
         this.acceleration = acceleration;
         this.brake = brake;
@@ -64,23 +89,105 @@ public sealed class TrafficCar : MonoBehaviour
         }
         wheels = wheelList.ToArray();
 
+        MeasureLength();
+        SetVisible(false);
+    }
+
+    /// Authority only: move the car. The new epoch tells other clients to snap instead of smoothing.
+    public void Place(TrafficRoute newRoute, float newDistance)
+    {
+        epoch = (byte)((epoch + 1) & TrafficNetwork.EpochMask);
+        speed = 0f;
+        SetRoute(newRoute);
+        distance = newDistance;
+        hideTimer = 0f;
+        SetVisible(true);
         EvaluateTransform(true);
+    }
+
+    /// False on clients that follow another client's simulation.
+    public void SetSimulating(bool value)
+    {
+        simulating = value;
+        targetDistance = distance;
+    }
+
+    /// Non-authority: follow a received snapshot.
+    public void ApplyState(TrafficRoute newRoute, float newDistance, float newSpeed, bool newHidden, byte newEpoch)
+    {
+        lastStateTime = Time.time;
+        speed = newSpeed;
+
+        bool snap = route != newRoute || epoch != newEpoch;
+        epoch = newEpoch;
+        SetRoute(newRoute);
+        if (route == null) return;
+
+        if (!snap)
+        {
+            float error = newDistance - distance;
+            if (route.Closed) error = Mathf.Repeat(error + route.Length * 0.5f, route.Length) - route.Length * 0.5f;
+            snap = Mathf.Abs(error) > k_SnapError;
+        }
+
+        targetDistance = newDistance;
+        if (snap)
+        {
+            distance = newDistance;
+            EvaluateTransform(true);
+        }
+
+        if (hidden != newHidden) SetVisible(!newHidden);
+    }
+
+    private void SetRoute(TrafficRoute newRoute)
+    {
+        if (route == newRoute) return;
+        route?.Cars.Remove(this);
+        route = newRoute;
+        route?.Cars.Add(this);
+    }
+
+    private void FollowState()
+    {
+        if (hidden) return;
+
+        // Keep predicting between snapshots, but stop if they dry up (authority left or lost connection).
+        bool fresh = Time.time - lastStateTime <= k_PredictionWindow;
+        float step = fresh ? speed * Time.fixedDeltaTime : 0f;
+        distance += step;
+        targetDistance += step;
+
+        float error = targetDistance - distance;
+        if (route.Closed) error = Mathf.Repeat(error + route.Length * 0.5f, route.Length) - route.Length * 0.5f;
+        distance += error * Mathf.Min(1f, k_CorrectionRate * Time.fixedDeltaTime);
+
+        distance = route.Closed ? Mathf.Repeat(distance, route.Length) : Mathf.Clamp(distance, 0f, route.Length);
+        EvaluateTransform();
+        SpinWheels(step);
     }
 
     private void FixedUpdate()
     {
         if (route == null) return;
 
+        if (!simulating)
+        {
+            FollowState();
+            return;
+        }
+
         if (hidden)
         {
             hideTimer -= Time.fixedDeltaTime;
-            if (hideTimer <= 0f) SetVisible(true);
+            // Stay hidden until the route start is free, or the car would appear inside another one.
+            if (hideTimer <= 0f && route.GapAhead(this) > k_FollowStopGap && IsPositionClear()) SetVisible(true);
             return;
         }
 
         float targetSpeed = maxSpeed;
 
-        ScanAhead(out float playerDistance, out float otherCarDistance);
+        float playerDistance = ScanForPlayer();
         if (playerDistance < float.PositiveInfinity)
         {
             targetSpeed = playerDistance <= stopDistance
@@ -88,7 +195,7 @@ public sealed class TrafficCar : MonoBehaviour
                 : Mathf.Lerp(0f, maxSpeed, Mathf.InverseLerp(stopDistance, lookAhead, playerDistance));
         }
 
-        float carGap = Mathf.Min(route.GapAhead(this), otherCarDistance);
+        float carGap = Mathf.Min(route.GapAhead(this), GapToCarOnPath());
         if (carGap < float.PositiveInfinity)
         {
             float followSpeed = carGap <= k_FollowStopGap
@@ -110,27 +217,94 @@ public sealed class TrafficCar : MonoBehaviour
         else if (distance >= route.Length)
         {
             distance = 0f;
+            epoch = (byte)((epoch + 1) & TrafficNetwork.EpochMask);
             Hide();
             wrapped = true;
         }
 
         EvaluateTransform(wrapped);
 
-        if (speed > 0.01f)
-        {
-            float spin = speed * Time.fixedDeltaTime / k_WheelRadius * Mathf.Rad2Deg;
-            for (int i = 0; i < wheels.Length; i++)
-                wheels[i].Rotate(Vector3.right, spin, Space.Self);
-        }
+        SpinWheels(speed * Time.fixedDeltaTime);
     }
 
-    // Routes can share a lane after a junction merge, so cars on other routes are found
-    // physically here; only same-direction cars count, so crossing traffic cannot deadlock.
-    private void ScanAhead(out float playerDistance, out float otherCarDistance)
+    private void SpinWheels(float travelled)
     {
-        playerDistance = float.PositiveInfinity;
-        otherCarDistance = float.PositiveInfinity;
-        if (lookAhead <= 0f) return;
+        if (travelled <= 0.0001f) return;
+
+        float spin = travelled / k_WheelRadius * Mathf.Rad2Deg;
+        for (int i = 0; i < wheels.Length; i++)
+            wheels[i].Rotate(Vector3.right, spin, Space.Self);
+    }
+
+    // Routes can share a lane after a junction merge, so cars on other routes are found by walking this
+    // car's own path: while it turns, its nose still points away from a queue in the lane it is entering.
+    // Only cars heading along the path count, so crossing traffic does not stop it.
+    private float GapToCarOnPath()
+    {
+        blocker = null;
+        if (lookAhead <= 0f || peers == null) return float.PositiveInfinity;
+
+        Vector3 self = transform.position;
+        float reach = frontExtent + lookAhead + k_DefaultHalfLength;
+        k_NearbyBuffer.Clear();
+        for (int i = 0; i < peers.Count; i++)
+        {
+            TrafficCar other = peers[i];
+            if (other == this || other.hidden || other.route == null || other.route == route) continue;
+            // Two cars can each have the other on their path; only one of them may wait.
+            if (other.blocker == this && peerIndex < other.peerIndex) continue;
+            if ((other.transform.position - self).sqrMagnitude <= reach * reach) k_NearbyBuffer.Add(other);
+        }
+
+        if (k_NearbyBuffer.Count == 0) return float.PositiveInfinity;
+
+        float end = frontExtent + lookAhead;
+        for (float ahead = frontExtent; ahead <= end; ahead += k_PathScanStep)
+        {
+            float pathDistance = distance + ahead;
+            if (!route.Closed && pathDistance > route.Length) break;
+
+            route.Evaluate(pathDistance, out Vector3 point, out Vector3 tangent, out _);
+
+            for (int i = 0; i < k_NearbyBuffer.Count; i++)
+            {
+                TrafficCar other = k_NearbyBuffer[i];
+                Transform otherTransform = other.transform;
+                Vector3 offset = point - otherTransform.position;
+
+                if (Mathf.Abs(offset.y) > k_PathMaxHeightGap) continue;
+                if (Mathf.Abs(Vector3.Dot(offset, otherTransform.right)) > k_PathHalfWidth) continue;
+
+                float along = Vector3.Dot(offset, otherTransform.forward);
+                if (along < -other.rearExtent || along > other.frontExtent) continue;
+
+                if (Vector3.Dot(otherTransform.forward, tangent) < k_SameDirectionDot) continue;
+                if (Vector3.Dot(otherTransform.position - self, tangent) <= 0.5f) continue;
+
+                blocker = other;
+                return ahead - frontExtent - (along + other.rearExtent);
+            }
+        }
+
+        return float.PositiveInfinity;
+    }
+
+    private bool IsPositionClear()
+    {
+        for (int i = 0; i < peers.Count; i++)
+        {
+            TrafficCar other = peers[i];
+            if (other == this || other.hidden || other.route == null) continue;
+            if ((other.transform.position - transform.position).sqrMagnitude < k_RespawnClearance * k_RespawnClearance)
+                return false;
+        }
+        return true;
+    }
+
+    private float ScanForPlayer()
+    {
+        float playerDistance = float.PositiveInfinity;
+        if (lookAhead <= 0f) return playerDistance;
 
         Vector3 center = transform.position + transform.up * 0.7f + transform.forward * (lookAhead * 0.5f);
         Vector3 halfExtents = new Vector3(1.1f, 0.9f, lookAhead * 0.5f + 1.5f);
@@ -142,17 +316,6 @@ public sealed class TrafficCar : MonoBehaviour
             Collider hit = k_OverlapBuffer[i];
             if (hit == null || hit.transform.IsChildOf(transform)) continue;
 
-            TrafficCar other = hit.GetComponentInParent<TrafficCar>();
-            if (other != null)
-            {
-                if (other.route == route) continue;
-                if (Vector3.Dot(other.transform.forward, transform.forward) < k_SameDirectionDot) continue;
-
-                float gap = Vector3.Dot(other.transform.position - transform.position, transform.forward);
-                if (gap > 0.5f && gap < otherCarDistance) otherCarDistance = gap;
-                continue;
-            }
-
             CharacterController controller = hit.GetComponentInParent<CharacterController>();
             if (controller == null) continue;
 
@@ -163,6 +326,41 @@ public sealed class TrafficCar : MonoBehaviour
             float candidate = Mathf.Max(0f, along);
             if (candidate < playerDistance) playerDistance = candidate;
         }
+
+        return playerDistance;
+    }
+
+    // Car pivots are not centred (cargo_car_001 is 0.34 m off), so front and rear are measured separately.
+    private void MeasureLength()
+    {
+        bool measured = false;
+        float front = 0f;
+        float rear = 0f;
+        Matrix4x4 worldToRoot = transform.worldToLocalMatrix;
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Bounds bounds = renderers[i].localBounds;
+            Matrix4x4 toRoot = worldToRoot * renderers[i].transform.localToWorldMatrix;
+
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 offset = new Vector3(
+                    (corner & 1) == 0 ? -bounds.extents.x : bounds.extents.x,
+                    (corner & 2) == 0 ? -bounds.extents.y : bounds.extents.y,
+                    (corner & 4) == 0 ? -bounds.extents.z : bounds.extents.z);
+                float z = toRoot.MultiplyPoint3x4(bounds.center + offset).z;
+
+                front = measured ? Mathf.Max(front, z) : z;
+                rear = measured ? Mathf.Min(rear, z) : z;
+                measured = true;
+            }
+        }
+
+        if (!measured) return;
+
+        frontExtent = Mathf.Max(0f, front);
+        rearExtent = Mathf.Max(0f, -rear);
     }
 
     private void EvaluateTransform(bool teleport = false)
