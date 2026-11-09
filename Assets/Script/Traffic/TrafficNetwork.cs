@@ -564,12 +564,14 @@ public sealed class TrafficNetwork : MonoBehaviour
         var segments = new List<LaneSegment>();
         int splineId = 0;
         // Route indices are sent over the network, so every client must build routes in the same order;
-        // FindObjectsByType does not guarantee one.
+        // FindObjectsByType does not guarantee one. Some sections share a position and name, so the
+        // hierarchy path is the final tie-break.
         RoadSection[] sections = UnityEngine.Object.FindObjectsByType<RoadSection>()
             .OrderBy(section => section.transform.position.x)
             .ThenBy(section => section.transform.position.y)
             .ThenBy(section => section.transform.position.z)
             .ThenBy(section => section.name, StringComparer.Ordinal)
+            .ThenBy(section => HierarchyPath(section.transform), StringComparer.Ordinal)
             .ToArray();
         sectionCount = sections.Length;
 
@@ -622,6 +624,15 @@ public sealed class TrafficNetwork : MonoBehaviour
         }
 
         return BuildChains(Deduplicate(segments), mergeDistance, minTangentDot, minRouteLength);
+    }
+
+    /// Sibling indices from the scene root down: unique within a scene and identical on every client.
+    private static string HierarchyPath(Transform transform)
+    {
+        string path = transform.GetSiblingIndex().ToString("D5");
+        for (Transform parent = transform.parent; parent != null; parent = parent.parent)
+            path = parent.GetSiblingIndex().ToString("D5") + "/" + path;
+        return path;
     }
 
     public static string BuildAndDescribe(float sampleStep, float mergeDistance, float minTangentDot,
