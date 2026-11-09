@@ -19,9 +19,11 @@ public sealed class TrafficCar : MonoBehaviour
     private const float k_SnapError = 12f;
     private const float k_CorrectionRate = 2.5f;
     private const float k_PredictionWindow = 1f;
+    private const float k_ConflictApproach = 12f;
 
     private static readonly Collider[] k_OverlapBuffer = new Collider[64];
     private static readonly List<TrafficCar> k_NearbyBuffer = new List<TrafficCar>(32);
+    private static int s_lastTicket;
 
     private TrafficRoute route;
     private IReadOnlyList<TrafficCar> peers;
@@ -48,6 +50,8 @@ public sealed class TrafficCar : MonoBehaviour
     private bool simulating = true;
     private byte epoch;
     private float lastStateTime;
+    private int conflictTicket;
+    private bool heldBack;
 
     public float Speed => speed;
     /// Kecepatan yang benar-benar terjadi di client ini: mobil berhenti kalau data dari pengatur lalu lintas terputus.
@@ -103,6 +107,7 @@ public sealed class TrafficCar : MonoBehaviour
     {
         epoch = (byte)((epoch + 1) & TrafficNetwork.EpochMask);
         speed = 0f;
+        conflictTicket = 0;
         SetRoute(newRoute);
         distance = newDistance;
         hideTimer = 0f;
@@ -115,6 +120,8 @@ public sealed class TrafficCar : MonoBehaviour
     {
         simulating = value;
         targetDistance = distance;
+        conflictTicket = 0;
+        heldBack = false;
     }
 
     /// Non-authority: follow a received snapshot.
@@ -200,14 +207,9 @@ public sealed class TrafficCar : MonoBehaviour
                 : Mathf.Lerp(0f, maxSpeed, Mathf.InverseLerp(stopDistance, lookAhead, playerDistance));
         }
 
-        float carGap = Mathf.Min(route.GapAhead(this), GapToCarOnPath());
-        if (carGap < float.PositiveInfinity)
-        {
-            float followSpeed = carGap <= k_FollowStopGap
-                ? 0f
-                : Mathf.Lerp(0f, maxSpeed, Mathf.InverseLerp(k_FollowStopGap, k_FollowSlowGap, carGap));
-            if (followSpeed < targetSpeed) targetSpeed = followSpeed;
-        }
+        targetSpeed = LimitForGap(targetSpeed, Mathf.Min(route.GapAhead(this), GapToCarOnPath()));
+        heldBack = targetSpeed <= 0f;
+        targetSpeed = LimitForGap(targetSpeed, GapToConflict());
 
         float rate = targetSpeed < speed ? brake : acceleration;
         speed = Mathf.MoveTowards(speed, targetSpeed, rate * Time.fixedDeltaTime);
@@ -232,6 +234,62 @@ public sealed class TrafficCar : MonoBehaviour
         SpinWheels(speed * Time.fixedDeltaTime);
     }
 
+    private float LimitForGap(float currentTarget, float gap)
+    {
+        if (gap == float.PositiveInfinity) return currentTarget;
+
+        float gapSpeed = gap <= k_FollowStopGap
+            ? 0f
+            : Mathf.Lerp(0f, maxSpeed, Mathf.InverseLerp(k_FollowStopGap, k_FollowSlowGap, gap));
+        return Mathf.Min(currentTarget, gapSpeed);
+    }
+
+    // Tickets are handed out in arrival order, so waits can never form a circle among cars at a junction.
+    private float GapToConflict()
+    {
+        float nearestGap = float.PositiveInfinity;
+        bool approaching = false;
+        float front = distance + frontExtent;
+        float rear = distance - rearExtent;
+
+        List<TrafficConflict> conflicts = route.Conflicts;
+        for (int i = 0; i < conflicts.Count; i++)
+        {
+            TrafficConflict conflict = conflicts[i];
+            float toStart = route.Offset(front, conflict.Start);
+            if (toStart > k_ConflictApproach || route.Offset(rear, conflict.End) < 0f) continue;
+
+            approaching = true;
+            if (conflictTicket == 0) conflictTicket = ++s_lastTicket;
+            if (toStart < nearestGap && MustWaitAt(conflict, toStart <= 0f)) nearestGap = toStart;
+        }
+
+        if (!approaching) conflictTicket = 0;
+        return nearestGap;
+    }
+
+    private bool MustWaitAt(TrafficConflict conflict, bool inside)
+    {
+        List<TrafficCar> others = conflict.Other.Cars;
+        for (int i = 0; i < others.Count; i++)
+        {
+            TrafficCar other = others[i];
+            if (other == null || other == this || other.hidden) continue;
+
+            float otherToStart = conflict.Other.Offset(other.distance + other.frontExtent, conflict.OtherStart);
+            if (otherToStart > k_ConflictApproach) continue;
+            if (conflict.Other.Offset(other.distance - other.rearExtent, conflict.OtherEnd) < 0f) continue;
+
+            bool otherInside = otherToStart <= 0f;
+            // A car stuck behind traffic or a player is not about to enter, so nobody should wait for it.
+            if (!otherInside && other.heldBack) continue;
+
+            if (TrafficConflict.MustYield(inside, conflictTicket, otherInside, other.conflictTicket)) return true;
+        }
+
+        return false;
+    }
+
     private void SpinWheels(float travelled)
     {
         if (travelled <= 0.0001f) return;
@@ -243,7 +301,7 @@ public sealed class TrafficCar : MonoBehaviour
 
     // Routes can share a lane after a junction merge, so cars on other routes are found by walking this
     // car's own path: while it turns, its nose still points away from a queue in the lane it is entering.
-    // Only cars heading along the path count, so crossing traffic does not stop it.
+    // Only cars heading along the path count; crossing traffic is handled by GapToConflict.
     private float GapToCarOnPath()
     {
         blocker = null;
@@ -418,6 +476,7 @@ public sealed class TrafficCar : MonoBehaviour
     private void Hide()
     {
         hideTimer = k_HideDuration;
+        conflictTicket = 0;
         SetVisible(false);
     }
 
