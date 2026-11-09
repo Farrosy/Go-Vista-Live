@@ -440,10 +440,13 @@ public sealed class TrafficNetwork : MonoBehaviour
     private void ApplyLatestState(TrafficSync sync)
     {
         byte[] state = sync.State;
-        if (state == null || ReferenceEquals(state, lastState)) return;
+        if (state == null || state.AsSpan().SequenceEqual(lastState)) return;
 
-        lastState = state;
-        DecodeState(state);
+        // Normcore overwrites the received array in place when the length is unchanged, so a new
+        // snapshot can arrive in the same array: compare contents against a private copy.
+        if (lastState == null || lastState.Length != state.Length) lastState = new byte[state.Length];
+        Buffer.BlockCopy(state, 0, lastState, 0, state.Length);
+        DecodeState(lastState);
     }
 
     private void DecodeState(byte[] state)
