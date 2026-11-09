@@ -62,6 +62,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private const float RecentRowHeight = 94f;
     private const float RecentRowSpacing = 16f;
     private const float PlayerRowHeight = 86f;
+    private const float RemotePlayerNameWidth = 334f; // Menyisakan tempat untuk tombol bisukan.
     private const float PlayerRowSpacing = 12f;
     private const int EmptySlotsShown = 2;
 
@@ -1575,10 +1576,13 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             // Nama dari menu KARAKTER (LobbyPresence), atau "Player N" kalau pemain belum mengisi nama.
             string playerName = LobbyPresence.NameOf(player.Key) + (isLocal ? " (Kamu)" : "");
             PlaceInRow(CreateText("Name", row, playerName, BodyFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
-                                  Vector2.zero, Vector2.zero, Color.white).rectTransform, 104f, 430f, 60f);
+                                  Vector2.zero, Vector2.zero, Color.white).rectTransform, 104f,
+                       isLocal ? 430f : RemotePlayerNameWidth, 60f);
             // Tombol tambah teman (disembunyikan sendiri untuk diri sendiri, guest, atau kalau sudah berteman).
-            if (!isLocal)
+            if (!isLocal) {
                 FriendAddButton.Create(row, player.Key, -330f);
+                VoiceMuteButton.Create(row, player.Key, -542f);
+            }
 
             // Status: titik + teks berwarna (hijau = sudah di world, kuning = menunggu).
             bool inWorld = player.Value;
@@ -1693,12 +1697,14 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             labelText.text = loading ? "MEMUAT WORLD…" : "MULAI";
     }
 
+    // Listener dihapus, bukan di-disable: echo cancellation Normcore memakai listener pertama yang ditemukan,
+    // termasuk yang disabled, sehingga bisa salah target.
     private static void DisableWorldCameras(Scene worldScene) {
         foreach (GameObject root in worldScene.GetRootGameObjects()) {
             foreach (Camera worldCamera in root.GetComponentsInChildren<Camera>(true))
                 worldCamera.enabled = false;
             foreach (AudioListener listener in root.GetComponentsInChildren<AudioListener>(true))
-                listener.enabled = false;
+                Destroy(listener);
         }
     }
 
