@@ -19,4 +19,9 @@ public static class VitalsRules {
         float excess = fallMetres - SafeFallMetres;
         return excess <= Epsilon ? 0 : (int)Math.Ceiling(excess * FallDamagePerMetre - Epsilon);
     }
+
+    /// True kalau mendarat dari jarak ini pasti menghabiskan HP yang tersisa.
+    public static bool IsLethalFall(float fallMetres, int health) {
+        return health > 0 && FallDamage(fallMetres) >= health;
+    }
 }

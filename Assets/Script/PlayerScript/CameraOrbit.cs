@@ -41,6 +41,9 @@ public class CameraOrbit : MonoBehaviour
     /// Pengali jarak kamera. Di bawah 1 = zoom mendekat (dipakai saat layar mati).
     public float DistanceScale { get; set; } = 1f;
 
+    /// Geseran kamera di sumbu layarnya, dalam meter. Dipakai untuk goyang saat benturan.
+    public Vector2 ShakeOffset { get; set; }
+
     public void SetTarget(Transform value)
     {
         target = value;
@@ -86,7 +89,7 @@ public class CameraOrbit : MonoBehaviour
 
         if (blend <= 0f || !focusPoint)
         {
-            transform.SetPositionAndRotation(ResolveCollision(pivot, orbitPos), orbitRot);
+            ApplyPose(ResolveCollision(pivot, orbitPos), orbitRot);
             return;
         }
 
@@ -102,9 +105,14 @@ public class CameraOrbit : MonoBehaviour
         Quaternion focusRot = Quaternion.LookRotation(fp - focusPos);
 
         float t = Mathf.SmoothStep(0f, 1f, blend);
-        transform.SetPositionAndRotation(
+        ApplyPose(
             ResolveCollision(pivot, Vector3.Lerp(orbitPos, focusPos, t)),
             Quaternion.Slerp(orbitRot, focusRot, t));
+    }
+
+    private void ApplyPose(Vector3 position, Quaternion rotation)
+    {
+        transform.SetPositionAndRotation(position + rotation * (Vector3)ShakeOffset, rotation);
     }
 
     /// Tarik kamera maju kalau ada penghalang antara pivot (kepala player) dan posisi kamera yang diinginkan.

@@ -63,7 +63,9 @@ public sealed class GameHudView : MonoBehaviour {
 
     private void UpdateRedVignette(VitalsState state, float time) {
         if (vitalsGroup.alpha <= 0f) return;
-        bool recentCriticalHit = state.IsHealthCritical && time - vitals.LastDamageTime < VignetteAfterDamageSeconds;
+        // Saat mati, tepi merah tidak boleh menimpa kilat dan layar gelap benturan.
+        bool recentCriticalHit = !state.IsDead && state.IsHealthCritical &&
+                                 time - vitals.LastDamageTime < VignetteAfterDamageSeconds;
         bool show = recentCriticalHit || state.Level == OxygenLevel.Danger;
         redVignette.enabled = show;
         if (!show) return;

@@ -21,6 +21,14 @@ public readonly struct VitalsState {
     public bool IsOxygenFull => _oxygenSeconds >= VitalsRules.OxygenDurationSeconds - VitalsRules.Epsilon;
     public bool IsDead => Health <= 0 || _oxygenSeconds <= VitalsRules.Epsilon;
 
+    /// HP sejauh ini hanya berkurang karena jatuh, jadi HP habis berarti mati jatuh.
+    public DeathCause Cause {
+        get {
+            if (Health <= 0) return DeathCause.Fall;
+            return _oxygenSeconds <= VitalsRules.Epsilon ? DeathCause.Drowned : DeathCause.None;
+        }
+    }
+
     /// Jumlah segmen yang masih menyala: berkurang satu begitu satu detik penuh terpakai.
     public int OxygenSegments {
         get {

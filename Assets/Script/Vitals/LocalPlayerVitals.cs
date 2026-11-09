@@ -12,6 +12,10 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
     public bool HeadUnderWater { get; private set; }
     public float LastDamageTime { get; private set; } = float.NegativeInfinity;
 
+    /// True selama pemain masih di udara dan jarak jatuhnya sudah pasti menghabiskan HP.
+    public bool IsFallingLethally => !_dead && _player != null &&
+                                     VitalsRules.IsLethalFall(_fallTracker.CurrentDrop, State.Health);
+
     /// Dipicu sekali saat HP atau O₂ habis. Berhenti menghitung sampai Revive dipanggil.
     public event Action Died;
 
@@ -23,7 +27,11 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
     private void Update() {
         PlayerController local = PlayerController.Local;
         if (local != _player) Bind(local);
-        if (_player == null || _dead || !_controller.enabled) return;
+        if (_player == null || _dead) return;
+        if (!_controller.enabled) {
+            _fallTracker.Reset();
+            return;
+        }
 
         PlayerInputHub input = PlayerInputHub.Instance;
         bool paused = input != null && input.PauseLocked;

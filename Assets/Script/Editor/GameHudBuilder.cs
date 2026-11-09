@@ -34,6 +34,9 @@ public static class GameHudBuilder {
     private const float SlicedMultiplier = 1.41f;
     private const int BubbleCount = 10;
     private const int SegmentCount = VitalsRules.OxygenSegmentCount;
+    private const int SpeedLineCount = 18;
+    private const int DustCount = 5;
+    private const string DeathContentFolder = AssetRoot + "DeathScreens";
 
     private static readonly Color TextBlue = new Color32(191, 235, 255, 255);
     private static readonly Color TextPaleBlue = new Color32(227, 244, 255, 255);
@@ -42,10 +45,14 @@ public static class GameHudBuilder {
     private static readonly Color BackdropColor = new Color32(13, 42, 92, 214);
     private static readonly Color TitleUnderlay = new Color32(11, 47, 102, 255);
     private static readonly Color TextUnderlay = new Color32(10, 20, 50, 217);
+    private static readonly Color FallSubtitle = new Color32(255, 217, 194, 255);
+    private static readonly Color FallTip = new Color32(255, 237, 226, 255);
+    private static readonly Color FallBackdrop = new Color32(30, 15, 8, 228);
+    private static readonly Color FallTitleUnderlay = new Color32(107, 36, 8, 255);
 
     private sealed class Fonts {
         public TMP_FontAsset Medium, SemiBold, Bold;
-        public Material BoldUnderlay, TitleUnderlay;
+        public Material BoldUnderlay, TitleUnderlay, FallTitleUnderlay;
     }
 
     [MenuItem("Go Vista/HUD/Buat ulang GameHudCanvas (prefab + scene)")]
@@ -69,6 +76,7 @@ public static class GameHudBuilder {
         };
         fonts.BoldUnderlay = EnsureUnderlayMaterial(fonts.Bold, "Fredoka-Bold SDF Underlay", TextUnderlay, -0.5f);
         fonts.TitleUnderlay = EnsureUnderlayMaterial(fonts.Bold, "Fredoka-Bold SDF Title", TitleUnderlay, -0.45f);
+        fonts.FallTitleUnderlay = EnsureUnderlayMaterial(fonts.Bold, "Fredoka-Bold SDF Title Fall", FallTitleUnderlay, -0.45f);
         return fonts;
     }
 
@@ -171,6 +179,7 @@ public static class GameHudBuilder {
             vignette.pixelsPerUnitMultiplier = SlicedMultiplier;
             vignette.enabled = false;
             underwater.enabled = false;
+            FallFxView fallFx = BuildFallFx(root.transform, vitals);
 
             RectTransform safeArea = Stretch(NewRect("HUD Safe Area", root.transform));
             safeArea.gameObject.AddComponent<SafeAreaFitter>();
@@ -189,7 +198,7 @@ public static class GameHudBuilder {
                 ("vitalsGroup", vitalsGroup), ("coinCanvas", coinCanvas), ("redVignette", vignette),
                 ("underwaterOverlay", underwater));
             var flow = root.AddComponent<DeathFlowController>();
-            Bind(flow, ("vitals", vitals), ("screen", death), ("hud", hud));
+            Bind(flow, ("vitals", vitals), ("screen", death), ("hud", hud), ("fallFx", fallFx));
 
             Directory.CreateDirectory(Path.GetDirectoryName(PrefabPath));
             return PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
@@ -330,8 +339,8 @@ public static class GameHudBuilder {
         Image backdropFill = backdropRect.gameObject.AddComponent<Image>();
         backdropFill.color = BackdropColor;
         backdropFill.raycastTarget = true; // menahan sentuhan ke kontrol di belakang layar mati
-        FullScreenImage("Vignette", backdropRect, "FX/fx_vignette_water.png");
-        BuildBubbles(backdropRect);
+        Image backdropVignette = FullScreenImage("Vignette", backdropRect, "FX/fx_vignette_water.png");
+        GameObject bubblesRoot = BuildBubbles(backdropRect);
 
         RectTransform badgeRect = Center(NewRect("Badge", root), 0f, 336f, 180f, 180f);
         var badge = badgeRect.gameObject.AddComponent<CanvasGroup>();
@@ -361,7 +370,7 @@ public static class GameHudBuilder {
         RectTransform buttonsRect = Center(NewRect("Buttons", root), 0f, -283f, 800f, 98f);
         var buttons = buttonsRect.gameObject.AddComponent<CanvasGroup>();
         Button revive = BuildButton("Revive Button", buttonsRect, fonts.Bold, "Bangkit di Darat", 34f, TextPrimaryButton,
-            "Buttons/btn_primary", "Icons/icon_respawn.png", -202f, 396f, out _);
+            "Buttons/btn_primary", "Icons/icon_respawn.png", -202f, 396f, out TextMeshProUGUI reviveLabel);
         Button lobby = BuildButton("Lobby Button", buttonsRect, fonts.SemiBold, "Kembali ke Lobby", 31f, Color.white,
             "Buttons/btn_secondary", "Icons/icon_home.png", 202f, 380f, out TextMeshProUGUI lobbyLabel);
 
@@ -369,15 +378,135 @@ public static class GameHudBuilder {
             26f, TextPaleBlue, TextAlignmentOptions.Midline);
         Center(countdownText.rectTransform, 0f, -372f, 900f, 40f);
         CanvasGroup countdown = countdownText.gameObject.AddComponent<CanvasGroup>();
+        CanvasGroup info = TextGroup("Respawn Info", root, fonts.Medium, string.Empty, 24f, TextPaleBlue, -370f, 40f);
 
         var view = root.gameObject.AddComponent<DeathScreenView>();
-        Bind(view, ("backdrop", backdrop), ("badge", badge), ("title", title), ("subtitle", subtitle), ("tip", tip),
-            ("card", card), ("cardAmount", cardAmount), ("buttons", buttons), ("reviveButton", revive),
-            ("lobbyButton", lobby), ("lobbyLabel", lobbyLabel), ("countdown", countdown), ("countdownLabel", countdownText));
+        BindArray(view, "contents", EnsureDeathContents(fonts));
+        Bind(view, ("backdrop", backdrop), ("backdropFill", backdropFill), ("backdropVignette", backdropVignette),
+            ("bubblesRoot", bubblesRoot), ("badge", badge), ("badgeCircle", circle), ("badgeIcon", icon),
+            ("title", title), ("titleText", titleText), ("subtitle", subtitle),
+            ("subtitleText", subtitle.GetComponent<TextMeshProUGUI>()), ("tip", tip),
+            ("tipText", tip.GetComponent<TextMeshProUGUI>()), ("card", card), ("cardImage", cardImage),
+            ("cardLabel", cardLabel), ("cardAmount", cardAmount), ("buttons", buttons), ("reviveButton", revive),
+            ("reviveGroup", revive.gameObject.AddComponent<CanvasGroup>()), ("reviveLabel", reviveLabel),
+            ("lobbyButton", lobby), ("lobbyGroup", lobby.gameObject.AddComponent<CanvasGroup>()),
+            ("lobbyLabel", lobbyLabel), ("info", info), ("infoLabel", info.GetComponent<TextMeshProUGUI>()),
+            ("countdown", countdown), ("countdownLabel", countdownText));
         return view;
     }
 
-    private static void BuildBubbles(RectTransform parent) {
+    private static DeathScreenContent[] EnsureDeathContents(Fonts fonts) {
+        if (!AssetDatabase.IsValidFolder(DeathContentFolder))
+            AssetDatabase.CreateFolder(AssetRoot.TrimEnd('/'), Path.GetFileName(DeathContentFolder));
+
+        DeathScreenContent drowned = EnsureDeathContent("DeathScreen_Drowned", content => {
+            content.cause = DeathCause.Drowned;
+            content.title = "TENGGELAM!";
+            content.titleSize = 159f;
+            content.titleSpacing = 4f;
+            content.titleMaterial = fonts.TitleUnderlay;
+            content.subtitle = "Oksigen kamu habis di air.";
+            content.subtitleColor = TextBlue;
+            content.tip = "Tips: begitu bar O<sub>2</sub> menguning, segera kembali ke darat.";
+            content.tipColor = TextPaleBlue;
+            content.cardLabelColor = TextBlue;
+            content.reviveLabel = "Bangkit di Darat";
+            content.respawnInfo = string.Empty;
+            content.countdownColor = TextPaleBlue;
+            content.badge = Load("Badges/badge_drowned.png");
+            content.icon = Load("Icons/icon_drowned.png");
+            content.iconSize = 88f;
+            content.card = Load("Panels/panel_card.png");
+            content.lobbyButton = Load("Buttons/btn_secondary.png");
+            content.lobbyButtonPressed = Load("Buttons/btn_secondary_pressed.png");
+            content.lobbyButtonDisabled = Load("Buttons/btn_secondary_disabled.png");
+            content.backdropColor = BackdropColor;
+            content.vignette = Load("FX/fx_vignette_water.png");
+            content.showBubbles = true;
+            content.intro = DeathScreenContent.IntroStyle.Slam;
+            content.impactEffects = false;
+            content.hideAvatarAfterSeconds = 0.5f;
+            content.hideHudAfterSeconds = 0f;
+        });
+
+        DeathScreenContent fall = EnsureDeathContent("DeathScreen_Fall", content => {
+            content.cause = DeathCause.Fall;
+            content.title = "JATUH!";
+            content.titleSize = 170f;
+            content.titleSpacing = 6f;
+            content.titleMaterial = fonts.FallTitleUnderlay;
+            content.subtitle = "Kamu jatuh dari tempat yang terlalu tinggi.";
+            content.subtitleColor = FallSubtitle;
+            content.tip = "Tips: turun lewat tangga atau pijakan yang lebih rendah, jangan langsung lompat.";
+            content.tipColor = FallTip;
+            content.cardLabelColor = FallSubtitle;
+            content.reviveLabel = "Bangkit Lagi";
+            content.respawnInfo = "Muncul di titik awal dengan HP penuh";
+            content.respawnInfoColor = FallSubtitle;
+            content.countdownColor = FallTip;
+            content.badge = Load("Badges/badge_fall.png");
+            content.icon = Load("Icons/icon_fall.png");
+            content.iconSize = 72f;
+            content.card = Load("Panels/panel_card_fall.png");
+            content.lobbyButton = Load("Buttons/btn_secondary_fall.png");
+            content.lobbyButtonPressed = Load("Buttons/btn_secondary_fall_pressed.png");
+            content.lobbyButtonDisabled = Load("Buttons/btn_secondary_fall.png");
+            content.backdropColor = FallBackdrop;
+            content.vignette = Load("FX/fx_vignette_fall.png");
+            content.showBubbles = false;
+            content.intro = DeathScreenContent.IntroStyle.Drop;
+            content.impactEffects = true;
+            content.hideAvatarAfterSeconds = 1f;
+            content.hideHudAfterSeconds = 1.2f;
+        });
+
+        return new[] { drowned, fall };
+    }
+
+    private static DeathScreenContent EnsureDeathContent(string assetName, System.Action<DeathScreenContent> fill) {
+        string path = $"{DeathContentFolder}/{assetName}.asset";
+        var content = AssetDatabase.LoadAssetAtPath<DeathScreenContent>(path);
+        if (content == null) {
+            content = ScriptableObject.CreateInstance<DeathScreenContent>();
+            AssetDatabase.CreateAsset(content, path);
+        }
+        fill(content);
+        EditorUtility.SetDirty(content);
+        return content;
+    }
+
+    private static FallFxView BuildFallFx(Transform parent, LocalPlayerVitals vitals) {
+        RectTransform area = Stretch(NewRect("Fall FX", parent));
+        area.gameObject.AddComponent<Canvas>(); // kanvas sendiri supaya efek bergerak tidak membangun ulang HUD
+
+        RectTransform linesRect = Stretch(NewRect("Speed Lines", area));
+        var speedLines = linesRect.gameObject.AddComponent<CanvasGroup>();
+        speedLines.interactable = false;
+        speedLines.blocksRaycasts = false;
+        var lines = new RectTransform[SpeedLineCount];
+        for (int i = 0; i < SpeedLineCount; i++) {
+            Image line = PlainImage($"Line {i + 1}", linesRect, "FX/fx_speed_line.png");
+            line.preserveAspect = false;
+            lines[i] = Center(line.rectTransform, 0f, 0f, 10f, 400f);
+        }
+
+        Image ring = PlainImage("Impact Ring", area, "FX/fx_impact_ring.png");
+        Center(ring.rectTransform, 0f, 0f, 510f, 156f);
+        var dust = new Image[DustCount];
+        for (int i = 0; i < DustCount; i++) {
+            dust[i] = PlainImage($"Dust {i + 1}", area, "FX/fx_dust.png");
+            Center(dust[i].rectTransform, 0f, 0f, 170f, 79f);
+        }
+        Image flash = FullScreenImage("Flash", area, "FX/fx_flash.png");
+
+        var view = area.gameObject.AddComponent<FallFxView>();
+        Bind(view, ("vitals", vitals), ("area", area), ("speedLines", speedLines), ("flash", flash), ("ring", ring));
+        BindArray(view, "lines", lines);
+        BindArray(view, "dust", dust);
+        return view;
+    }
+
+    private static GameObject BuildBubbles(RectTransform parent) {
         RectTransform area = Stretch(NewRect("Bubbles", parent));
         var bubbles = new RectTransform[BubbleCount];
         for (int i = 0; i < BubbleCount; i++) {
@@ -386,6 +515,7 @@ public static class GameHudBuilder {
         }
         var view = area.gameObject.AddComponent<DeathBubbles>();
         BindArray(view, "bubbles", bubbles);
+        return area.gameObject;
     }
 
     private static Button BuildButton(string name, RectTransform parent, TMP_FontAsset font, string text, float size,

@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6652947b9b03125779f1bcd53831a0f4, type: 3}
+  m_Name: DeathScreen_Fall
+  m_EditorClassIdentifier: Assembly-CSharp::DeathScreenContent
+  cause: 2
+  title: JATUH!
+  titleSize: 170
+  titleSpacing: 6
+  titleMaterial: {fileID: 2100000, guid: 9845d98f0a4bc8d6197866a86790d2f2, type: 2}
+  subtitle: Kamu jatuh dari tempat yang terlalu tinggi.
+  subtitleColor: {r: 1, g: 0.8509804, b: 0.7607843, a: 1}
+  tip: 'Tips: turun lewat tangga atau pijakan yang lebih rendah, jangan langsung lompat.'
+  tipColor: {r: 1, g: 0.92941177, b: 0.8862745, a: 1}
+  cardLabelColor: {r: 1, g: 0.8509804, b: 0.7607843, a: 1}
+  reviveLabel: Bangkit Lagi
+  respawnInfo: Muncul di titik awal dengan HP penuh
+  respawnInfoColor: {r: 1, g: 0.8509804, b: 0.7607843, a: 1}
+  countdownColor: {r: 1, g: 0.92941177, b: 0.8862745, a: 1}
+  badge: {fileID: 21300000, guid: 60f17f5ade63c22c39bb28e5f13901c1, type: 3}
+  icon: {fileID: 21300000, guid: 46e48f8a52c9c3e5db39d26c77e61468, type: 3}
+  iconSize: 72
+  card: {fileID: 21300000, guid: 5bb90ace0bfe7c65eac2fdcf4d7d0617, type: 3}
+  lobbyButton: {fileID: 21300000, guid: 4b0b20107257a32a09c1f29e182ef317, type: 3}
+  lobbyButtonPressed: {fileID: 21300000, guid: 20b7ca56dd9ae44189ef61581df23bb0, type: 3}
+  lobbyButtonDisabled: {fileID: 21300000, guid: 4b0b20107257a32a09c1f29e182ef317, type: 3}
+  backdropColor: {r: 0.11764706, g: 0.05882353, b: 0.03137255, a: 0.89411765}
+  vignette: {fileID: 21300000, guid: 658f5304badaf5b029d1560b689f0e74, type: 3}
+  showBubbles: 0
+  intro: 1
+  impactEffects: 1
+  hideAvatarAfterSeconds: 1
+  hideHudAfterSeconds: 1.2
