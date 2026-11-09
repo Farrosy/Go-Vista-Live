@@ -88,4 +88,33 @@ public class VitalsStateTests {
     public void FallDamage_IsSafeUpToThreeMetresThenTenPerMetre(float metres, int expected) {
         Assert.AreEqual(expected, VitalsRules.FallDamage(metres));
     }
+
+    [TestCase(12.9f, 100, false)]
+    [TestCase(13f, 100, true)]
+    [TestCase(50f, 100, true)]
+    [TestCase(3f, 1, false)]
+    [TestCase(3.1f, 1, true)]
+    [TestCase(5f, 20, true)]
+    [TestCase(4.9f, 20, false)]
+    [TestCase(50f, 0, false)]
+    public void IsLethalFall_IsTrueOnlyWhenLandingWouldEmptyHealth(float metres, int health, bool expected) {
+        Assert.AreEqual(expected, VitalsRules.IsLethalFall(metres, health));
+    }
+
+    [Test]
+    public void Cause_IsNoneWhileAlive() {
+        Assert.AreEqual(DeathCause.None, VitalsState.Full.ApplyDamage(50).Cause);
+    }
+
+    [Test]
+    public void Cause_IsFallWhenHealthRunsOut() {
+        Assert.AreEqual(DeathCause.Fall, VitalsState.Full.ApplyDamage(100).Cause);
+    }
+
+    [Test]
+    public void Cause_IsDrownedWhenOxygenRunsOut() {
+        VitalsState state = VitalsState.Full.TickOxygen(10f, headUnderWater: true);
+
+        Assert.AreEqual(DeathCause.Drowned, state.Cause);
+    }
 }

@@ -4,16 +4,17 @@ using UnityEngine;
 /// Mengatur alur mati dari O₂/HP habis sampai pemain bangkit atau kembali ke lobby.
 /// Game ini multiplayer, jadi dunia tetap berjalan: tidak ada Time.timeScale.
 public sealed class DeathFlowController : MonoBehaviour {
-    private const float BackdropSeconds = 1f;
-    private const float HideAvatarAfterSeconds = 0.5f;
     private const float ZoomSeconds = 1f;
     private const float ZoomDistanceScale = 0.6f;
+    private const float ShakeSeconds = 0.35f;
+    private const float ShakeMetresPerMockPixel = 0.006f;
     private const float AutoReviveSeconds = 8f;
     private const float SyncBeforeShowSeconds = 0.3f;
 
     [SerializeField] private LocalPlayerVitals vitals;
     [SerializeField] private DeathScreenView screen;
     [SerializeField] private GameHudView hud;
+    [SerializeField] private FallFxView fallFx;
 
     private enum Choice { None, Revive, Lobby }
 
@@ -35,6 +36,7 @@ public sealed class DeathFlowController : MonoBehaviour {
         vitals.Died -= OnDied;
         screen.RevivePressed -= OnRevivePressed;
         screen.LobbyPressed -= OnLobbyPressed;
+        if (_active) ResetCamera();
     }
 
     private void Update() {
@@ -64,12 +66,13 @@ public sealed class DeathFlowController : MonoBehaviour {
     private IEnumerator RunDeath() {
         LockPlayer();
         int coinsLost = SessionCoins.ApplyDeathPenalty();
-        screen.Prepare(coinsLost);
+        DeathScreenContent content = screen.Prepare(coinsLost, vitals.State.Cause);
+        if (content.impactEffects) PlayImpactEffects();
         StartCoroutine(ZoomCamera());
-        StartCoroutine(HideAvatarAfterDelay());
+        StartCoroutine(HideAvatarAfterDelay(content.hideAvatarAfterSeconds));
+        StartCoroutine(HideHudAfterDelay(content.hideHudAfterSeconds));
 
-        yield return screen.FadeInBackdrop(BackdropSeconds);
-        yield return screen.PlayContent();
+        yield return screen.PlayIntro();
 
         float remaining = AutoReviveSeconds;
         while (_choice == Choice.None && remaining > 0f) {
@@ -85,7 +88,6 @@ public sealed class DeathFlowController : MonoBehaviour {
 
     private void LockPlayer() {
         _player.SetFrozen(true);
-        hud.SetDeathScreenMode(true);
         MobileControls.SetVisible(false);
         ChatPanel.SetSuppressed(true);
         if (InteractButtonUI.Instance != null) InteractButtonUI.Instance.SetSuppressed(true);
@@ -101,9 +103,29 @@ public sealed class DeathFlowController : MonoBehaviour {
         _orbit.DistanceScale = ZoomDistanceScale;
     }
 
-    private IEnumerator HideAvatarAfterDelay() {
-        yield return new WaitForSeconds(HideAvatarAfterSeconds);
+    private void PlayImpactEffects() {
+        Bounds body = _player.GetComponent<CharacterController>().bounds;
+        fallFx.PlayImpact(new Vector3(body.center.x, body.min.y, body.center.z));
+        StartCoroutine(ShakeCamera());
+    }
+
+    private IEnumerator ShakeCamera() {
+        if (_orbit == null) yield break;
+        for (float t = 0f; t < ShakeSeconds; t += Time.deltaTime) {
+            _orbit.ShakeOffset = HudAnimation.Shake(t / ShakeSeconds) * ShakeMetresPerMockPixel;
+            yield return null;
+        }
+        _orbit.ShakeOffset = Vector2.zero;
+    }
+
+    private IEnumerator HideAvatarAfterDelay(float seconds) {
+        yield return new WaitForSeconds(seconds);
         if (_venueSync != null) _venueSync.SetHidden(true);
+    }
+
+    private IEnumerator HideHudAfterDelay(float seconds) {
+        if (seconds > 0f) yield return new WaitForSeconds(seconds);
+        hud.SetDeathScreenMode(true);
     }
 
     private bool TryLeaveToLobby() {
@@ -159,8 +181,15 @@ public sealed class DeathFlowController : MonoBehaviour {
         StopAllCoroutines();
         _active = false;
         screen.Hide();
-        if (_orbit != null) _orbit.DistanceScale = 1f;
+        fallFx.Stop();
+        ResetCamera();
         if (VenueTravelManager.Instance != null) VenueTravelManager.Instance.Transition?.ResetImmediate();
         UnlockPlayer();
+    }
+
+    private void ResetCamera() {
+        if (_orbit == null) return;
+        _orbit.DistanceScale = 1f;
+        _orbit.ShakeOffset = Vector2.zero;
     }
 }

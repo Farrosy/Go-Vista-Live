@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6652947b9b03125779f1bcd53831a0f4, type: 3}
+  m_Name: DeathScreen_Drowned
+  m_EditorClassIdentifier: Assembly-CSharp::DeathScreenContent
+  cause: 1
+  title: TENGGELAM!
+  titleSize: 159
+  titleSpacing: 4
+  titleMaterial: {fileID: 2100000, guid: e395ec25abb61b2319a286fe9ac1b6ba, type: 2}
+  subtitle: Oksigen kamu habis di air.
+  subtitleColor: {r: 0.7490196, g: 0.92156863, b: 1, a: 1}
+  tip: 'Tips: begitu bar O<sub>2</sub> menguning, segera kembali ke darat.'
+  tipColor: {r: 0.8901961, g: 0.95686275, b: 1, a: 1}
+  cardLabelColor: {r: 0.7490196, g: 0.92156863, b: 1, a: 1}
+  reviveLabel: Bangkit di Darat
+  respawnInfo: 
+  respawnInfoColor: {r: 1, g: 1, b: 1, a: 1}
+  countdownColor: {r: 0.8901961, g: 0.95686275, b: 1, a: 1}
+  badge: {fileID: 21300000, guid: a7a1af29ebfa0a41ea94b846aa2428fd, type: 3}
+  icon: {fileID: 21300000, guid: 0c542d74b530913ebb317a990ce43303, type: 3}
+  iconSize: 88
+  card: {fileID: 21300000, guid: 144a73a9d2ceb4177b207c97c3a4932a, type: 3}
+  lobbyButton: {fileID: 21300000, guid: e3f3d128e0b3b08c689f4e9e2fb24a34, type: 3}
+  lobbyButtonPressed: {fileID: 21300000, guid: 841f80563f01d309caa64aca65579783, type: 3}
+  lobbyButtonDisabled: {fileID: 21300000, guid: 7780b2827359969b59569877d2b20151, type: 3}
+  backdropColor: {r: 0.050980393, g: 0.16470589, b: 0.36078432, a: 0.8392157}
+  vignette: {fileID: 21300000, guid: b193a2bd9e2feff1d98d315b4d1ca277, type: 3}
+  showBubbles: 1
+  intro: 0
+  impactEffects: 0
+  hideAvatarAfterSeconds: 0.5
+  hideHudAfterSeconds: 0

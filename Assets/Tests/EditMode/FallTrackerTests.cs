@@ -42,4 +42,47 @@ public class FallTrackerTests {
 
         Assert.AreEqual(0f, tracker.Update(1f, grounded: true), Tolerance);
     }
+
+    [Test]
+    public void CurrentDrop_MeasuresFromHighestPointWhileAirborne() {
+        var tracker = new FallTracker();
+
+        tracker.Update(10f, grounded: false);
+        tracker.Update(11.5f, grounded: false);
+        tracker.Update(6.5f, grounded: false);
+
+        Assert.AreEqual(5f, tracker.CurrentDrop, Tolerance);
+    }
+
+    [Test]
+    public void CurrentDrop_IsZeroWhileRisingOnAJump() {
+        var tracker = new FallTracker();
+
+        tracker.Update(10f, grounded: false);
+        tracker.Update(11f, grounded: false);
+
+        Assert.AreEqual(0f, tracker.CurrentDrop, Tolerance);
+    }
+
+    [Test]
+    public void CurrentDrop_ReturnsToZeroAfterLanding() {
+        var tracker = new FallTracker();
+        tracker.Update(20f, grounded: false);
+        tracker.Update(5f, grounded: false);
+
+        tracker.Update(1f, grounded: true);
+
+        Assert.AreEqual(0f, tracker.CurrentDrop, Tolerance);
+    }
+
+    [Test]
+    public void CurrentDrop_IsZeroAfterReset() {
+        var tracker = new FallTracker();
+        tracker.Update(20f, grounded: false);
+        tracker.Update(5f, grounded: false);
+
+        tracker.Reset();
+
+        Assert.AreEqual(0f, tracker.CurrentDrop, Tolerance);
+    }
 }
