@@ -5,6 +5,7 @@ using UnityEngine.UI;
 /// HUD hanya terlihat selama ada avatar lokal.
 public sealed class GameHudView : MonoBehaviour {
     private const float VignetteAfterDamageSeconds = 3f;
+    private const float CarHitVignetteSeconds = 0.5f;
     private const float VignetteMinAlpha = 0.35f;
     private const float FadePerSecond = 4f;
     private const float VitalsLeft = 187f;
@@ -66,11 +67,13 @@ public sealed class GameHudView : MonoBehaviour {
         // Saat mati, tepi merah tidak boleh menimpa kilat dan layar gelap benturan.
         bool recentCriticalHit = !state.IsDead && state.IsHealthCritical &&
                                  time - vitals.LastDamageTime < VignetteAfterDamageSeconds;
-        bool show = recentCriticalHit || state.Level == OxygenLevel.Danger;
-        redVignette.enabled = show;
-        if (!show) return;
+        bool pulsing = recentCriticalHit || state.Level == OxygenLevel.Danger;
+        float carHitAlpha = state.IsDead ? 0f : Mathf.Clamp01(1f - (time - vitals.LastCarHitTime) / CarHitVignetteSeconds);
+        redVignette.enabled = pulsing || carHitAlpha > 0f;
+        if (!redVignette.enabled) return;
         Color color = redVignette.color;
-        color.a = Mathf.Lerp(VignetteMinAlpha, 1f, HudAnimation.Pulse(time));
+        float pulseAlpha = pulsing ? Mathf.Lerp(VignetteMinAlpha, 1f, HudAnimation.Pulse(time)) : 0f;
+        color.a = Mathf.Max(pulseAlpha, carHitAlpha);
         redVignette.color = color;
     }
 

@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6652947b9b03125779f1bcd53831a0f4, type: 3}
+  m_Name: DeathScreen_Car
+  m_EditorClassIdentifier: Assembly-CSharp::DeathScreenContent
+  cause: 3
+  title: TERTABRAK!
+  titleSize: 159
+  titleSpacing: 4
+  titleMaterial: {fileID: 2100000, guid: a1c9fef5c38833e2ba5cfae495645e5c, type: 2}
+  subtitle: Kamu tertabrak mobil yang sedang melaju.
+  subtitleColor: {r: 0.8627451, g: 0.827451, b: 1, a: 1}
+  tip: 'Tips: lihat kiri dan kanan sebelum menyeberang jalan.'
+  tipColor: {r: 0.9411765, g: 0.9254902, b: 1, a: 1}
+  cardLabelColor: {r: 0.8627451, g: 0.827451, b: 1, a: 1}
+  reviveLabel: Bangkit Lagi
+  respawnInfo: Muncul di titik awal dengan HP penuh
+  respawnInfoColor: {r: 0.8627451, g: 0.827451, b: 1, a: 1}
+  countdownColor: {r: 0.9411765, g: 0.9254902, b: 1, a: 1}
+  badge: {fileID: 21300000, guid: 5ee759a105bf3274d9d208e85a779b1d, type: 3}
+  icon: {fileID: 21300000, guid: 9af6f30ae84a8030688df9dd0ae4d15f, type: 3}
+  iconSize: 88
+  card: {fileID: 21300000, guid: d85340ea718de68e4b4741bc8bb4364d, type: 3}
+  lobbyButton: {fileID: 21300000, guid: 1295a606707dbc8368dfca7b9c0b2bda, type: 3}
+  lobbyButtonPressed: {fileID: 21300000, guid: f07532f9308d639fea844a92b2188a11, type: 3}
+  lobbyButtonDisabled: {fileID: 21300000, guid: 1295a606707dbc8368dfca7b9c0b2bda, type: 3}
+  backdropColor: {r: 0.078431375, g: 0.047058824, b: 0.1882353, a: 0.8039216}
+  vignette: {fileID: 21300000, guid: e3736b49b631f0bdc95d1e0d2f7b5158, type: 3}
+  showBubbles: 0
+  intro: 1
+  impactEffects: 1
+  hideAvatarAfterSeconds: 1
+  hideHudAfterSeconds: 1.2

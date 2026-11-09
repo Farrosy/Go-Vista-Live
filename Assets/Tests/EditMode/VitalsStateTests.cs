@@ -65,7 +65,7 @@ public class VitalsStateTests {
 
     [Test]
     public void ApplyDamage_ClampsHealthAtZeroAndKills() {
-        VitalsState state = VitalsState.Full.ApplyDamage(250);
+        VitalsState state = VitalsState.Full.ApplyDamage(250, DeathCause.Fall);
 
         Assert.AreEqual(0, state.Health);
         Assert.IsTrue(state.IsDead);
@@ -74,7 +74,7 @@ public class VitalsStateTests {
     [TestCase(20, false)]
     [TestCase(19, true)]
     public void IsHealthCritical_IsTrueBelowTwentyPercent(int health, bool expected) {
-        VitalsState state = VitalsState.Full.ApplyDamage(100 - health);
+        VitalsState state = VitalsState.Full.ApplyDamage(100 - health, DeathCause.Fall);
 
         Assert.AreEqual(expected, state.IsHealthCritical);
     }
@@ -103,12 +103,33 @@ public class VitalsStateTests {
 
     [Test]
     public void Cause_IsNoneWhileAlive() {
-        Assert.AreEqual(DeathCause.None, VitalsState.Full.ApplyDamage(50).Cause);
+        Assert.AreEqual(DeathCause.None, VitalsState.Full.ApplyDamage(50, DeathCause.Fall).Cause);
     }
 
     [Test]
     public void Cause_IsFallWhenHealthRunsOut() {
-        Assert.AreEqual(DeathCause.Fall, VitalsState.Full.ApplyDamage(100).Cause);
+        Assert.AreEqual(DeathCause.Fall, VitalsState.Full.ApplyDamage(100, DeathCause.Fall).Cause);
+    }
+
+    [Test]
+    public void Cause_IsCarWhenACarLandsTheFinalHit() {
+        VitalsState state = VitalsState.Full.ApplyDamage(90, DeathCause.Fall).ApplyDamage(20, DeathCause.Car);
+
+        Assert.AreEqual(DeathCause.Car, state.Cause);
+    }
+
+    [Test]
+    public void Cause_IsFallWhenAFallLandsTheFinalHitAfterACar() {
+        VitalsState state = VitalsState.Full.ApplyDamage(20, DeathCause.Car).ApplyDamage(80, DeathCause.Fall);
+
+        Assert.AreEqual(DeathCause.Fall, state.Cause);
+    }
+
+    [Test]
+    public void Cause_SurvivesOxygenTicks() {
+        VitalsState state = VitalsState.Full.ApplyDamage(100, DeathCause.Car).TickOxygen(1f, headUnderWater: false);
+
+        Assert.AreEqual(DeathCause.Car, state.Cause);
     }
 
     [Test]

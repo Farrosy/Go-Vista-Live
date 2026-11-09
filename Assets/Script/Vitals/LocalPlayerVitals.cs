@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Normal.Realtime;
 using UnityEngine;
 
@@ -11,6 +12,7 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
     public VitalsState State { get; private set; } = VitalsState.Full;
     public bool HeadUnderWater { get; private set; }
     public float LastDamageTime { get; private set; } = float.NegativeInfinity;
+    public float LastCarHitTime { get; private set; } = float.NegativeInfinity;
 
     /// True selama pemain masih di udara dan jarak jatuhnya sudah pasti menghabiskan HP.
     public bool IsFallingLethally => !_dead && _player != null &&
@@ -23,6 +25,7 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
     private PlayerController _player;
     private CharacterController _controller;
     private bool _dead;
+    private float _carVulnerableFrom;
 
     private void Update() {
         PlayerController local = PlayerController.Local;
@@ -44,6 +47,7 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
         _player.SetWading(wading);
 
         UpdateFallDamage(landedInWater: feetDepth > 0f);
+        if (!paused) UpdateCarHits(body);
         if (!paused) State = State.TickOxygen(Time.deltaTime, HeadUnderWater);
 
         if (State.IsDead && !paused) {
@@ -73,6 +77,7 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
         State = VitalsState.Full;
         HeadUnderWater = false;
         _dead = false;
+        _carVulnerableFrom = 0f;
         _fallTracker.Reset();
     }
 
@@ -80,6 +85,7 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
         _player = local;
         _controller = local != null ? local.GetComponent<CharacterController>() : null;
         LastDamageTime = float.NegativeInfinity;
+        LastCarHitTime = float.NegativeInfinity;
         Revive();
     }
 
@@ -92,7 +98,30 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
         float fall = _fallTracker.Update(_player.transform.position.y, _controller.isGrounded);
         int damage = landedInWater ? 0 : VitalsRules.FallDamage(fall);
         if (damage <= 0) return;
-        State = State.ApplyDamage(damage);
+        State = State.ApplyDamage(damage, DeathCause.Fall);
         LastDamageTime = Time.time;
+    }
+
+    /// Dihitung di sini karena mobil yang menabrak pemain diam tidak memicu OnControllerColliderHit.
+    /// Tiap client hanya mengecek avatarnya sendiri, memakai posisi mobil yang dia lihat.
+    private void UpdateCarHits(Bounds body) {
+        TrafficNetwork traffic = TrafficNetwork.Active;
+        VenueTravelManager travel = VenueTravelManager.Instance;
+        if (traffic == null || State.IsDead || _player.IsFrozen || (travel != null && travel.IsTraveling)) return;
+
+        var feet = new Vector3(body.center.x, body.min.y, body.center.z);
+        IReadOnlyList<TrafficCar> cars = traffic.Cars;
+        for (int i = 0; i < cars.Count; i++) {
+            TrafficCar car = cars[i];
+            if (!CarHitRules.CanHurt(car.VisibleSpeed, Time.time, _carVulnerableFrom)) continue;
+            if (!car.Touches(feet, body.extents.x, body.size.y)) continue;
+
+            State = State.ApplyDamage(CarHitRules.Damage, DeathCause.Car);
+            LastDamageTime = Time.time;
+            LastCarHitTime = Time.time;
+            _carVulnerableFrom = Time.time + CarHitRules.InvulnerableSeconds;
+            _player.Shove(car.ShoveDirection(feet) * CarHitRules.ShoveMetres, CarHitRules.ShoveSeconds);
+            return;
+        }
     }
 }

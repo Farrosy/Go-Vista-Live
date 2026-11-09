@@ -7,6 +7,8 @@ public sealed class TrafficCar : MonoBehaviour
     private const float k_FollowStopGap = 2f;
     private const float k_FollowSlowGap = 8f;
     private const float k_DefaultHalfLength = 3f;
+    private const float k_DefaultHalfWidth = 1f;
+    private const float k_DefaultHeight = 1.6f;
     private const float k_HideDuration = 0.4f;
     private const float k_WheelRadius = 0.45f;
     private const float k_SameDirectionDot = 0.5f;
@@ -40,6 +42,7 @@ public sealed class TrafficCar : MonoBehaviour
     private float stopDistance;
     private float frontExtent = k_DefaultHalfLength;
     private float rearExtent = k_DefaultHalfLength;
+    private CarExtents bodyExtents = new CarExtents(k_DefaultHalfWidth, k_DefaultHalfLength, k_DefaultHalfLength, 0f, k_DefaultHeight);
     private float hideTimer;
     private bool hidden;
     private bool simulating = true;
@@ -47,6 +50,8 @@ public sealed class TrafficCar : MonoBehaviour
     private float lastStateTime;
 
     public float Speed => speed;
+    /// Kecepatan yang benar-benar terjadi di client ini: mobil berhenti kalau data dari pengatur lalu lintas terputus.
+    public float VisibleSpeed => simulating || Time.time - lastStateTime <= k_PredictionWindow ? speed : 0f;
     public bool Hidden => hidden;
     public byte Epoch => epoch;
     public float Distance => distance;
@@ -301,6 +306,20 @@ public sealed class TrafficCar : MonoBehaviour
         return true;
     }
 
+    /// True kalau kapsul pemain (posisi kaki, dalam meter) menyentuh badan mobil ini.
+    public bool Touches(Vector3 feetPosition, float radius, float height)
+    {
+        if (hidden) return false;
+        Vector3 local = transform.InverseTransformPoint(feetPosition);
+        return CarHitRules.Touches(bodyExtents, local.x, local.y, local.z, radius, height);
+    }
+
+    /// Arah dorongan: ke sisi mobil yang terdekat dengan pemain, supaya tidak terdorong ke jalur mobil.
+    public Vector3 ShoveDirection(Vector3 position)
+    {
+        return transform.InverseTransformPoint(position).x >= 0f ? transform.right : -transform.right;
+    }
+
     private float ScanForPlayer()
     {
         float playerDistance = float.PositiveInfinity;
@@ -318,6 +337,7 @@ public sealed class TrafficCar : MonoBehaviour
 
             CharacterController controller = hit.GetComponentInParent<CharacterController>();
             if (controller == null) continue;
+            if (controller.TryGetComponent(out PlayerController player) && player.IsFrozen) continue; // avatar sudah mati
 
             Vector3 delta = controller.transform.position - transform.position;
             float along = Vector3.Dot(delta, transform.forward);
@@ -336,6 +356,9 @@ public sealed class TrafficCar : MonoBehaviour
         bool measured = false;
         float front = 0f;
         float rear = 0f;
+        float halfWidth = 0f;
+        float bottom = 0f;
+        float top = 0f;
         Matrix4x4 worldToRoot = transform.worldToLocalMatrix;
 
         for (int i = 0; i < renderers.Length; i++)
@@ -349,10 +372,13 @@ public sealed class TrafficCar : MonoBehaviour
                     (corner & 1) == 0 ? -bounds.extents.x : bounds.extents.x,
                     (corner & 2) == 0 ? -bounds.extents.y : bounds.extents.y,
                     (corner & 4) == 0 ? -bounds.extents.z : bounds.extents.z);
-                float z = toRoot.MultiplyPoint3x4(bounds.center + offset).z;
+                Vector3 corner3d = toRoot.MultiplyPoint3x4(bounds.center + offset);
 
-                front = measured ? Mathf.Max(front, z) : z;
-                rear = measured ? Mathf.Min(rear, z) : z;
+                front = measured ? Mathf.Max(front, corner3d.z) : corner3d.z;
+                rear = measured ? Mathf.Min(rear, corner3d.z) : corner3d.z;
+                halfWidth = Mathf.Max(halfWidth, Mathf.Abs(corner3d.x));
+                bottom = measured ? Mathf.Min(bottom, corner3d.y) : corner3d.y;
+                top = measured ? Mathf.Max(top, corner3d.y) : corner3d.y;
                 measured = true;
             }
         }
@@ -361,6 +387,7 @@ public sealed class TrafficCar : MonoBehaviour
 
         frontExtent = Mathf.Max(0f, front);
         rearExtent = Mathf.Max(0f, -rear);
+        bodyExtents = new CarExtents(halfWidth, rearExtent, frontExtent, bottom, top);
     }
 
     private void EvaluateTransform(bool teleport = false)

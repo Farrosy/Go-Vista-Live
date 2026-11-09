@@ -47,6 +47,7 @@ public class PlayerController : MonoBehaviour
     public static PlayerController Local { get; private set; }
 
     public bool IsLocal { get; private set; }
+    public bool IsFrozen => frozen;
     public bool IsSprinting { get; private set; }
     public float Speed01 { get; private set; }   // 0 = diam, 0.5 = jalan, 1 = sprint
     public bool IsGroundedForAnim => Time.time - lastGroundedTime <= groundedGrace;
@@ -65,6 +66,8 @@ public class PlayerController : MonoBehaviour
     private float lastGroundedTime;
     private bool wading;
     private bool frozen;
+    private Vector3 shoveVelocity;
+    private float shoveTimer;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
@@ -128,11 +131,20 @@ public class PlayerController : MonoBehaviour
         frozen = value;
         launchPending = false;
         verticalVel = 0f;
+        shoveTimer = 0f;
+    }
+
+    /// Mendorong avatar sejauh offset selama beberapa detik, tetap tertahan tembok.
+    public void Shove(Vector3 offset, float seconds)
+    {
+        shoveVelocity = offset / Mathf.Max(0.01f, seconds);
+        shoveTimer = seconds;
     }
 
     /// Pindahkan avatar tanpa terhalang CharacterController.
     public void TeleportTo(Vector3 position, Quaternion rotation)
     {
+        shoveTimer = 0f;
         cc.enabled = false;
         transform.SetPositionAndRotation(position, rotation);
         Physics.SyncTransforms();
@@ -188,7 +200,10 @@ public class PlayerController : MonoBehaviour
         else
             verticalVel += gravity * Time.deltaTime;
 
-        cc.Move((dir * speed + Vector3.up * verticalVel) * Time.deltaTime);
+        // Dibatasi sisa waktu dorongan supaya jaraknya tetap sama saat FPS rendah.
+        Vector3 shoveStep = shoveVelocity * Mathf.Min(Mathf.Max(0f, shoveTimer), Time.deltaTime);
+        shoveTimer -= Time.deltaTime;
+        cc.Move((dir * speed + Vector3.up * verticalVel) * Time.deltaTime + shoveStep);
 
         if (cc.isGrounded) lastGroundedTime = Time.time;
         UpdateAnimator();

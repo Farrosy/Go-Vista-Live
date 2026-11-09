@@ -49,10 +49,14 @@ public static class GameHudBuilder {
     private static readonly Color FallTip = new Color32(255, 237, 226, 255);
     private static readonly Color FallBackdrop = new Color32(30, 15, 8, 228);
     private static readonly Color FallTitleUnderlay = new Color32(107, 36, 8, 255);
+    private static readonly Color CarSubtitle = new Color32(220, 211, 255, 255);
+    private static readonly Color CarTip = new Color32(240, 236, 255, 255);
+    private static readonly Color CarBackdrop = new Color32(20, 12, 48, 205);
+    private static readonly Color CarTitleUnderlay = new Color32(42, 26, 102, 255);
 
     private sealed class Fonts {
         public TMP_FontAsset Medium, SemiBold, Bold;
-        public Material BoldUnderlay, TitleUnderlay, FallTitleUnderlay;
+        public Material BoldUnderlay, TitleUnderlay, FallTitleUnderlay, CarTitleUnderlay;
     }
 
     [MenuItem("Go Vista/HUD/Buat ulang GameHudCanvas (prefab + scene)")]
@@ -77,6 +81,7 @@ public static class GameHudBuilder {
         fonts.BoldUnderlay = EnsureUnderlayMaterial(fonts.Bold, "Fredoka-Bold SDF Underlay", TextUnderlay, -0.5f);
         fonts.TitleUnderlay = EnsureUnderlayMaterial(fonts.Bold, "Fredoka-Bold SDF Title", TitleUnderlay, -0.45f);
         fonts.FallTitleUnderlay = EnsureUnderlayMaterial(fonts.Bold, "Fredoka-Bold SDF Title Fall", FallTitleUnderlay, -0.45f);
+        fonts.CarTitleUnderlay = EnsureUnderlayMaterial(fonts.Bold, "Fredoka-Bold SDF Title Car", CarTitleUnderlay, -0.45f);
         return fonts;
     }
 
@@ -460,7 +465,38 @@ public static class GameHudBuilder {
             content.hideHudAfterSeconds = 1.2f;
         });
 
-        return new[] { drowned, fall };
+        DeathScreenContent car = EnsureDeathContent("DeathScreen_Car", content => {
+            content.cause = DeathCause.Car;
+            content.title = "TERTABRAK!";
+            content.titleSize = 159f;
+            content.titleSpacing = 4f;
+            content.titleMaterial = fonts.CarTitleUnderlay;
+            content.subtitle = "Kamu tertabrak mobil yang sedang melaju.";
+            content.subtitleColor = CarSubtitle;
+            content.tip = "Tips: lihat kiri dan kanan sebelum menyeberang jalan.";
+            content.tipColor = CarTip;
+            content.cardLabelColor = CarSubtitle;
+            content.reviveLabel = "Bangkit Lagi";
+            content.respawnInfo = "Muncul di titik awal dengan HP penuh";
+            content.respawnInfoColor = CarSubtitle;
+            content.countdownColor = CarTip;
+            content.badge = Load("Badges/badge_car.png");
+            content.icon = Load("Icons/icon_car_hit.png");
+            content.iconSize = 88f;
+            content.card = Load("Panels/panel_card_car.png");
+            content.lobbyButton = Load("Buttons/btn_secondary_car.png");
+            content.lobbyButtonPressed = Load("Buttons/btn_secondary_car_pressed.png");
+            content.lobbyButtonDisabled = Load("Buttons/btn_secondary_car.png");
+            content.backdropColor = CarBackdrop;
+            content.vignette = Load("FX/fx_vignette_car.png");
+            content.showBubbles = false;
+            content.intro = DeathScreenContent.IntroStyle.Drop;
+            content.impactEffects = true;
+            content.hideAvatarAfterSeconds = 1f;
+            content.hideHudAfterSeconds = 1.2f;
+        });
+
+        return new[] { drowned, fall, car };
     }
 
     private static DeathScreenContent EnsureDeathContent(string assetName, System.Action<DeathScreenContent> fill) {
