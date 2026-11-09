@@ -30,6 +30,16 @@ public sealed class TrafficRoute
     public float Length { get; }
     public IReadOnlyList<Vector3> Points => points;
     public List<TrafficCar> Cars { get; } = new();
+    public List<TrafficConflict> Conflicts { get; } = new();
+
+    public float DistanceAt(int pointIndex) => cumulative[pointIndex];
+
+    /// How far ahead of `from` the distance `to` lies; negative when it is behind.
+    public float Offset(float from, float to)
+    {
+        float offset = to - from;
+        return Closed ? Mathf.Repeat(offset + Length * 0.5f, Length) - Length * 0.5f : offset;
+    }
 
     public void Evaluate(float distance, out Vector3 position, out Vector3 forward, out Vector3 up)
     {

@@ -111,6 +111,7 @@ public sealed class TrafficNetwork : MonoBehaviour
         routeHash = ComputeRouteHash();
         BuildSpawnSamples();
         LogReport(sectionCount);
+        Debug.Log($"[Traffic] Route conflicts: {TrafficConflictBuilder.Build(routes)}.");
     }
 
     private void Update()
