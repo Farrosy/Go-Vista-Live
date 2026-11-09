@@ -75,6 +75,16 @@ public sealed class TrafficNetwork : MonoBehaviour
     public IReadOnlyList<TrafficRoute> Routes => routes;
     public IReadOnlyList<TrafficCar> Cars => cars;
 
+    /// Lalu lintas yang sedang berjalan. Null kalau scene jalan raya tidak dimuat.
+    public static TrafficNetwork Active { get; private set; }
+
+    private void OnEnable() => Active = this;
+
+    private void OnDisable()
+    {
+        if (Active == this) Active = null;
+    }
+
     private void Awake()
     {
         if (addRoadColliders) AddRoadColliders();

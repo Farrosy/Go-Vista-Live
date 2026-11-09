@@ -5,14 +5,16 @@ public enum OxygenLevel { Normal, Warning, Danger }
 /// Kondisi HP dan O₂ pemain. Immutable: setiap perubahan menghasilkan nilai baru.
 public readonly struct VitalsState {
     public static readonly VitalsState Full =
-        new VitalsState(VitalsRules.MaxHealth, VitalsRules.OxygenDurationSeconds);
+        new VitalsState(VitalsRules.MaxHealth, VitalsRules.OxygenDurationSeconds, DeathCause.None);
 
     public int Health { get; }
     private readonly float _oxygenSeconds;
+    private readonly DeathCause _lastDamageSource;
 
-    private VitalsState(int health, float oxygenSeconds) {
+    private VitalsState(int health, float oxygenSeconds, DeathCause lastDamageSource) {
         Health = health;
         _oxygenSeconds = oxygenSeconds;
+        _lastDamageSource = lastDamageSource;
     }
 
     public float HealthFraction => (float)Health / VitalsRules.MaxHealth;
@@ -21,10 +23,10 @@ public readonly struct VitalsState {
     public bool IsOxygenFull => _oxygenSeconds >= VitalsRules.OxygenDurationSeconds - VitalsRules.Epsilon;
     public bool IsDead => Health <= 0 || _oxygenSeconds <= VitalsRules.Epsilon;
 
-    /// HP sejauh ini hanya berkurang karena jatuh, jadi HP habis berarti mati jatuh.
+    /// HP habis mengikuti sumber damage terakhir, O₂ habis berarti tenggelam.
     public DeathCause Cause {
         get {
-            if (Health <= 0) return DeathCause.Fall;
+            if (Health <= 0) return _lastDamageSource;
             return _oxygenSeconds <= VitalsRules.Epsilon ? DeathCause.Drowned : DeathCause.None;
         }
     }
@@ -50,10 +52,10 @@ public readonly struct VitalsState {
         float refillPerSecond = VitalsRules.OxygenDurationSeconds / VitalsRules.OxygenRefillSeconds;
         float change = headUnderWater ? -deltaSeconds : deltaSeconds * refillPerSecond;
         float seconds = Math.Max(0f, Math.Min(VitalsRules.OxygenDurationSeconds, _oxygenSeconds + change));
-        return new VitalsState(Health, seconds);
+        return new VitalsState(Health, seconds, _lastDamageSource);
     }
 
-    public VitalsState ApplyDamage(int amount) {
-        return new VitalsState(Math.Max(0, Health - Math.Max(0, amount)), _oxygenSeconds);
+    public VitalsState ApplyDamage(int amount, DeathCause source) {
+        return new VitalsState(Math.Max(0, Health - Math.Max(0, amount)), _oxygenSeconds, source);
     }
 }
