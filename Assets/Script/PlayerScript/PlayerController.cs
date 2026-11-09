@@ -28,7 +28,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float jumpCooldown = 0.5f;
     [Tooltip("Jeda dari animasi JumpStart mulai sampai karakter benar-benar terangkat (detik). " +
              "Naikkan kalau JumpStart punya gerakan menekuk lutut yang panjang.")]
-    [SerializeField] private float jumpLaunchDelay = 0.1f;
+    [SerializeField] private float jumpLaunchDelay = 0.05f;
 
     [Header("Kamera")]
     [Tooltip("ON = joystick atas = maju searah kamera. OFF = joystick atas = selalu +Z dunia.")]
@@ -198,7 +198,8 @@ public class PlayerController : MonoBehaviour
     public void TryJump()
     {
         var input = PlayerInputHub.Instance;
-        if (!IsLocal || frozen || wading || (input && input.InputLocked) || !cc.isGrounded || launchPending ||
+        // Pakai toleransi menapak tanah: cc.isGrounded bisa false sesaat di tanjakan/anak tangga.
+        if (!IsLocal || frozen || wading || (input && input.InputLocked) || !IsGroundedForAnim || launchPending ||
             Time.time < nextJumpTime)
             return;
 
