@@ -69,7 +69,8 @@ public sealed class DeathFlowController : MonoBehaviour {
         DeathScreenContent content = screen.Prepare(coinsLost, vitals.State.Cause);
         if (content.impactEffects) PlayImpactEffects();
         StartCoroutine(ZoomCamera());
-        StartCoroutine(HideAvatarAfterDelay(content.hideAvatarAfterSeconds));
+        // Tertabrak sampai mati: tunggu animasi rebahan dan masuk ke tanah selesai baru avatar disembunyikan.
+        StartCoroutine(HideAvatarAfterDelay(Mathf.Max(content.hideAvatarAfterSeconds, _player.DeathSinkRemaining)));
         StartCoroutine(HideHudAfterDelay(content.hideHudAfterSeconds));
 
         yield return screen.PlayIntro();

@@ -79,6 +79,7 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
         _dead = false;
         _carVulnerableFrom = 0f;
         _fallTracker.Reset();
+        if (_player != null) _player.ClearKnockdown();
     }
 
     private void Bind(PlayerController local) {
@@ -107,7 +108,9 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
     private void UpdateCarHits(Bounds body) {
         TrafficNetwork traffic = TrafficNetwork.Active;
         VenueTravelManager travel = VenueTravelManager.Instance;
-        if (traffic == null || State.IsDead || _player.IsFrozen || (travel != null && travel.IsTraveling)) return;
+        // Kebal selama animasi tertabrak dan bangkit, supaya pemain yang rebahan tidak ditabrak lagi.
+        if (traffic == null || State.IsDead || _player.IsFrozen || _player.IsKnockedDown ||
+            (travel != null && travel.IsTraveling)) return;
 
         var feet = new Vector3(body.center.x, body.min.y, body.center.z);
         IReadOnlyList<TrafficCar> cars = traffic.Cars;
@@ -120,7 +123,9 @@ public sealed class LocalPlayerVitals : MonoBehaviour {
             LastDamageTime = Time.time;
             LastCarHitTime = Time.time;
             _carVulnerableFrom = Time.time + CarHitRules.InvulnerableSeconds;
-            _player.Shove(car.ShoveDirection(feet) * CarHitRules.ShoveMetres, CarHitRules.ShoveSeconds);
+            Vector3 push = car.ShoveDirection(feet);
+            _player.KnockDown(State.IsDead, push);
+            _player.Shove(push * CarHitRules.ShoveMetres, CarHitRules.ShoveSeconds);
             return;
         }
     }
