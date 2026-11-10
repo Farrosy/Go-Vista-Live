@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 8969126518109048082}
   - component: {fileID: 812181660434574639}
   - component: {fileID: 3780577056789481170}
+  - component: {fileID: 7884981417815989957}
   m_Layer: 0
   m_Name: Player Female
   m_TagString: Untagged
@@ -195,6 +196,22 @@ CapsuleCollider:
   m_Height: 2.33
   m_Direction: 1
   m_Center: {x: 0, y: 0.66, z: 0}
+--- !u!208 &7884981417815989957
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5469951118779690227}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 0
+  m_Extents: {x: 0.5, y: 0.865, z: 0.5}
+  m_MoveThreshold: 0.25
+  m_Carve: 1
+  m_CarveOnlyStationary: 0
+  m_Center: {x: 0, y: 0.49, z: 0}
+  m_TimeToStationary: 0.3
 --- !u!1001 &37468829803660979
 PrefabInstance:
   m_ObjectHideFlags: 0
