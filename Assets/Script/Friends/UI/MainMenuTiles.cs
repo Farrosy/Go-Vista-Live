@@ -6,6 +6,8 @@ using UnityEngine.UI;
 /// dan installer editor yang menambahkan tile TEMAN ke LobbyCanvas.prefab yang sudah ada.
 public static class MainMenuTiles {
     public const string FriendsTile = "Main Menu Friends Button";
+    /// Tile PROFIL (kiri). Dulu "KARAKTER"; nama lama dipakai installer untuk mencari tile yang akan diganti.
+    public const string ProfileTile = "Main Menu Profile Button";
     public const string CharacterTile = "Main Menu Character Button";
     public const string SettingsTile = "Main Menu Settings Button";
 
@@ -14,6 +16,13 @@ public static class MainMenuTiles {
     private const float Gap = 16f;
     public const float Width = (RowWidth - Gap * 2f) / 3f; // ≈ 176
     public const int LabelFontSize = 24;
+
+    // Kartu tanpa header sapaan (Docs/Profil/01-main-menu.png): isi naik 112 px, kartu lebih pendek.
+    public const float HeaderRemoved = 112f;
+    public const float CardHeight = 668f - HeaderRemoved;
+    public const float PlayY = 152f - HeaderRemoved;
+    public const float TileY = 330f - HeaderRemoved;
+    public const float QuitY = 540f - HeaderRemoved;
     /// Jarak teks dari tepi kiri/kanan tile, supaya label panjang ("PENGATURAN") tidak menempel ke tepi tombol.
     public const float TextPadding = 14f;
     public const float TextWidth = Width - TextPadding * 2f;

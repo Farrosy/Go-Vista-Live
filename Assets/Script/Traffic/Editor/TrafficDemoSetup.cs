@@ -112,8 +112,6 @@ public static class TrafficDemoSetup
         serialized.FindProperty("carRoot").objectReferenceValue = carRoot;
         serialized.FindProperty("fallbackCenter").vector3Value = SpawnPosition;
         serialized.FindProperty("maxCars").intValue = 14;
-        serialized.FindProperty("carSpacing").floatValue = 45f;
-        serialized.FindProperty("trafficRadius").floatValue = 250f;
         serialized.FindProperty("speedRange").vector2Value = new Vector2(6f, 9f);
         serialized.FindProperty("acceleration").floatValue = 25f;
         serialized.FindProperty("brake").floatValue = 35f;

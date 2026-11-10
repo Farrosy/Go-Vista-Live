@@ -2,13 +2,22 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// Menambahkan tile TEMAN ke LobbyCanvas.prefab yang SUDAH ADA (tanpa reset layout lain), lalu menata ulang
-/// KARAKTER · TEMAN · PENGATURAN menjadi tiga kolom (Docs/Friends/preview-main-menu-teman.png).
-/// Tile TEMAN = salinan tile KARAKTER (gaya, lip, animasi tekan ikut), lalu teks/ikon/warna diganti.
-/// Aman dijalankan berulang: kalau tile TEMAN sudah ada, hanya tata letaknya yang dirapikan.
+/// Merapikan menu utama di LobbyCanvas.prefab yang SUDAH ADA (tanpa reset layout lain):
+///  - tile KARAKTER menjadi PROFIL (Docs/Profil/01-main-menu.png),
+///  - tile TEMAN ditambahkan (salinan tile PROFIL: gaya, lip, animasi tekan ikut; teks/ikon/warna diganti),
+///  - header sapaan "Selamat datang, nama" dihapus dan isi kartu dinaikkan,
+///  - PROFIL · TEMAN · PENGATURAN ditata tiga kolom.
+/// Aman dijalankan berulang: bagian yang sudah beres dilewati, tata letak dirapikan ulang.
 public static class FriendsMainMenuPatcher {
     private const string LobbyPrefabPath = "Assets/Prefab/LobbyCanvas.prefab";
     private const string FriendsIconPath = "Assets/Resources/UI/Icons/icon-friends.png";
+
+    private static readonly string[] HeaderObjects = {
+        "Main Menu Avatar Ring", "Main Menu Avatar", "Main Menu Greeting", "Main Menu Name",
+    };
+
+    [MenuItem("Go Vista/Profile/Rapikan Menu Utama (PROFIL · TEMAN · PENGATURAN)")]
+    public static bool PatchMainMenu() => EnsureFriendsTile();
 
     [MenuItem("Go Vista/Friends/Tambah Tile TEMAN di Menu Utama")]
     public static bool EnsureFriendsTile() {
@@ -18,19 +27,20 @@ public static class FriendsMainMenuPatcher {
         }
         GameObject root = PrefabUtility.LoadPrefabContents(LobbyPrefabPath);
         try {
-            Transform character = FindDeep(root.transform, MainMenuTiles.CharacterTile);
+            Transform profile = FindDeep(root.transform, MainMenuTiles.ProfileTile) ?? ConvertToProfile(root.transform);
             Transform settings = FindDeep(root.transform, MainMenuTiles.SettingsTile);
-            if (character == null || settings == null) {
-                Debug.LogError("[Friends] Tile KARAKTER / PENGATURAN tidak ditemukan di LobbyCanvas.prefab. " +
+            if (profile == null || settings == null) {
+                Debug.LogError("[Friends] Tile KARAKTER/PROFIL atau PENGATURAN tidak ditemukan di LobbyCanvas.prefab. " +
                                "Jangan ganti nama objek \"Main Menu ... Button\".");
                 return false;
             }
-            Transform friends = FindDeep(root.transform, MainMenuTiles.FriendsTile) ?? CloneAsFriends(character);
-            MainMenuTiles.Relayout((RectTransform)character, 0);
+            Transform friends = FindDeep(root.transform, MainMenuTiles.FriendsTile) ?? CloneAsFriends(profile);
+            RemoveHeader(root.transform);
+            MainMenuTiles.Relayout((RectTransform)profile, 0);
             MainMenuTiles.Relayout((RectTransform)friends, 1);
             MainMenuTiles.Relayout((RectTransform)settings, 2);
             PrefabUtility.SaveAsPrefabAsset(root, LobbyPrefabPath);
-            Debug.Log("[Friends] Tile TEMAN siap di LobbyCanvas.prefab (KARAKTER · TEMAN · PENGATURAN).");
+            Debug.Log("[Friends] Menu utama siap di LobbyCanvas.prefab (PROFIL · TEMAN · PENGATURAN, tanpa sapaan).");
             return true;
         } finally {
             PrefabUtility.UnloadPrefabContents(root);
@@ -40,7 +50,7 @@ public static class FriendsMainMenuPatcher {
     private static Transform CloneAsFriends(Transform character) {
         GameObject clone = Object.Instantiate(character.gameObject, character.parent);
         clone.transform.SetSiblingIndex(character.GetSiblingIndex() + 1);
-        RenameTree(clone.transform, MainMenuTiles.CharacterTile, MainMenuTiles.FriendsTile);
+        RenameTree(clone.transform, MainMenuTiles.ProfileTile, MainMenuTiles.FriendsTile);
         clone.name = MainMenuTiles.FriendsTile;
 
         string name = MainMenuTiles.FriendsTile;
@@ -62,6 +72,42 @@ public static class FriendsMainMenuPatcher {
         if (button != null)
             button.onClick = new Button.ButtonClickedEvent();
         return clone.transform;
+    }
+
+    /// Tile KARAKTER lama → PROFIL: ganti nama objek (listener mencari nama baru), label, dan subtitle.
+    private static Transform ConvertToProfile(Transform root) {
+        Transform character = FindDeep(root, MainMenuTiles.CharacterTile);
+        if (character == null)
+            return null;
+        RenameTree(character, MainMenuTiles.CharacterTile, MainMenuTiles.ProfileTile);
+        Transform face = character.Find(MainMenuTiles.ProfileTile + " Face");
+        SetText(face, MainMenuTiles.ProfileTile + " Label", "PROFIL");
+        SetText(face, MainMenuTiles.ProfileTile + " Subtitle", "Pemain"); // diisi nama pemain saat runtime
+        return character;
+    }
+
+    /// Hapus header sapaan, lalu naikkan MAIN / tile / KELUAR GAME dan perpendek kartu (sekali saja).
+    private static void RemoveHeader(Transform root) {
+        Transform card = FindDeep(root, "Main Menu Card");
+        if (card == null)
+            return;
+        bool removed = false;
+        foreach (string objectName in HeaderObjects) {
+            Transform header = card.Find(objectName);
+            if (header == null)
+                continue;
+            Object.DestroyImmediate(header.gameObject);
+            removed = true;
+        }
+        if (!removed)
+            return;
+        var cardRect = (RectTransform)card;
+        cardRect.sizeDelta = new Vector2(cardRect.sizeDelta.x, cardRect.sizeDelta.y - MainMenuTiles.HeaderRemoved);
+        foreach (Transform child in card) {
+            if (!(child is RectTransform rect) || rect.anchorMin != rect.anchorMax)
+                continue; // hanya objek yang diposisikan dari atas (Place), bukan outline yang stretch
+            rect.anchoredPosition += new Vector2(0f, MainMenuTiles.HeaderRemoved);
+        }
     }
 
     private static void RenameTree(Transform node, string from, string to) {

@@ -30,6 +30,16 @@ public sealed class TrafficRoute
     public float Length { get; }
     public IReadOnlyList<Vector3> Points => points;
     public List<TrafficCar> Cars { get; } = new();
+    public List<TrafficConflict> Conflicts { get; } = new();
+
+    public float DistanceAt(int pointIndex) => cumulative[pointIndex];
+
+    /// How far ahead of `from` the distance `to` lies; negative when it is behind.
+    public float Offset(float from, float to)
+    {
+        float offset = to - from;
+        return Closed ? Mathf.Repeat(offset + Length * 0.5f, Length) - Length * 0.5f : offset;
+    }
 
     public void Evaluate(float distance, out Vector3 position, out Vector3 forward, out Vector3 up)
     {
@@ -82,6 +92,7 @@ public sealed class TrafficRoute
         return Mathf.Sqrt(best);
     }
 
+    /// Bumper-to-bumper distance to the nearest car ahead; negative when the bodies overlap.
     public float GapAhead(TrafficCar self)
     {
         float best = float.PositiveInfinity;
@@ -101,7 +112,10 @@ public sealed class TrafficRoute
                 continue;
             }
 
-            if (gap > 0.01f && gap < best) best = gap;
+            if (gap <= 0.01f) continue;
+
+            float bumperGap = gap - self.FrontExtent - car.RearExtent;
+            if (bumperGap < best) best = bumperGap;
         }
 
         return best;

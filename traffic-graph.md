@@ -23,6 +23,38 @@ This plan is written for multiple agents. Every task is mapped to concrete files
 > Keep this section current. Every agent/session appends a dated entry with the exact files
 > touched so others can resume without re-deriving state.
 
+### 2026-11-06 — Shared multiplayer traffic + bumper-to-bumper gaps (branch `camera-collider-fix`)
+
+Still on the `TrafficRoute` system; the graph files remain dead code.
+
+- **Clipping fix:** `k_FollowStopGap`/`k_FollowSlowGap` are now bumper-to-bumper (2 m / 8 m). They used to
+  be pivot-to-pivot (3 m), while the cars are 4.8-6.55 m long. `TrafficCar.MeasureLength` reads each
+  car's front and rear; `TrafficRoute.GapAhead` returns bumper gaps and can go negative when overlapping.
+- **Shared traffic:** one client simulates, the lowest clientID among avatars in the World venue
+  (Normcore has no host). It publishes a 6-byte-per-car snapshot at 5 Hz through `TrafficSync`, a scene
+  RealtimeView in `MainMultiplayerScene` (WorldScene unloads on venue travel). Others follow with
+  prediction + smoothing. Seed-derived prefab and top speed are identical on all clients.
+- **Follow players:** `TrafficNetwork.Rebalance` splits `maxCars` evenly between World players each second,
+  moving cars to route points 80-170 m away, preferring points hidden from every avatar.
+- `carSpacing`, `trafficRadius`, `SelectRoutes`, `SpawnCars` removed. `BuildRoutes` now sorts sections,
+  because route indices go over the network.
+
+**Verified in Play mode:** queues stop at 2.00 m (same route and shared lane), cars resume, 14 cars
+split 7/7 between two fake players, snapshot round trip, follower smoothing vs snapping.
+
+**Junction merge fix:** `TrafficCar.GapToCarOnPath` walks the car's own route ahead instead of looking
+along its nose, so a queue across the mouth of a junction is seen mid-turn. Cars within 60 degrees of the
+path tangent count; a tie-break by car index stops two cars waiting on each other. Cars reappear at a route
+start only when no car is within 12 m. Crossing traffic is still ignored: no intersection rule exists yet.
+
+**Verified online, one client only (real Normcore room):** seed and route hash published, client became
+authority, 14 cars placed 34-182 m from the player, 84-byte snapshots publishing.
+
+**NOT verified:** two real clients: same cars on both, authority handover on leave/venue travel, no
+`[Traffic] Route list differs` error. Room creation can fail on the dev machine: room server 167.71.211.54 was unreachable from its network
+(tracert stops after hop 2) while reachable from other countries. Not caused by game code. The lobby
+retries in `LobyUISceneController.ConnectRetry.cs`, but a retry reaches the same server.
+
 ### 2026-11-02 — State audit + coworker's junction work logged (branch `feat/traffic-main-sync`)
 
 **Ground truth right now (verified against committed code, not memory):**
