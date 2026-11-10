@@ -43,6 +43,18 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Toleransi 'masih dianggap menapak tanah' supaya animasi tidak berkedip di tanjakan/anak tangga.")]
     [SerializeField] private float groundedGrace = 0.1f;
 
+    [Header("Tertabrak mobil")]
+    [Tooltip("Kalau Animator belum punya state ber-tag \"Knockdown\", kontrol dibuka lagi setelah ini (detik).")]
+    [SerializeField] private float knockdownStartTimeout = 0.5f;
+    [Tooltip("Batas aman: kontrol pasti dibuka lagi setelah ini walau animasi bangkit belum selesai (detik).")]
+    [SerializeField] private float knockdownMaxSeconds = 8f;
+    [Tooltip("Tertabrak sampai mati: jeda dari tertabrak sampai mulai masuk ke tanah. Samakan dengan panjang klip Hit Knockback.")]
+    [SerializeField] private float deathSinkDelay = 1.5f;
+    [Tooltip("Seberapa dalam model masuk ke tanah (meter).")]
+    [SerializeField] private float deathSinkDepth = 1.5f;
+    [Tooltip("Lama model masuk ke tanah (detik).")]
+    [SerializeField] private float deathSinkSeconds = 2f;
+
     /// Avatar yang dikendalikan client ini. Null sebelum spawn / setelah keluar world.
     public static PlayerController Local { get; private set; }
 
@@ -51,12 +63,25 @@ public class PlayerController : MonoBehaviour
     public bool IsSprinting { get; private set; }
     public float Speed01 { get; private set; }   // 0 = diam, 0.5 = jalan, 1 = sprint
     public bool IsGroundedForAnim => Time.time - lastGroundedTime <= groundedGrace;
+    /// True dari tertabrak mobil sampai berdiri idle lagi. Selama ini gerak, lompat, lari, dan interaksi mati.
+    public bool IsKnockedDown { get; private set; }
+    /// True kalau tabrakannya mematikan: tetap rebahan lalu masuk ke tanah sampai bangkit di titik spawn.
+    public bool IsKnockedDownDead => IsKnockedDown && knockdownFatal;
+    /// Sisa detik sampai model selesai masuk ke tanah. 0 kalau tidak sedang mati tertabrak.
+    public float DeathSinkRemaining =>
+        IsKnockedDownDead ? Mathf.Max(0f, deathSinkDelay + deathSinkSeconds - knockdownTimer) : 0f;
+    /// Dipanggil saat tertabrak mobil (argumen: mematikan atau tidak). Dipakai PlayerAnimSync.
+    public event Action<bool> KnockedDown;
     /// Dipanggil saat lompat dimulai (dipakai PlayerAnimSync supaya pemain lain ikut melihat).
     public event Action Jumped;
 
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
     private static readonly int JumpHash = Animator.StringToHash("Jump");
+    private static readonly int KnockdownHash = Animator.StringToHash("Knockdown");
+    private static readonly int IsDeadHash = Animator.StringToHash("IsDead");
+    /// Tag di state Hit Knockback dan LayToIdle. Selama Animator ada di state ber-tag ini, pemain belum berdiri.
+    public const string KnockdownTag = "Knockdown";
 
     private CharacterController cc;
     private float verticalVel;
@@ -68,6 +93,11 @@ public class PlayerController : MonoBehaviour
     private bool frozen;
     private Vector3 shoveVelocity;
     private float shoveTimer;
+    private bool knockdownFatal;
+    private bool knockdownStateSeen;
+    private float knockdownTimer;
+    private Vector3 modelBaseLocalPos;
+    private float appliedSink;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
@@ -80,6 +110,7 @@ public class PlayerController : MonoBehaviour
         cc = GetComponent<CharacterController>();
         if (!animator) animator = GetComponentInChildren<Animator>();
         if (animator) animator.applyRootMotion = false;   // gerak dikendalikan script, bukan animasi
+        if (animator) modelBaseLocalPos = animator.transform.localPosition;
         lastGroundedTime = Time.time;
 
         // Mode offline (mis. prefab Player dipakai di DevScene tanpa Realtime): matikan komponen
@@ -116,7 +147,9 @@ public class PlayerController : MonoBehaviour
 
     void OnDestroy()
     {
-        if (Local == this) Local = null;
+        if (Local != this) return;
+        Local = null;
+        if (IsKnockedDown) SetControlsStunned(false);
     }
 
     /// Kamera yang dipakai untuk arah gerak. Dipanggil PlayerManager saat spawn.
@@ -125,13 +158,13 @@ public class PlayerController : MonoBehaviour
     /// True selama kaki cukup dalam di air: berjalan lambat, tidak bisa lari atau lompat.
     public void SetWading(bool value) => wading = value;
 
-    /// Hentikan semua gerakan avatar (dipakai selama layar mati).
+    /// Hentikan semua gerakan avatar (dipakai selama layar mati). Dorongan tabrakan mobil yang sedang
+    /// berjalan tetap diselesaikan, supaya tabrakan terakhir tetap terpental dulu baru rebahan.
     public void SetFrozen(bool value)
     {
         frozen = value;
         launchPending = false;
         verticalVel = 0f;
-        shoveTimer = 0f;
     }
 
     /// Mendorong avatar sejauh offset selama beberapa detik, tetap tertahan tembok.
@@ -151,13 +184,47 @@ public class PlayerController : MonoBehaviour
         cc.enabled = true;
     }
 
+    /// Tertabrak mobil: putar Hit Knockback. Kalau tidak mati, lanjut LayToIdle lalu kontrol dibuka lagi.
+    /// Kalau mati, tetap rebahan lalu perlahan masuk ke tanah sampai ClearKnockdown dipanggil saat bangkit.
+    /// pushDirection: arah avatar terdorong. Avatar diputar menghadap sumber tabrakan (berlawanan arah dorong),
+    /// supaya animasi Hit Knockback terlihat terpental menjauhi mobil.
+    public void KnockDown(bool fatal, Vector3 pushDirection)
+    {
+        if (!IsLocal) return;
+        Vector3 face = Vector3.ProjectOnPlane(-pushDirection, Vector3.up);
+        if (face.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(face.normalized, Vector3.up);
+        IsKnockedDown = true;
+        knockdownFatal = fatal;
+        knockdownStateSeen = false;
+        knockdownTimer = 0f;
+        launchPending = false;
+        IsSprinting = false;
+        TriggerKnockdown(animator, fatal);
+        SetControlsStunned(true);
+        KnockedDown?.Invoke(fatal);
+    }
+
+    /// Dipanggil saat bangkit setelah mati: model kembali ke permukaan dan Animator kembali ke idle.
+    public void ClearKnockdown()
+    {
+        bool wasDown = IsKnockedDown;
+        IsKnockedDown = false;
+        knockdownFatal = false;
+        ApplyModelSink(0f);
+        ResetKnockdown(animator);
+        if (wasDown) SetControlsStunned(false);
+    }
+
     void Update()
     {
+        UpdateKnockdown();
+
         if (frozen)
         {
             IsSprinting = false;
             Speed01 = 0f;
             lastGroundedTime = Time.time;
+            ApplyShoveWhileFrozen();
             UpdateAnimator();
             return;
         }
@@ -165,7 +232,7 @@ public class PlayerController : MonoBehaviour
         if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
 
         var input = PlayerInputHub.Instance;
-        Vector2 m = input ? input.Move : Vector2.zero;
+        Vector2 m = input && !IsKnockedDown ? input.Move : Vector2.zero;
         Vector3 dir = new Vector3(m.x, 0f, m.y);
 
         if (cameraRelative && cameraTransform)
@@ -174,7 +241,7 @@ public class PlayerController : MonoBehaviour
         dir = Vector3.ClampMagnitude(dir, 1f);
 
         bool moving = dir.sqrMagnitude > 0.0001f;
-        IsSprinting = input && input.Sprint && moving && !wading;
+        IsSprinting = input && input.Sprint && moving && !wading && !IsKnockedDown;
         float speed = wading ? wadingSpeed : IsSprinting ? sprintSpeed : walkSpeed;
         Speed01 = dir.magnitude * (wading ? wadingAnimSpeed : IsSprinting ? 1f : 0.5f);
 
@@ -214,7 +281,8 @@ public class PlayerController : MonoBehaviour
     {
         var input = PlayerInputHub.Instance;
         // Pakai toleransi menapak tanah: cc.isGrounded bisa false sesaat di tanjakan/anak tangga.
-        if (!IsLocal || frozen || wading || (input && input.InputLocked) || !IsGroundedForAnim || launchPending ||
+        if (!IsLocal || frozen || wading || IsKnockedDown || (input && input.MovementLocked) || !IsGroundedForAnim ||
+            launchPending ||
             Time.time < nextJumpTime)
             return;
 
@@ -223,6 +291,67 @@ public class PlayerController : MonoBehaviour
         launchTimer = Mathf.Max(0f, jumpLaunchDelay);
         if (animator) animator.SetTrigger(JumpHash);
         Jumped?.Invoke();
+    }
+
+    // Hanya sisa dorongan tabrakan; sedikit tekanan ke bawah supaya tetap menempel di tanah/tanjakan.
+    private void ApplyShoveWhileFrozen()
+    {
+        if (shoveTimer <= 0f || !cc.enabled) return;
+        Vector3 shoveStep = shoveVelocity * Mathf.Min(shoveTimer, Time.deltaTime);
+        shoveTimer -= Time.deltaTime;
+        cc.Move(shoveStep + Vector3.down * (2f * Time.deltaTime));
+    }
+
+    void LateUpdate()
+    {
+        // LateUpdate supaya posisi model tidak tertimpa Animator.
+        ApplyModelSink(IsKnockedDownDead ? SinkDepthAt(knockdownTimer) : 0f);
+    }
+
+    private void UpdateKnockdown()
+    {
+        if (!IsKnockedDown) return;
+        knockdownTimer += Time.deltaTime;
+        if (knockdownFatal) return;   // tetap rebahan sampai bangkit di titik spawn
+
+        bool inState = IsInKnockdownState(animator);
+        if (inState) knockdownStateSeen = true;
+        bool finished = knockdownStateSeen ? !inState : knockdownTimer >= knockdownStartTimeout;
+        if (finished || knockdownTimer >= knockdownMaxSeconds)
+        {
+            IsKnockedDown = false;
+            SetControlsStunned(false);
+        }
+    }
+
+    /// True selama Hit Knockback / LayToIdle masih jalan, termasuk saat transisi masuk ke sana.
+    private static bool IsInKnockdownState(Animator anim)
+    {
+        if (!anim || !anim.isActiveAndEnabled || !anim.runtimeAnimatorController) return false;
+        if (anim.GetCurrentAnimatorStateInfo(0).IsTag(KnockdownTag)) return true;
+        return anim.IsInTransition(0) && anim.GetNextAnimatorStateInfo(0).IsTag(KnockdownTag);
+    }
+
+    private static void SetControlsStunned(bool stunned)
+    {
+        if (PlayerInputHub.Instance) PlayerInputHub.Instance.SetStunLocked(stunned);
+        MobileControls.SetDimmed(stunned);
+    }
+
+    /// Kedalaman model di dalam tanah, detik ke-t sejak tertabrak sampai mati.
+    public float SinkDepthAt(float secondsSinceKnockdown)
+    {
+        float t = (secondsSinceKnockdown - deathSinkDelay) / Mathf.Max(0.01f, deathSinkSeconds);
+        return deathSinkDepth * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t));
+    }
+
+    /// Turunkan model (child yang punya Animator), bukan root, supaya kamera dan collider tetap di tempat.
+    /// Dipakai juga oleh PlayerAnimSync untuk avatar pemain lain.
+    public void ApplyModelSink(float depth)
+    {
+        if (!animator || animator.transform == transform || Mathf.Approximately(depth, appliedSink)) return;
+        appliedSink = depth;
+        animator.transform.localPosition = modelBaseLocalPos + Vector3.down * depth;
     }
 
     private void UpdateAnimator()
@@ -241,6 +370,27 @@ public class PlayerController : MonoBehaviour
     public static void TriggerJump(Animator anim)
     {
         if (anim) anim.SetTrigger(JumpHash);
+    }
+
+    /// Dipakai juga oleh PlayerAnimSync untuk avatar pemain lain.
+    public static void TriggerKnockdown(Animator anim, bool fatal)
+    {
+        if (!anim) return;
+        anim.SetBool(IsDeadHash, fatal);
+        anim.SetTrigger(KnockdownHash);
+    }
+
+    public static void SetKnockdownDead(Animator anim, bool dead)
+    {
+        if (anim) anim.SetBool(IsDeadHash, dead);
+    }
+
+    /// Kembalikan Animator ke state awal (idle). Tanpa ini, avatar yang bangkit akan memutar LayToIdle di titik spawn.
+    public static void ResetKnockdown(Animator anim)
+    {
+        if (!anim || !anim.isActiveAndEnabled) return;
+        anim.Rebind();
+        anim.Update(0f);
     }
 
     public Animator Animator => animator;

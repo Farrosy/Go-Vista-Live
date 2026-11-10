@@ -17,6 +17,9 @@ public class InteractButtonUI : MonoBehaviour
     private CanvasGroup group;
     private bool suppressed;
     private bool previewing;
+    private bool disabled;
+
+    private const float DisabledAlpha = 0.4f;
 
     void Awake()
     {
@@ -82,14 +85,26 @@ public class InteractButtonUI : MonoBehaviour
         SetVisible(current != null);
     }
 
+    /// Dipakai saat tertabrak mobil: tombol tetap terlihat (kalau ada target) tapi di-grey out dan tidak bisa ditekan.
+    public void SetDisabled(bool value)
+    {
+        disabled = value;
+        SetVisible(current != null);
+    }
+
     private void SetVisible(bool v)
     {
         if (previewing) v = true;
-        group.alpha = v ? 1f : 0f;
-        group.interactable = v;
-        group.blocksRaycasts = v;
+        bool usable = v && (!disabled || previewing);
+        group.alpha = v ? (usable ? 1f : DisabledAlpha) : 0f;
+        group.interactable = usable;
+        group.blocksRaycasts = usable;
     }
 
     /// Hubungkan ke Button > OnClick()
-    public void OnClick() => current?.Interact();
+    public void OnClick()
+    {
+        if (disabled) return;
+        current?.Interact();
+    }
 }

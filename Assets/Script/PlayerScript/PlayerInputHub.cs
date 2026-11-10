@@ -17,10 +17,14 @@ public class PlayerInputHub : MonoBehaviour
     private bool pauseLocked;
     private bool chatTypingLocked;
     private bool deathLocked;
+    private bool stunLocked;
     private bool ignoreJoystickUntilNeutral;
 
     /// True saat dialog/cutscene, menu pause, sedang mengetik chat, atau layar mati: gerak, sprint, dan look dimatikan.
     public bool InputLocked => inputLocked || pauseLocked || chatTypingLocked || deathLocked;
+
+    /// InputLocked, atau sedang tertabrak/bangkit: gerak, sprint, dan lompat mati, tapi kamera tetap bisa digeser.
+    public bool MovementLocked => InputLocked || stunLocked;
 
     /// True selama menu pause atau pilihan travel terbuka. O₂ berhenti berkurang selama ini.
     public bool PauseLocked => pauseLocked;
@@ -29,7 +33,7 @@ public class PlayerInputHub : MonoBehaviour
     {
         get
         {
-            if (InputLocked) return Vector2.zero;
+            if (MovementLocked) return Vector2.zero;
 
             if (joystick)
             {
@@ -50,7 +54,7 @@ public class PlayerInputHub : MonoBehaviour
 
     public bool Sprint
     {
-        get => !InputLocked && (sprint || (keyboardFallback && Input.GetKey(KeyCode.LeftShift)));
+        get => !MovementLocked && (sprint || (keyboardFallback && Input.GetKey(KeyCode.LeftShift)));
         set => sprint = value;
     }
 
@@ -104,6 +108,16 @@ public class PlayerInputHub : MonoBehaviour
         deathLocked = locked;
         if (locked) ignoreJoystickUntilNeutral = true;
         ClearPendingInput();
+    }
+
+    /// <summary>Lock selama animasi tertabrak mobil dan bangkit. Kamera tidak ikut dikunci.</summary>
+    public void SetStunLocked(bool locked)
+    {
+        if (stunLocked == locked) return;
+        stunLocked = locked;
+        ignoreJoystickUntilNeutral = true;
+        sprint = false;
+        if (joystick) joystick.OnPointerUp(null);
     }
 
     public void AddLook(Vector2 delta)
