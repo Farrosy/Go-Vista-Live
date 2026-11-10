@@ -163,7 +163,7 @@ Confirmed by the project owner on 2026-11-05. Build to them.
 ## Phase 5 — Integration & polish
 - [ ] **5.1 Finalize N + density** for the target device; expose as a `NpcDirector` tunable. Pick `obstacleAvoidanceType` quality vs. perf (agents only simulate on one machine, so cost is on the authority — watch the weakest likely-authority device).
 - [ ] **5.2 Spawn placement:** NPCs start on valid sidewalk/park samples (not stacked, not on seams); use a golden-angle / jittered spread like `PlayerSpawnPoint.GetPosition`.
-- [ ] **5.3 Animation hook:** capsule has none now — leave the `Speed`/`IsTalking` param wiring in place (no-op on the capsule) so the real character art drops in without code changes. Optional: a tiny idle/bob so the prototype reads as alive.
+- [ ] **5.3 Animation hook:** capsule has none now — leave the `Speed`/`IsTalking` param wiring in place (no-op on the capsule) so the real character art drops in without code changes. Optional: a tiny idle/bob so the prototype reads as alive. **→ The capsule→character art swap is specced in [`npc-character-migration.md`](./npc-character-migration.md)** (the `main` characters Kloe/Marie/Sallyy/Yavi/ZibZib already use `NpcHumanoidController` with the exact `Speed`/`IsTalking` params the crowd scripts feed — swap is prefab wiring, no code change).
 - [ ] **5.4 Venue load/unload resilience:** confirm nothing throws when World unloads under the authority mid-travel (agents disabled, ownership releases cleanly); confirm resume on return.
 - [ ] **5.5 Interop with cars:** since NPCs stay on sidewalk/park islands and never enter roads, confirm there is **no** contact with the car system in this version (the only contact point is crosswalks → Appendix A).
 

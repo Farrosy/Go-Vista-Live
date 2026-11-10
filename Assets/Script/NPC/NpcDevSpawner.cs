@@ -27,8 +27,15 @@ public class NpcDevSpawner : MonoBehaviour
     [Tooltip("How many NPCs to try to spawn across the walkable navmesh (packed crowd).")]
     [SerializeField] private int count = 120;
 
-    [Tooltip("Optional explicit prefab. If empty, loads \"NpcAgent\" from Resources (its saved location).")]
+    [Tooltip("Crowd characters picked at random per NPC (the 4 variant prefabs). Empty = auto-load the default 4-way set from Resources.")]
+    [SerializeField] private GameObject[] npcPrefabs;
+
+    [Tooltip("Optional single explicit prefab (legacy). Used only when the list above is empty.")]
     [SerializeField] private GameObject npcPrefab;
+
+    // The random 4-way crowd. Kept in sync with NpcDirector.DefaultPrefabNames.
+    private static readonly string[] DefaultPrefabNames =
+        { "NpcAgent_Jane", "NpcAgent_Sallyy", "NpcAgent_Fany", "NpcAgent_Chloe" };
 
     [Tooltip("Minimum spacing between spawned NPCs so they don't start life stacked inside each other.")]
     [SerializeField] private float minSpacing = 1.2f;
@@ -65,10 +72,10 @@ public class NpcDevSpawner : MonoBehaviour
             return;
         }
 
-        var prefab = npcPrefab != null ? npcPrefab : Resources.Load<GameObject>("NpcAgent");
-        if (prefab == null)
+        var pool = BuildPool();
+        if (pool.Length == 0)
         {
-            Debug.LogWarning("[NpcDevSpawner] No prefab (assign one or keep Assets/Resources/NpcAgent.prefab).", this);
+            Debug.LogWarning("[NpcDevSpawner] No prefabs (assign the crowd variants or keep them in Assets/Resources).", this);
             return;
         }
 
@@ -78,12 +85,45 @@ public class NpcDevSpawner : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             if (!TrySampleWalkable(rng, minSpacingSqr, out var pos)) continue;
+            var prefab = pool[rng.Next(pool.Length)]; // random 4-way character
             var go = Instantiate(prefab, pos, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f), transform);
             go.name = "NpcAgent_Dev_" + i;
+            DisableNetworking(go);
             placed.Add(pos);
             spawned++;
         }
         Debug.Log($"[NpcDevSpawner] Spawned {spawned}/{count} dev NPCs onto the Pedestrian navmesh.", this);
+    }
+
+    /// The crowd prefab carries networking components (RealtimeView/RealtimeTransform/NpcSync) for the
+    /// real NpcDirector flow. The dev spawner only runs when NO Realtime is present, so on these plain
+    /// GameObject.Instantiate'd copies those components have no model and spam "RealtimeView model is
+    /// null" every frame. Switch them off — NpcAgent drives the transform + animation directly in the
+    /// single-client flow, so nothing else is needed.
+    private static void DisableNetworking(GameObject go)
+    {
+        var rt = go.GetComponent<RealtimeTransform>(); if (rt) rt.enabled = false;
+        var ns = go.GetComponent<NpcSync>();           if (ns) ns.enabled = false;
+        var rv = go.GetComponent<RealtimeView>();       if (rv) rv.enabled = false;
+    }
+
+    /// Resolve the random crowd pool: the inspector list if set, else a single legacy prefab, else
+    /// the default 4-way set loaded from Resources.
+    private GameObject[] BuildPool()
+    {
+        var list = new List<GameObject>();
+        if (npcPrefabs != null && npcPrefabs.Length > 0)
+        {
+            foreach (var p in npcPrefabs) if (p != null) list.Add(p);
+            if (list.Count > 0) return list.ToArray();
+        }
+        if (npcPrefab != null) return new[] { npcPrefab };
+        foreach (var n in DefaultPrefabNames)
+        {
+            var g = Resources.Load<GameObject>(n);
+            if (g != null) list.Add(g);
+        }
+        return list.ToArray();
     }
 
     private bool TrySampleWalkable(System.Random rng, float minSpacingSqr, out Vector3 result)

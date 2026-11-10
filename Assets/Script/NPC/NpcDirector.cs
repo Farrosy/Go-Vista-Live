@@ -32,8 +32,13 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
     [Header("Roster")]
     [Tooltip("How many networked NPCs to spawn. Owner chose 120 to match single-client density; watch bandwidth (Phase 5).")]
     [SerializeField] private int count = 120;
-    [Tooltip("Prefab name resolved by Realtime.Instantiate from Resources (must stay in Assets/Resources).")]
-    [SerializeField] private string npcPrefabName = "NpcAgent";
+    [Tooltip("Crowd character prefab names (in Resources) spawned at random per NPC. Empty = the default 4-way set. Normcore replicates each NPC's chosen prefab to all clients automatically, so no extra sync is needed.")]
+    [SerializeField] private string[] npcPrefabNames;
+
+    // The random 4-way crowd. Used when npcPrefabNames is left empty (e.g. the pre-existing scene
+    // instance that was serialized before this field existed). Kept in sync with NpcDevSpawner.
+    private static readonly string[] DefaultPrefabNames =
+        { "NpcAgent_Jane", "NpcAgent_Sallyy", "NpcAgent_Fany", "NpcAgent_Chloe" };
     [Tooltip("Minimum spacing between spawned NPCs so they don't start life stacked.")]
     [SerializeField] private float minSpacing = 1.2f;
 
@@ -165,7 +170,7 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
         {
             if (!TrySampleWalkable(rng, minSpacingSqr, placed, out var pos)) continue;
             var rot = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
-            var go = Realtime.Instantiate(npcPrefabName, pos, rot, options);
+            var go = Realtime.Instantiate(PickPrefabName(rng), pos, rot, options);
             if (go == null) continue;
             // Keep NPCs out of WorldScene so a client travelling into a venue (which unloads WorldScene)
             // doesn't destroy its copies. The baked navmesh is global, so the agent still paths fine.
@@ -189,6 +194,14 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
             if (view != null && !view.isOwnedLocallyInHierarchy)
                 view.RequestOwnership();
         }
+    }
+
+    /// Random character for one NPC. Normcore sends the chosen prefab name in the instantiate message,
+    /// so every client spawns the same character for that NPC with no extra synced state.
+    private string PickPrefabName(System.Random rng)
+    {
+        var names = (npcPrefabNames != null && npcPrefabNames.Length > 0) ? npcPrefabNames : DefaultPrefabNames;
+        return names[rng.Next(names.Length)];
     }
 
     private bool TrySampleWalkable(System.Random rng, float minSpacingSqr, List<Vector3> placed, out Vector3 result)
