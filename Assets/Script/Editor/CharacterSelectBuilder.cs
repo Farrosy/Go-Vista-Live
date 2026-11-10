@@ -10,8 +10,9 @@ using UnityEngine.UI;
 /// Menyiapkan fitur pilih karakter, SEKALI saja (yang sudah ada tidak ditimpa):
 ///  1. Assets/Resources/Player Female.prefab   : salinan Player.prefab dengan model FemaleChibi.
 ///  2. Assets/Resources/CharacterDatabase.asset : daftar karakter (Laki-laki, Perempuan).
-///  3. Assets/Prefab/CharacterSelectCanvas.prefab : UI menu KARAKTER + panggung preview 3D.
-///     Prefab lama yang belum punya kolom NAMA PEMAIN ditambahkan kolomnya (sisanya tidak diubah).
+///  3. Assets/Prefab/CharacterSelectCanvas.prefab : Canvas + panggung preview 3D. Tampilan menu GANTI KARAKTER
+///     dibangun lewat kode saat runtime (CharacterSelectView, Docs/Profil/06a). UI lama di prefab (termasuk kolom
+///     NAMA PEMAIN, yang sekarang ada di menu PROFIL) dihapus otomatis.
 ///  4. Instance CharacterSelectCanvas di semua scene lobby (LobbyScenePaths): MainMultiplayerScene dan
 ///     LobbyReturnScene (scene lobby setelah keluar room). Tanpa ini tombol KARAKTER tidak membuka apa-apa.
 ///
@@ -41,31 +42,8 @@ public static class CharacterSelectBuilder {
     // Panggung preview diletakkan jauh dari dunia supaya kamera preview hanya melihat karakter.
     private static readonly Vector3 StagePosition = new Vector3(0f, -1000f, 0f);
 
-    private static readonly Color BackdropColor = new Color(0.03f, 0.05f, 0.09f, 0.98f);
-    private static readonly Color PanelColor = new Color(0.055f, 0.085f, 0.14f, 0.97f);
-    private static readonly Color StageColor = new Color(0.08f, 0.11f, 0.18f, 1f);
-    private static readonly Color CardColor = new Color(0.13f, 0.17f, 0.27f, 1f);
-    private static readonly Color PrimaryColor = new Color(0.12f, 0.44f, 0.86f, 1f);
-    private static readonly Color SuccessColor = new Color(0.11f, 0.55f, 0.38f, 1f);
-    private static readonly Color MutedColor = new Color(0.68f, 0.76f, 0.88f);
-    // Kolom nama sengaja terang (beda dari tombol yang gelap) supaya jelas bisa diketik.
-    private static readonly Color InputColor = new Color(0.95f, 0.97f, 1f, 1f);
-    private static readonly Color InputTextColor = new Color(0.08f, 0.11f, 0.19f, 1f);
-    private static readonly Color InputPlaceholderColor = new Color(0.42f, 0.48f, 0.6f, 1f);
-    private static readonly Color InputBorderColor = new Color(0.36f, 0.62f, 1f, 1f);
-    private const float InputBorderSize = 4f;
-
-    // Layout Info Panel (y dari atas panel). Kolom nama paling atas, lalu info karakter, lalu tombol.
-    private const float NameLabelY = 40f;
-    private const float NameInputY = 80f;
-    private const float NameInputHeight = 88f;
-    private const float CounterY = 200f;
-    private const float CharacterNameY = 244f;
-    private const float BadgeY = 334f;
-    private const float DescriptionY = 406f;
-    private const float DescriptionHeight = 164f;
-    // Posisi kolom nama versi pertama (di bawah deskripsi), untuk upgrade prefab lama.
-    private const float OldNameInputY = 484f;
+    // Kamera preview transparan: gradasi kartu preview di menu (CharacterSelectView/ProfileMenu) terlihat di belakang karakter.
+    private static readonly Color StageColor = new Color(0f, 0f, 0f, 0f);
 
     static CharacterSelectBuilder() {
         EditorApplication.delayCall += AutoSetup;
@@ -85,7 +63,7 @@ public static class CharacterSelectBuilder {
 
     private static bool IsSetupComplete() {
         return File.Exists(FemaleAvatarPath) && File.Exists(DatabasePath) && File.Exists(CanvasPrefabPath) &&
-               PrefabHasNameInput() && AllScenesHaveCanvas();
+               !PrefabHasLegacyUi() && AllScenesHaveCanvas();
     }
 
     private static string Setup() {
@@ -177,7 +155,7 @@ public static class CharacterSelectBuilder {
     private static GameObject EnsureCanvasPrefab(List<string> log) {
         var existing = AssetDatabase.LoadAssetAtPath<GameObject>(CanvasPrefabPath);
         if (existing != null) {
-            log.Add("CharacterSelectCanvas.prefab: " + EnsureNameInputInPrefab());
+            log.Add("CharacterSelectCanvas.prefab: " + RemoveLegacyUiFromPrefab());
             return existing;
         }
         GameObject temp = BuildCanvas();
@@ -188,8 +166,6 @@ public static class CharacterSelectBuilder {
     }
 
     private static GameObject BuildCanvas() {
-        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
         // Root biasa (bukan canvas) supaya Preview Stage tidak ikut digeser/di-scale oleh Canvas.
         var prefabRoot = new GameObject("CharacterSelectCanvas", typeof(CharacterSelectUI));
         var canvasGo = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas),
@@ -203,188 +179,42 @@ public static class CharacterSelectBuilder {
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 0.5f;
-        var canvasRect = (RectTransform)canvasGo.transform;
-
-        // Isi menu (disembunyikan sampai tombol KARAKTER ditekan).
-        RectTransform root = CreateRect("Character Select Root", canvasRect);
-        Stretch(root);
-        AddImage(root.gameObject, BackdropColor, null);
-
-        // SafeArea supaya tidak tertutup notch HP.
-        RectTransform safe = CreateRect("Safe Area", root);
-        Stretch(safe);
-        safe.gameObject.AddComponent<SafeAreaFitter>();
-
-        Text title = CreateText("Title", safe, font, "PILIH KARAKTER", 56, FontStyle.Bold, TextAnchor.MiddleLeft, Color.white);
-        Place(title.rectTransform, 100f, 56f, 1000f, 80f);
-
-        // Preview 3D (RawImage diisi RenderTexture dari Preview Stage saat runtime).
-        RectTransform preview = CreateRect("Preview", safe);
-        Place(preview, 100f, 170f, 860f, 820f);
-        AddImage(preview.gameObject, StageColor, "ui-rounded");
-        RectTransform previewImageRect = CreateRect("Preview Image", preview);
-        Stretch(previewImageRect, 12f);
-        var previewImage = previewImageRect.gameObject.AddComponent<RawImage>();
-        var drag = previewImageRect.gameObject.AddComponent<CharacterPreviewDrag>();
-        Text hint = CreateText("Drag Hint", preview, font, "Geser untuk memutar", 24, FontStyle.Normal,
-                               TextAnchor.MiddleCenter, MutedColor);
-        Place(hint.rectTransform, 0f, 760f, 860f, 44f);
-        Button previous = CreateButton("Previous Button", preview, font, "<", CardColor, 56);
-        Place((RectTransform)previous.transform, 24f, 360f, 104f, 104f);
-        Button next = CreateButton("Next Button", preview, font, ">", CardColor, 56);
-        Place((RectTransform)next.transform, 732f, 360f, 104f, 104f);
-
-        // Panel info di kanan.
-        RectTransform info = CreateRect("Info Panel", safe);
-        Place(info, 1020f, 170f, 800f, 820f);
-        AddImage(info.gameObject, PanelColor, "ui-rounded");
-        Text counter = CreateText("Counter", info, font, "1 / 2", 26, FontStyle.Bold, TextAnchor.MiddleLeft, MutedColor);
-        Place(counter.rectTransform, 48f, CounterY, 704f, 40f);
-        Text nameText = CreateText("Character Name", info, font, "Nama Karakter", 56, FontStyle.Bold,
-                                   TextAnchor.MiddleLeft, Color.white);
-        Place(nameText.rectTransform, 48f, CharacterNameY, 704f, 80f);
-        RectTransform badge = CreateRect("Used Badge", info);
-        Place(badge, 48f, BadgeY, 300f, 52f);
-        AddImage(badge.gameObject, SuccessColor, "ui-rounded");
-        Text badgeText = CreateText("Used Badge Label", badge, font, "SEDANG DIPAKAI", 24, FontStyle.Bold,
-                                    TextAnchor.MiddleCenter, Color.white);
-        Stretch(badgeText.rectTransform);
-        Text description = CreateText("Description", info, font, "Deskripsi karakter.", 30, FontStyle.Normal,
-                                      TextAnchor.UpperLeft, MutedColor);
-        Place(description.rectTransform, 48f, DescriptionY, 704f, DescriptionHeight);
-        InputField nameInput = BuildNameInput(info, font);
-        Button select = CreateButton("Select Button", info, font, "PILIH", PrimaryColor, 40);
-        Place((RectTransform)select.transform, 48f, 584f, 704f, 112f);
-        Button back = CreateButton("Back Button", info, font, "KEMBALI", CardColor, 32);
-        Place((RectTransform)back.transform, 48f, 716f, 704f, 80f);
-
+        // Isi menu dibangun saat runtime oleh CharacterSelectUI (CharacterSelectView).
         // Panggung preview 3D, jauh di bawah dunia.
         GameObject stageGo = BuildStage(prefabRoot.transform, out CharacterPreviewStage stage);
 
-        var dragSo = new SerializedObject(drag);
-        dragSo.FindProperty("stage").objectReferenceValue = stage;
-        dragSo.ApplyModifiedPropertiesWithoutUndo();
-
         var so = new SerializedObject(prefabRoot.GetComponent<CharacterSelectUI>());
-        so.FindProperty("root").objectReferenceValue = root.gameObject;
         so.FindProperty("stage").objectReferenceValue = stage;
-        so.FindProperty("previewImage").objectReferenceValue = previewImage;
-        so.FindProperty("nameText").objectReferenceValue = nameText;
-        so.FindProperty("descriptionText").objectReferenceValue = description;
-        so.FindProperty("counterText").objectReferenceValue = counter;
-        so.FindProperty("usedBadge").objectReferenceValue = badge.gameObject;
-        so.FindProperty("previousButton").objectReferenceValue = previous;
-        so.FindProperty("nextButton").objectReferenceValue = next;
-        so.FindProperty("selectButton").objectReferenceValue = select;
-        so.FindProperty("selectButtonLabel").objectReferenceValue = select.GetComponentInChildren<Text>(true);
-        so.FindProperty("backButton").objectReferenceValue = back;
-        so.FindProperty("playerNameInput").objectReferenceValue = nameInput;
         so.ApplyModifiedPropertiesWithoutUndo();
 
-        SetLayerRecursive(root, canvasGo.layer);
-        root.gameObject.SetActive(false);
         stageGo.SetActive(false);
         return prefabRoot;
     }
 
-    // ------------------------------------------------------------ 3b. Kolom nama pemain
+    // ------------------------------------------------------------ 3b. Bersihkan UI lama
 
-    private static bool PrefabHasNameInput() {
+    private const string LegacyRootName = "Character Select Root";
+
+    private static bool PrefabHasLegacyUi() {
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CanvasPrefabPath);
-        InputField input = GetNameInput(prefab);
-        return input != null && !IsOldNameLayout(input);
+        return prefab != null && FindDeep(prefab.transform, LegacyRootName) != null;
     }
 
-    private static InputField GetNameInput(GameObject prefabRoot) {
-        var ui = prefabRoot != null ? prefabRoot.GetComponent<CharacterSelectUI>() : null;
-        return ui != null ? new SerializedObject(ui).FindProperty("playerNameInput").objectReferenceValue as InputField : null;
-    }
-
-    // Kolom nama versi pertama: di bawah deskripsi dan berwarna gelap seperti tombol.
-    private static bool IsOldNameLayout(InputField input) {
-        return Mathf.Approximately(-((RectTransform)input.transform).anchoredPosition.y, OldNameInputY);
-    }
-
-    /// Upgrade prefab lama: tambahkan kolom nama kalau belum ada, atau pindahkan kolom nama versi
-    /// pertama ke atas panel dengan warna baru. Prefab yang sudah sesuai (atau sudah diatur manual) tidak disentuh.
-    private static string EnsureNameInputInPrefab() {
-        if (PrefabHasNameInput())
-            return "sudah ada";
-
+    /// Hapus UI menu KARAKTER versi lama (Text legacy + kolom NAMA PEMAIN) dari prefab yang sudah ada.
+    /// Canvas, panggung preview, dan komponen CharacterSelectUI tetap.
+    internal static string RemoveLegacyUiFromPrefab() {
+        if (!PrefabHasLegacyUi())
+            return "sudah memakai tampilan baru";
         GameObject root = PrefabUtility.LoadPrefabContents(CanvasPrefabPath);
         try {
-            var ui = root.GetComponent<CharacterSelectUI>();
-            Transform info = FindDeep(root.transform, "Info Panel");
-            if (ui == null || info == null)
-                return "GAGAL menambah kolom nama (CharacterSelectUI / Info Panel tidak ditemukan)";
-
-            InputField old = GetNameInput(root);
-            if (old != null) {
-                Transform oldLabel = info.Find("Player Name Label");
-                if (oldLabel != null) Object.DestroyImmediate(oldLabel.gameObject);
-                Object.DestroyImmediate(old.gameObject);
-            }
-
-            InputField input = BuildNameInput((RectTransform)info, Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
-            SetLayerRecursive(info, info.gameObject.layer);
-            PlaceInfo(info, "Counter", CounterY, 40f);
-            PlaceInfo(info, "Character Name", CharacterNameY, 80f);
-            PlaceInfo(info, "Used Badge", BadgeY, 52f);
-            PlaceInfo(info, "Description", DescriptionY, DescriptionHeight);
-
-            var so = new SerializedObject(ui);
-            so.FindProperty("playerNameInput").objectReferenceValue = input;
-            so.ApplyModifiedPropertiesWithoutUndo();
+            Transform legacy = FindDeep(root.transform, LegacyRootName);
+            if (legacy != null)
+                Object.DestroyImmediate(legacy.gameObject);
             PrefabUtility.SaveAsPrefabAsset(root, CanvasPrefabPath);
-            return old != null ? "kolom NAMA PEMAIN dipindah ke atas" : "kolom NAMA PEMAIN ditambahkan";
+            return "UI lama dihapus (tampilan baru dibangun saat runtime)";
         } finally {
             PrefabUtility.UnloadPrefabContents(root);
         }
-    }
-
-    // Geser elemen Info Panel ke y baru, lebar & posisi x tetap.
-    private static void PlaceInfo(Transform info, string name, float y, float height) {
-        if (!(info.Find(name) is RectTransform rect)) return;
-        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -y);
-        rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
-    }
-
-    private static InputField BuildNameInput(RectTransform info, Font font) {
-        Text label = CreateText("Player Name Label", info, font, "NAMA PEMAIN", 26, FontStyle.Bold,
-                                TextAnchor.MiddleLeft, Color.white);
-        Place(label.rectTransform, 48f, NameLabelY, 704f, 34f);
-
-        // Garis tepi biru = Image di belakang, kolom putih sedikit lebih kecil di atasnya.
-        RectTransform field = CreateRect("Player Name Input", info);
-        Place(field, 48f, NameInputY, 704f, NameInputHeight);
-        AddImage(field.gameObject, InputBorderColor, "ui-rounded");
-        RectTransform fill = CreateRect("Fill", field);
-        Stretch(fill, InputBorderSize);
-        Image background = AddImage(fill.gameObject, InputColor, "ui-rounded");
-
-        Text placeholder = CreateText("Placeholder", field, font, "Ketik nama kamu di sini…", 32, FontStyle.Italic,
-                                      TextAnchor.MiddleLeft, InputPlaceholderColor);
-        Stretch(placeholder.rectTransform);
-        placeholder.rectTransform.offsetMin = new Vector2(28f, 0f);
-        placeholder.rectTransform.offsetMax = new Vector2(-28f, 0f);
-
-        Text text = CreateText("Text", field, font, "", 34, FontStyle.Bold, TextAnchor.MiddleLeft, InputTextColor);
-        Stretch(text.rectTransform);
-        text.rectTransform.offsetMin = new Vector2(28f, 0f);
-        text.rectTransform.offsetMax = new Vector2(-28f, 0f);
-        text.supportRichText = false;
-
-        var input = field.gameObject.AddComponent<InputField>();
-        input.targetGraphic = background;
-        input.textComponent = text;
-        input.placeholder = placeholder;
-        input.characterLimit = PlayerNameRules.MaxLength;
-        input.lineType = InputField.LineType.SingleLine;
-        input.caretColor = InputTextColor;
-        input.customCaretColor = true;
-        input.caretWidth = 3;
-        input.selectionColor = new Color(InputBorderColor.r, InputBorderColor.g, InputBorderColor.b, 0.35f);
-        return input;
     }
 
     private static Transform FindDeep(Transform parent, string name) {
@@ -491,66 +321,4 @@ public static class CharacterSelectBuilder {
         return null;
     }
 
-    // ------------------------------------------------------------ Helper UI
-
-    private static RectTransform CreateRect(string name, Transform parent) {
-        var go = new GameObject(name, typeof(RectTransform));
-        var rect = (RectTransform)go.transform;
-        rect.SetParent(parent, false);
-        return rect;
-    }
-
-    private static Image AddImage(GameObject target, Color color, string sprite) {
-        var image = target.AddComponent<Image>();
-        if (sprite != null) {
-            image.sprite = Resources.Load<Sprite>("UI/" + sprite);
-            image.type = Image.Type.Sliced;
-        }
-        image.color = color;
-        return image;
-    }
-
-    private static Text CreateText(string name, Transform parent, Font font, string text, int size,
-                                   FontStyle style, TextAnchor anchor, Color color) {
-        RectTransform rect = CreateRect(name, parent);
-        var label = rect.gameObject.AddComponent<Text>();
-        label.font = font;
-        label.text = text;
-        label.fontSize = size;
-        label.fontStyle = style;
-        label.alignment = anchor;
-        label.color = color;
-        label.raycastTarget = false;
-        return label;
-    }
-
-    private static Button CreateButton(string name, Transform parent, Font font, string text, Color color, int fontSize) {
-        RectTransform rect = CreateRect(name, parent);
-        Image image = AddImage(rect.gameObject, color, "ui-rounded");
-        var button = rect.gameObject.AddComponent<Button>();
-        button.targetGraphic = image;
-        Text label = CreateText(name + " Label", rect, font, text, fontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
-                                Color.white);
-        Stretch(label.rectTransform);
-        return button;
-    }
-
-    // Posisi dari pojok kiri atas parent (x ke kanan, y ke bawah), seperti Place() di LobyUISceneController.
-    private static void Place(RectTransform rect, float x, float y, float width, float height) {
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(x, -y);
-        rect.sizeDelta = new Vector2(width, height);
-    }
-
-    private static void Stretch(RectTransform rect, float inset = 0f) {
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = new Vector2(inset, inset);
-        rect.offsetMax = new Vector2(-inset, -inset);
-    }
-
-    private static void SetLayerRecursive(Transform t, int layer) {
-        t.gameObject.layer = layer;
-        foreach (Transform child in t) SetLayerRecursive(child, layer);
-    }
 }

@@ -292,7 +292,9 @@ public class VenueTravelManager : MonoBehaviour
         return _realtime != null ? Mathf.Max(0, _realtime.clientID) : 0;
     }
 
-    /// Matikan semua Camera + AudioListener di sebuah scene (pola sama dengan DisableWorldCameras).
+    /// Matikan semua Camera dan hapus AudioListener di sebuah scene (pola sama dengan DisableWorldCameras).
+    /// Listener dihapus, bukan di-disable: echo cancellation Normcore memakai listener pertama yang ditemukan,
+    /// termasuk yang disabled, sehingga bisa salah target.
     private static void DisableSceneCamerasAndAudio(Scene scene)
     {
         foreach (GameObject root in scene.GetRootGameObjects())
@@ -300,7 +302,7 @@ public class VenueTravelManager : MonoBehaviour
             foreach (Camera cam in root.GetComponentsInChildren<Camera>(true))
                 cam.enabled = false;
             foreach (AudioListener listener in root.GetComponentsInChildren<AudioListener>(true))
-                listener.enabled = false;
+                Destroy(listener);
         }
     }
 

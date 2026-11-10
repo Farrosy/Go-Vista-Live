@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Normal.Realtime;
 using UnityEngine;
 
@@ -11,8 +12,38 @@ using UnityEngine;
 [RequireComponent(typeof(PlayerController))]
 public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
 {
+    private static readonly List<PlayerVenueSync> _all = new List<PlayerVenueSync>();
+
+    /// Semua avatar di room ini (lokal dan pemain lain). Dipakai TrafficNetwork.
+    public static IReadOnlyList<PlayerVenueSync> All => _all;
+
+    private RealtimeView _view;
+
+    /// clientID pemilik avatar ini, -1 selama model Normcore belum ada.
+    public int OwnerClientId
+    {
+        get
+        {
+            if (model == null) return -1;
+            if (_view == null) _view = GetComponent<RealtimeView>();
+            return _view != null ? _view.ownerIDSelf : -1;
+        }
+    }
+
+    private void OnEnable() => _all.Add(this);
+    private void OnDisable() => _all.Remove(this);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => _all.Clear();
+
     /// Dipicu saat venue avatar INI berubah (nilai baru disertakan). Dipakai VenueVisibilityFilter.
     public event Action<PlayerVenueSync, VenueId> VenueChanged;
+
+    /// Dipicu saat avatar ini disembunyikan atau ditampilkan lagi.
+    public event Action HiddenChanged;
+
+    /// True selama avatar disembunyikan (pemiliknya sedang di layar mati).
+    public bool IsHidden => model != null && model.hidden;
 
     /// Venue avatar ini sekarang. World (default) kalau model belum ada (mis. mode offline/DevScene).
     public VenueId Venue => model != null ? (VenueId)model.venue : VenueId.World;
@@ -24,18 +55,25 @@ public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
     protected override void OnRealtimeModelReplaced(PlayerVenueModel previousModel, PlayerVenueModel currentModel)
     {
         if (previousModel != null)
+        {
             previousModel.venueDidChange -= OnVenueDidChange;
+            previousModel.hiddenDidChange -= OnHiddenDidChange;
+        }
 
         if (currentModel != null)
         {
             currentModel.venueDidChange += OnVenueDidChange;
+            currentModel.hiddenDidChange += OnHiddenDidChange;
             // Evaluasi awal dengan nilai yang sudah ada di model (penting untuk avatar yang sudah ada
             // di room saat kita bergabung).
             Raise((VenueId)currentModel.venue);
+            HiddenChanged?.Invoke();
         }
     }
 
     private void OnVenueDidChange(PlayerVenueModel m, int value) => Raise((VenueId)value);
+
+    private void OnHiddenDidChange(PlayerVenueModel m, bool value) => HiddenChanged?.Invoke();
 
     private void Raise(VenueId venue)
     {
@@ -43,6 +81,14 @@ public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
         // Avatar lokal mencerminkan venue-nya ke state global supaya semua filter ikut re-evaluasi.
         if (IsLocalAvatar)
             VenueTravelManager.SetLocalVenue(venue);
+    }
+
+    /// Hanya avatar lokal: sembunyikan atau tampilkan avatar ini di semua pemain.
+    public void SetHidden(bool hidden)
+    {
+        if (model == null || !isOwnedLocallyInHierarchy || model.hidden == hidden)
+            return;
+        model.hidden = hidden;
     }
 
     /// Hanya avatar lokal: set venue avatar ini. Dipanggil VenueTravelManager saat travel selesai (Phase 3).

@@ -16,10 +16,14 @@ public class PlayerInputHub : MonoBehaviour
     private bool inputLocked;
     private bool pauseLocked;
     private bool chatTypingLocked;
+    private bool deathLocked;
     private bool ignoreJoystickUntilNeutral;
 
-    /// True saat dialog/cutscene, menu pause, atau sedang mengetik chat: gerak, sprint, dan look dimatikan.
-    public bool InputLocked => inputLocked || pauseLocked || chatTypingLocked;
+    /// True saat dialog/cutscene, menu pause, sedang mengetik chat, atau layar mati: gerak, sprint, dan look dimatikan.
+    public bool InputLocked => inputLocked || pauseLocked || chatTypingLocked || deathLocked;
+
+    /// True selama menu pause atau pilihan travel terbuka. O₂ berhenti berkurang selama ini.
+    public bool PauseLocked => pauseLocked;
 
     public Vector2 Move
     {
@@ -89,6 +93,15 @@ public class PlayerInputHub : MonoBehaviour
     {
         if (chatTypingLocked == locked) return;
         chatTypingLocked = locked;
+        if (locked) ignoreJoystickUntilNeutral = true;
+        ClearPendingInput();
+    }
+
+    /// <summary>Lock selama layar mati, terpisah dari pause karena menu dan travel ikut melepas lock pause.</summary>
+    public void SetDeathLocked(bool locked)
+    {
+        if (deathLocked == locked) return;
+        deathLocked = locked;
         if (locked) ignoreJoystickUntilNeutral = true;
         ClearPendingInput();
     }

@@ -1,0 +1,791 @@
+{
+  "reference": "Ukuran @2x dari mockup (frame game 1532x762). nine_slice_border_LBRT = urutan Unity spriteBorder (Left, Bottom, Right, Top) dalam pixel tekstur.",
+  "sprites": [
+    {
+      "file": "Icons/icon_heart.png",
+      "size_px": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih — warnai lewat Image.color bila perlu"
+    },
+    {
+      "file": "Icons/icon_oxygen.png",
+      "size_px": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih — warnai lewat Image.color bila perlu"
+    },
+    {
+      "file": "Icons/icon_plus.png",
+      "size_px": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih — warnai lewat Image.color bila perlu"
+    },
+    {
+      "file": "Icons/icon_drowned.png",
+      "size_px": [
+        192,
+        192
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih — warnai lewat Image.color bila perlu"
+    },
+    {
+      "file": "Icons/icon_home.png",
+      "size_px": [
+        96,
+        96
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih — warnai lewat Image.color bila perlu"
+    },
+    {
+      "file": "Icons/icon_respawn.png",
+      "size_px": [
+        96,
+        96
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih — warnai lewat Image.color bila perlu"
+    },
+    {
+      "file": "Icons/icon_arrow_up.png",
+      "size_px": [
+        48,
+        48
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih — warnai lewat Image.color bila perlu"
+    },
+    {
+      "file": "Icons/icon_coin_G.png",
+      "size_px": [
+        104,
+        112
+      ],
+      "mode": "RGBA",
+      "note": "Koin HUD (52 px mockup) + bayangan bawah"
+    },
+    {
+      "file": "Icons/icon_coin_G_large.png",
+      "size_px": [
+        256,
+        256
+      ],
+      "mode": "RGBA",
+      "note": "Koin besar untuk toko/reward"
+    },
+    {
+      "file": "Badges/badge_health.png",
+      "size_px": [
+        104,
+        112
+      ],
+      "mode": "RGBA",
+      "note": "Lingkaran tanpa ikon — taruh icon_* di tengah (±50% diameter)"
+    },
+    {
+      "file": "Badges/badge_health_critical.png",
+      "size_px": [
+        132,
+        132
+      ],
+      "mode": "RGBA",
+      "note": "Lingkaran tanpa ikon — taruh icon_* di tengah (±50% diameter)"
+    },
+    {
+      "file": "Badges/badge_oxygen.png",
+      "size_px": [
+        88,
+        96
+      ],
+      "mode": "RGBA",
+      "note": "Lingkaran tanpa ikon — taruh icon_* di tengah (±50% diameter)"
+    },
+    {
+      "file": "Badges/badge_oxygen_warning.png",
+      "size_px": [
+        116,
+        116
+      ],
+      "mode": "RGBA",
+      "note": "Lingkaran tanpa ikon — taruh icon_* di tengah (±50% diameter)"
+    },
+    {
+      "file": "Badges/badge_oxygen_danger.png",
+      "size_px": [
+        116,
+        116
+      ],
+      "mode": "RGBA",
+      "note": "Lingkaran tanpa ikon — taruh icon_* di tengah (±50% diameter)"
+    },
+    {
+      "file": "Badges/badge_drowned.png",
+      "size_px": [
+        240,
+        240
+      ],
+      "mode": "RGBA",
+      "note": "Lingkaran tanpa ikon — taruh icon_* di tengah (±50% diameter)"
+    },
+    {
+      "file": "Bars/bar_frame_health.png",
+      "size_px": [
+        156,
+        76
+      ],
+      "mode": "RGBA",
+      "note": "Frame health bar. Fill: padding kiri 18, lainnya 4 (mockup px)",
+      "nine_slice_border_LBRT": [
+        34,
+        8,
+        34,
+        0
+      ]
+    },
+    {
+      "file": "Bars/bar_frame_health_critical.png",
+      "size_px": [
+        156,
+        76
+      ],
+      "mode": "RGBA",
+      "note": "Frame health saat kritis (<20%)",
+      "nine_slice_border_LBRT": [
+        34,
+        8,
+        34,
+        0
+      ]
+    },
+    {
+      "file": "Bars/bar_frame_oxygen.png",
+      "size_px": [
+        132,
+        64
+      ],
+      "mode": "RGBA",
+      "note": "Frame O2. Segmen: padding kiri 16, lainnya 4; 10 kolom, gap 3",
+      "nine_slice_border_LBRT": [
+        28,
+        8,
+        28,
+        0
+      ]
+    },
+    {
+      "file": "Bars/bar_frame_oxygen_warning.png",
+      "size_px": [
+        132,
+        64
+      ],
+      "mode": "RGBA",
+      "note": "Frame O2 50%",
+      "nine_slice_border_LBRT": [
+        28,
+        8,
+        28,
+        0
+      ]
+    },
+    {
+      "file": "Bars/bar_frame_oxygen_danger.png",
+      "size_px": [
+        132,
+        64
+      ],
+      "mode": "RGBA",
+      "note": "Frame O2 20%",
+      "nine_slice_border_LBRT": [
+        28,
+        8,
+        28,
+        0
+      ]
+    },
+    {
+      "file": "Bars/bar_fill_health.png",
+      "size_px": [
+        96,
+        40
+      ],
+      "mode": "RGBA",
+      "note": "Isi health; ubah lebar RectTransform (jangan Filled) agar ujung tetap bulat",
+      "nine_slice_border_LBRT": [
+        20,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "file": "Bars/bar_fill_health_critical.png",
+      "size_px": [
+        96,
+        40
+      ],
+      "mode": "RGBA",
+      "note": "Isi health kritis",
+      "nine_slice_border_LBRT": [
+        20,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "file": "Bars/bar_fill_damage.png",
+      "size_px": [
+        96,
+        40
+      ],
+      "mode": "RGBA",
+      "note": "Sisa damage putih di belakang fill, menyusut pelan",
+      "nine_slice_border_LBRT": [
+        20,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "file": "Bars/bar_fill_white.png",
+      "size_px": [
+        96,
+        40
+      ],
+      "mode": "RGBA",
+      "note": "Fill polos untuk di-tint lewat Image.color",
+      "nine_slice_border_LBRT": [
+        20,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "file": "Bars/o2_segment_full.png",
+      "size_px": [
+        38,
+        28
+      ],
+      "mode": "RGBA",
+      "note": "Segmen O2 (10 buah, gap 3)",
+      "nine_slice_border_LBRT": [
+        14,
+        0,
+        14,
+        0
+      ]
+    },
+    {
+      "file": "Bars/o2_segment_warning.png",
+      "size_px": [
+        38,
+        28
+      ],
+      "mode": "RGBA",
+      "note": "Segmen O2 (10 buah, gap 3)",
+      "nine_slice_border_LBRT": [
+        14,
+        0,
+        14,
+        0
+      ]
+    },
+    {
+      "file": "Bars/o2_segment_danger.png",
+      "size_px": [
+        38,
+        28
+      ],
+      "mode": "RGBA",
+      "note": "Segmen O2 (10 buah, gap 3)",
+      "nine_slice_border_LBRT": [
+        14,
+        0,
+        14,
+        0
+      ]
+    },
+    {
+      "file": "Bars/o2_segment_empty.png",
+      "size_px": [
+        38,
+        28
+      ],
+      "mode": "RGBA",
+      "note": "Segmen O2 (10 buah, gap 3)",
+      "nine_slice_border_LBRT": [
+        14,
+        0,
+        14,
+        0
+      ]
+    },
+    {
+      "file": "Panels/pill_money.png",
+      "size_px": [
+        200,
+        96
+      ],
+      "mode": "RGBA",
+      "note": "Pill uang. Teks mulai 26 px dari kiri (di bawah koin)",
+      "nine_slice_border_LBRT": [
+        44,
+        8,
+        44,
+        0
+      ]
+    },
+    {
+      "file": "Panels/pill_money_gain.png",
+      "size_px": [
+        200,
+        96
+      ],
+      "mode": "RGBA",
+      "note": "Pill uang saat bertambah (border emas)",
+      "nine_slice_border_LBRT": [
+        44,
+        8,
+        44,
+        0
+      ]
+    },
+    {
+      "file": "Panels/pill_toast.png",
+      "size_px": [
+        216,
+        104
+      ],
+      "mode": "RGBA",
+      "note": "Toast \"Kembali ke titik darat aman\"",
+      "nine_slice_border_LBRT": [
+        48,
+        8,
+        48,
+        0
+      ]
+    },
+    {
+      "file": "Panels/chip_plus.png",
+      "size_px": [
+        136,
+        68
+      ],
+      "mode": "RGBA",
+      "note": "Chip; teks Fredoka Bold 16",
+      "nine_slice_border_LBRT": [
+        30,
+        8,
+        30,
+        0
+      ]
+    },
+    {
+      "file": "Panels/chip_minus.png",
+      "size_px": [
+        136,
+        68
+      ],
+      "mode": "RGBA",
+      "note": "Chip; teks Fredoka Bold 16",
+      "nine_slice_border_LBRT": [
+        30,
+        8,
+        30,
+        0
+      ]
+    },
+    {
+      "file": "Panels/chip_warning_yellow.png",
+      "size_px": [
+        144,
+        72
+      ],
+      "mode": "RGBA",
+      "note": "Chip; teks Fredoka Bold 16",
+      "nine_slice_border_LBRT": [
+        32,
+        8,
+        32,
+        0
+      ]
+    },
+    {
+      "file": "Panels/chip_warning_red.png",
+      "size_px": [
+        144,
+        72
+      ],
+      "mode": "RGBA",
+      "note": "Chip; teks Fredoka Bold 16",
+      "nine_slice_border_LBRT": [
+        32,
+        8,
+        32,
+        0
+      ]
+    },
+    {
+      "file": "Panels/panel_card.png",
+      "size_px": [
+        200,
+        152
+      ],
+      "mode": "RGBA",
+      "note": "Card \"Koin hilang\" (lebar 200 di mockup)",
+      "nine_slice_border_LBRT": [
+        40,
+        40,
+        40,
+        40
+      ]
+    },
+    {
+      "file": "Panels/panel_component.png",
+      "size_px": [
+        200,
+        200
+      ],
+      "mode": "RGBA",
+      "note": "Panel umum",
+      "nine_slice_border_LBRT": [
+        52,
+        52,
+        52,
+        52
+      ]
+    },
+    {
+      "file": "Buttons/btn_primary.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tinggi tetap 64 (mockup). Pressed sudah turun 5 px; samakan tinggi RectTransform",
+      "nine_slice_border_LBRT": [
+        64,
+        10,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "Buttons/btn_primary_pressed.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tinggi tetap 64 (mockup). Pressed sudah turun 5 px; samakan tinggi RectTransform",
+      "nine_slice_border_LBRT": [
+        64,
+        0,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "Buttons/btn_primary_disabled.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tinggi tetap 64 (mockup). Pressed sudah turun 5 px; samakan tinggi RectTransform",
+      "nine_slice_border_LBRT": [
+        64,
+        10,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "Buttons/btn_secondary.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tinggi tetap 64 (mockup). Pressed sudah turun 5 px; samakan tinggi RectTransform",
+      "nine_slice_border_LBRT": [
+        64,
+        10,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "Buttons/btn_secondary_pressed.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tinggi tetap 64 (mockup). Pressed sudah turun 5 px; samakan tinggi RectTransform",
+      "nine_slice_border_LBRT": [
+        64,
+        0,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "Buttons/btn_secondary_disabled.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tinggi tetap 64 (mockup). Pressed sudah turun 5 px; samakan tinggi RectTransform",
+      "nine_slice_border_LBRT": [
+        64,
+        10,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "Buttons/btn_plus.png",
+      "size_px": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "note": "Tombol + beli koin (sudah dengan ikon)"
+    },
+    {
+      "file": "Buttons/btn_plus_pressed.png",
+      "size_px": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "note": "Tombol + beli koin (sudah dengan ikon)"
+    },
+    {
+      "file": "FX/fx_bubble.png",
+      "size_px": [
+        68,
+        68
+      ],
+      "mode": "RGBA",
+      "note": "Gelembung naik (skala acak 0.4–1.2)"
+    },
+    {
+      "file": "FX/fx_vignette_red.png",
+      "size_px": [
+        960,
+        540
+      ],
+      "mode": "RGBA",
+      "note": "Tepi layar merah (stretch fullscreen, Sliced, Fill Center off)",
+      "nine_slice_border_LBRT": [
+        220,
+        220,
+        220,
+        220
+      ]
+    },
+    {
+      "file": "FX/fx_vignette_water.png",
+      "size_px": [
+        960,
+        540
+      ],
+      "mode": "RGBA",
+      "note": "Overlay gelap bawah air (stretch fullscreen di atas tint biru #0B3A6E 60%)"
+    },
+    {
+      "file": "Icons/icon_fall.png",
+      "size_px": [
+        192,
+        192
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih — warnai lewat Image.color bila perlu"
+    },
+    {
+      "file": "Badges/badge_fall.png",
+      "size_px": [
+        240,
+        240
+      ],
+      "mode": "RGBA",
+      "note": "Lingkaran tanpa ikon — taruh icon_* di tengah (±50% diameter)"
+    },
+    {
+      "file": "Panels/panel_card_fall.png",
+      "size_px": [
+        200,
+        152
+      ],
+      "mode": "RGBA",
+      "note": "Card \"Koin hilang\" versi layar jatuh (hangat)",
+      "nine_slice_border_LBRT": [
+        40,
+        40,
+        40,
+        40
+      ]
+    },
+    {
+      "file": "Buttons/btn_secondary_fall.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tinggi tetap 64 (mockup). Pressed sudah turun 5 px; samakan tinggi RectTransform",
+      "nine_slice_border_LBRT": [
+        64,
+        10,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "Buttons/btn_secondary_fall_pressed.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tinggi tetap 64 (mockup). Pressed sudah turun 5 px; samakan tinggi RectTransform",
+      "nine_slice_border_LBRT": [
+        64,
+        0,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "FX/fx_dust.png",
+      "size_px": [
+        240,
+        112
+      ],
+      "mode": "RGBA",
+      "note": "Debu benturan (spawn 3 buah, skala 0.3 → 1.6, naik 24 px, fade 0,8 dtk)"
+    },
+    {
+      "file": "FX/fx_speed_line.png",
+      "size_px": [
+        12,
+        512
+      ],
+      "mode": "RGBA",
+      "note": "Garis kecepatan saat jatuh (gerak ke atas, loop 0,35 dtk)"
+    },
+    {
+      "file": "FX/fx_vignette_fall.png",
+      "size_px": [
+        960,
+        540
+      ],
+      "mode": "RGBA",
+      "note": "Overlay gelap hangat layar jatuh (di atas layar yang di-desaturate)"
+    },
+    {
+      "file": "FX/fx_flash.png",
+      "size_px": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "note": "Kilat putih layar penuh (stretch), alpha 0,85 → 0 dalam 0,25 dtk"
+    },
+    {
+      "file": "FX/fx_impact_ring.png",
+      "size_px": [
+        720,
+        220
+      ],
+      "mode": "RGBA",
+      "note": "Gelombang benturan di tanah: skala 0,3 → 1,4, alpha 1 → 0 dalam 0,4 dtk"
+    },
+    {
+      "file": "Icons/icon_car_hit.png",
+      "size_px": [
+        192,
+        192
+      ],
+      "mode": "RGBA",
+      "note": "Glyph putih tertabrak mobil (taruh di badge_car, ±54% diameter)"
+    },
+    {
+      "file": "Badges/badge_car.png",
+      "size_px": [
+        240,
+        240
+      ],
+      "mode": "RGBA",
+      "note": "Badge ungu #6C4BD8 + cincin"
+    },
+    {
+      "file": "Panels/panel_card_car.png",
+      "size_px": [
+        200,
+        152
+      ],
+      "mode": "RGBA",
+      "note": "Card \"Koin hilang\" versi layar tertabrak",
+      "nine_slice_border_LBRT": [
+        40,
+        40,
+        40,
+        40
+      ]
+    },
+    {
+      "file": "Buttons/btn_secondary_car.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tombol \"Kembali ke Lobby\" versi tertabrak",
+      "nine_slice_border_LBRT": [
+        64,
+        10,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "Buttons/btn_secondary_car_pressed.png",
+      "size_px": [
+        304,
+        138
+      ],
+      "mode": "RGBA",
+      "note": "Tombol \"Kembali ke Lobby\" versi tertabrak",
+      "nine_slice_border_LBRT": [
+        64,
+        0,
+        64,
+        0
+      ]
+    },
+    {
+      "file": "FX/fx_vignette_car.png",
+      "size_px": [
+        960,
+        540
+      ],
+      "mode": "RGBA",
+      "note": "Overlay gelap ungu dingin layar tertabrak"
+    }
+  ]
+}

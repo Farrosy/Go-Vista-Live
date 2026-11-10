@@ -7,8 +7,8 @@ using UnityEngine;
 public class DockTravelPoint : MonoBehaviour
 {
     [SerializeField] private string title = "Berlayar ke pulau seberang";
-    [SerializeField] private string danceClubLabel = "Dance Club";
-    [SerializeField] private string rooftopBarLabel = "Rooftop Bar";
+    [SerializeField] private string danceClubLabel = "KPOP Arena";
+    [SerializeField] private string rooftopBarLabel = "KPOP Community";
 
     private Interactable interactable;
 

@@ -51,6 +51,10 @@ public sealed class ChatPanel : MonoBehaviour {
         if (Instance != null) Instance.ApplyContext(context);
     }
 
+    /// True selama panel chat terbuka dan terlihat. HUD memakainya supaya bar tidak tertutup panel.
+    public static bool IsPanelOpen =>
+        Instance != null && Instance._expanded && !Instance._suppressed && Instance._context != ChatContext.Hidden;
+
     /// Sembunyikan sementara (mis. menu pause terbuka) tanpa mengubah konteks.
     public static void SetSuppressed(bool suppressed) {
         if (Instance == null || Instance._suppressed == suppressed) return;
@@ -72,7 +76,7 @@ public sealed class ChatPanel : MonoBehaviour {
     }
 
     private void OnEnable() {
-        if (chatRoom == null) chatRoom = ChatRoom.Instance != null ? ChatRoom.Instance : FindFirstObjectByType<ChatRoom>();
+        if (chatRoom == null) chatRoom = ChatRoom.Instance != null ? ChatRoom.Instance : FindAnyObjectByType<ChatRoom>();
         if (chatRoom == null) {
             Debug.LogWarning("[Chat] ChatRoom tidak ditemukan. Jalankan menu Go Vista > Chat > Pasang Chat di MainMultiplayerScene.", this);
             return;

@@ -101,6 +101,7 @@ public sealed class ChatRoom : RealtimeComponent<ChatRoomModel> {
             senderId = clientId,
             text = text,
             sentAt = now,
+            senderAccount = ChatIdentity.LocalKey,
         };
         // Owner = pengirim (server menolak owner selain clientID asli) dan tidak bisa diambil alih client lain.
         // Penghapusan saat room kosong TIDAK diatur per pesan: Normcore hanya mengizinkan flag itu di
@@ -158,13 +159,34 @@ public sealed class ChatRoom : RealtimeComponent<ChatRoomModel> {
         if (text.Length == 0)
             return null;
         int senderId = ownerId >= 0 ? ownerId : messageModel.senderId;
-        string name = ResolveSenderName(ownerId, messageModel);
-        bool isLocal = ownerId >= 0 && realtime != null && ownerId == realtime.clientID;
-        var message = ChatMessage.FromPlayer(senderId, name, text, messageModel.sentAt, isLocal);
+        bool isLocal = IsOwnMessage(ownerId, messageModel);
+        string name = isLocal && realtime != null
+            ? LobbyPresence.NameOf(realtime.clientID)
+            : ResolveSenderName(ownerId, messageModel);
+        int colorSeed = string.IsNullOrEmpty(messageModel.senderAccount)
+            ? senderId
+            : ChatRules.StableHash(messageModel.senderAccount);
+        var message = ChatMessage.FromPlayer(senderId, colorSeed, name, text, messageModel.sentAt, isLocal);
 
         _byModel.Add(messageModel, message);
         Insert(message);
         return message;
+    }
+
+    /// Pesan milik pemain lokal?
+    ///  - Owner = clientID kita sekarang (dijaga server): pasti milik kita.
+    ///  - Pesan dari sesi sebelumnya (kita rejoin, clientID berubah): dikenali dari kunci akun, TAPI hanya kalau
+    ///    owner lamanya tidak sedang dipakai pemain lain yang ada di room. Jadi pemain lain tidak bisa membuat
+    ///    pesannya tampil sebagai "pesan kita" dengan menyalin kunci akun.
+    private bool IsOwnMessage(int ownerId, ChatMessageModel messageModel) {
+        if (realtime == null)
+            return false;
+        int localId = realtime.clientID;
+        if (ownerId >= 0 && ownerId == localId)
+            return true;
+        if (!ChatIdentity.IsLocalKey(messageModel.senderAccount))
+            return false;
+        return ownerId < 0 || !TryGetPresenceName(ownerId, out _);
     }
 
     /// Nama dari LobbyPresence milik owner (hanya owner yang bisa menulisnya, dijaga server). Nama yang ditulis

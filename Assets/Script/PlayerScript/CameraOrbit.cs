@@ -38,6 +38,12 @@ public class CameraOrbit : MonoBehaviour
     private float fDistance, fHeight, fSide;
     private float blend;   // 0 = kamera normal, 1 = fokus penuh
 
+    /// Pengali jarak kamera. Di bawah 1 = zoom mendekat (dipakai saat layar mati).
+    public float DistanceScale { get; set; } = 1f;
+
+    /// Geseran kamera di sumbu layarnya, dalam meter. Dipakai untuk goyang saat benturan.
+    public Vector2 ShakeOffset { get; set; }
+
     public void SetTarget(Transform value)
     {
         target = value;
@@ -77,13 +83,13 @@ public class CameraOrbit : MonoBehaviour
         // Pose kamera normal (selalu dihitung, jadi saat kembali posisinya persis seperti sebelum fokus)
         Quaternion orbitRot = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 pivot = target.position + pivotOffset;
-        Vector3 orbitPos = pivot - orbitRot * Vector3.forward * distance;
+        Vector3 orbitPos = pivot - orbitRot * Vector3.forward * (distance * DistanceScale);
 
         blend = Mathf.MoveTowards(blend, focusing ? 1f : 0f, Time.deltaTime / Mathf.Max(0.01f, focusBlendTime));
 
         if (blend <= 0f || !focusPoint)
         {
-            transform.SetPositionAndRotation(ResolveCollision(pivot, orbitPos), orbitRot);
+            ApplyPose(ResolveCollision(pivot, orbitPos), orbitRot);
             return;
         }
 
@@ -99,9 +105,14 @@ public class CameraOrbit : MonoBehaviour
         Quaternion focusRot = Quaternion.LookRotation(fp - focusPos);
 
         float t = Mathf.SmoothStep(0f, 1f, blend);
-        transform.SetPositionAndRotation(
+        ApplyPose(
             ResolveCollision(pivot, Vector3.Lerp(orbitPos, focusPos, t)),
             Quaternion.Slerp(orbitRot, focusRot, t));
+    }
+
+    private void ApplyPose(Vector3 position, Quaternion rotation)
+    {
+        transform.SetPositionAndRotation(position + rotation * (Vector3)ShakeOffset, rotation);
     }
 
     /// Tarik kamera maju kalau ada penghalang antara pivot (kepala player) dan posisi kamera yang diinginkan.

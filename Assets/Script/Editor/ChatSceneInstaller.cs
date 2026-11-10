@@ -21,6 +21,13 @@ public static class ChatSceneInstaller {
     private const string RoundedPath = "Assets/Resources/UI/ui-rounded.png";
     private const string CirclePath = "Assets/Resources/UI/ui-circle.png";
     private const string ChevronPath = "Assets/Resources/UI/Icons/icon-chevron-right.png";
+    private const string FriendsIconPath = "Assets/Resources/UI/Icons/icon-friends.png";
+    private const string UserPlusIconPath = "Assets/Resources/UI/Icons/icon-user-plus.png";
+    private const string CloseIconPath = "Assets/Resources/UI/Icons/icon-x.png";
+    private const string CheckIconPath = "Assets/Resources/UI/Icons/icon-check.png";
+    private const string RefreshIconPath = "Assets/Resources/UI/Icons/icon-refresh.png";
+    private const string FriendsUiObjectName = "Friends UI";
+    private const string ProfileUiObjectName = "Profile UI";
 
     [MenuItem("Go Vista/Chat/Pasang Chat di MainMultiplayerScene")]
     public static void Install() {
@@ -40,10 +47,88 @@ public static class ChatSceneInstaller {
                   "RealtimeView harus berisi ChatRoom.", room);
     }
 
+    [MenuItem("Go Vista/Friends/Pasang Friends di MainMultiplayerScene")]
+    public static void InstallFriends() {
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            return;
+        // Tile TEMAN di menu utama (LobbyCanvas.prefab) dulu, baru object Friends UI di scene.
+        FriendsMainMenuPatcher.EnsureFriendsTile();
+        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        if (!scene.IsValid()) {
+            Debug.LogError($"[Friends] Scene tidak ditemukan: {ScenePath}");
+            return;
+        }
+        FriendsMenu menu = FindInScene<FriendsMenu>(scene);
+        if (menu == null) {
+            var uiObject = new GameObject(FriendsUiObjectName);
+            SceneManager.MoveGameObjectToScene(uiObject, scene);
+            Undo.RegisterCreatedObjectUndo(uiObject, "Pasang Friends UI");
+            menu = uiObject.AddComponent<FriendsMenu>();
+        }
+        var so = new SerializedObject(menu);
+        AssignUiAssets(so);
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log("[Friends] Friends UI terpasang di MainMultiplayerScene.", menu);
+    }
+
+    /// Menu PROFIL: rapikan menu utama (tile PROFIL, tanpa sapaan) lalu pasang object Profile UI.
+    [MenuItem("Go Vista/Profile/Pasang Profile di MainMultiplayerScene")]
+    public static void InstallProfile() {
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            return;
+        FriendsMainMenuPatcher.PatchMainMenu();
+        Debug.Log("[Profile] CharacterSelectCanvas.prefab: " + CharacterSelectBuilder.RemoveLegacyUiFromPrefab());
+        AssignCharacterSelectAssets();
+        // Fase C: info akun & keluar akun pindah ke PROFIL; panel lobby & pengaturan memakai desain 08a/08b.
+        Debug.Log("[Profile] SettingsPanel.prefab: " + SettingsPanelRedesign.RemoveAccountRow());
+        LobyUISceneController.RebuildLobbyPanelInPrefab();
+        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        if (!scene.IsValid()) {
+            Debug.LogError($"[Profile] Scene tidak ditemukan: {ScenePath}");
+            return;
+        }
+        ProfileMenu menu = FindInScene<ProfileMenu>(scene);
+        if (menu == null) {
+            var uiObject = new GameObject(ProfileUiObjectName);
+            SceneManager.MoveGameObjectToScene(uiObject, scene);
+            Undo.RegisterCreatedObjectUndo(uiObject, "Pasang Profile UI");
+            menu = uiObject.AddComponent<ProfileMenu>();
+        }
+        var so = new SerializedObject(menu);
+        AssignUiAssets(so);
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log("[Profile] Profile UI terpasang di MainMultiplayerScene.", menu);
+    }
+
+    /// Font & ikon untuk menu GANTI KARAKTER, diisi langsung di CharacterSelectCanvas.prefab (dipakai 2 scene lobby).
+    private static void AssignCharacterSelectAssets() {
+        const string prefabPath = "Assets/Prefab/CharacterSelectCanvas.prefab";
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+            return;
+        GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
+        try {
+            CharacterSelectUI ui = root.GetComponent<CharacterSelectUI>();
+            if (ui == null)
+                return;
+            var so = new SerializedObject(ui);
+            AssignUiAssets(so);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+        } finally {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
     [MenuItem("Go Vista/Chat/Setup Semua (Emoji + Scene)")]
     public static void SetupAll() {
         ChatAssetSetup.SetupEmojiFont();
         Install();
+        InstallFriends();
+        InstallProfile();
     }
 
     private static ChatRoom EnsureChatRoom(Scene scene) {
@@ -98,6 +183,12 @@ public static class ChatSceneInstaller {
 
         var so = new SerializedObject(panel);
         so.FindProperty("chatRoom").objectReferenceValue = room;
+        AssignUiAssets(so);
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// Isi field "assets" (ChatUiAssets) milik ChatPanel / FriendsMenu.
+    private static void AssignUiAssets(SerializedObject so) {
         SetAsset(so, "assets.font", AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath), FontPath);
         SetAsset(so, "assets.chatIcon", LoadSprite(ChatIconPath), ChatIconPath);
         SetAsset(so, "assets.sendButton", LoadSprite(SendPath), SendPath);
@@ -105,7 +196,11 @@ public static class ChatSceneInstaller {
         SetAsset(so, "assets.rounded", LoadSprite(RoundedPath), RoundedPath);
         SetAsset(so, "assets.circle", LoadSprite(CirclePath), CirclePath);
         SetAsset(so, "assets.chevron", LoadSprite(ChevronPath), ChevronPath);
-        so.ApplyModifiedPropertiesWithoutUndo();
+        SetAsset(so, "assets.friendsIcon", LoadSprite(FriendsIconPath), FriendsIconPath);
+        SetAsset(so, "assets.userPlusIcon", LoadSprite(UserPlusIconPath), UserPlusIconPath);
+        SetAsset(so, "assets.closeIcon", LoadSprite(CloseIconPath), CloseIconPath);
+        SetAsset(so, "assets.checkIcon", LoadSprite(CheckIconPath), CheckIconPath);
+        SetAsset(so, "assets.refreshIcon", LoadSprite(RefreshIconPath), RefreshIconPath);
     }
 
     private static void SetAsset(SerializedObject so, string property, Object value, string path) {

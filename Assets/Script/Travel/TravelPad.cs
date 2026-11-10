@@ -117,8 +117,8 @@ public class TravelPad : MonoBehaviour
     {
         switch (v)
         {
-            case VenueId.DanceClub:  return "Dance Club";
-            case VenueId.RooftopBar: return "Rooftop Bar";
+            case VenueId.DanceClub:  return "KPOP Arena";
+            case VenueId.RooftopBar: return "KPOP Community";
             case VenueId.World:      return "Pulau Utama";
             default:                 return v.ToString();
         }

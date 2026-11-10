@@ -45,6 +45,8 @@ public class PlayerManager : MonoBehaviour {
 
     private void DidConnectToRoom(Realtime realtime) {
         // Terhubung ke room baru masuk lobby tunggu. Avatar dibuat setelah pemain menekan MULAI.
+        SessionCoins.ResetForNewRoom();
+        VoiceSession.ResetForNewRoom();
         _localPlayer = null;
         _gameStarted = false;
         MobileControls.SetVisible(false);

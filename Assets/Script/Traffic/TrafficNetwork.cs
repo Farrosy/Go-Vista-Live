@@ -8,8 +8,25 @@ using UnityEngine;
 using UnityEngine.Splines;
 using Random = System.Random;
 
+/// Runs once per client (it lives in WorldScene), but only one client simulates: the lowest clientID
+/// among avatars in the World venue. That client publishes car snapshots through TrafficSync and the
+/// others follow them, so everyone sees the same cars. Without a room connection it simulates alone.
 public sealed class TrafficNetwork : MonoBehaviour
 {
+    public const int EpochMask = 0x7F;
+
+    private const int k_BytesPerCar = 6;
+    private const byte k_HiddenFlag = 0x80;
+    private const ushort k_NoRoute = ushort.MaxValue;
+    private const float k_DistanceScale = 10f;
+    private const float k_SpeedScale = 10f;
+    private const float k_SpawnSampleStep = 10f;
+    private const float k_SpawnEndMargin = 40f;
+    private const float k_SpawnClearance = 20f;
+    private const float k_FirstSpawnMinDistance = 30f;
+    private const int k_MaxMovesPerTick = 3;
+    private const int k_MaxOcclusionChecks = 12;
+
     [Header("Route building")]
     [SerializeField] private float sampleStep = 2f;
     [SerializeField] private float mergeDistance = 1f;
@@ -19,8 +36,6 @@ public sealed class TrafficNetwork : MonoBehaviour
     [Header("Traffic")]
     [SerializeField] private List<GameObject> carPrefabs = new();
     [SerializeField] private int maxCars = 14;
-    [SerializeField] private float carSpacing = 45f;
-    [SerializeField] private float trafficRadius = 250f;
     [SerializeField] private Vector2 speedRange = new Vector2(6f, 9f);
     [SerializeField] private float acceleration = 25f;
     [SerializeField] private float brake = 35f;
@@ -31,16 +46,44 @@ public sealed class TrafficNetwork : MonoBehaviour
     [SerializeField] private Vector3 fallbackCenter = new Vector3(159.078674f, 23.2f, 94.08188f);
     [SerializeField] private int randomSeed = 0;
 
+    [Header("Follow players")]
+    [Tooltip("Cars are moved to a route point at least this far from every player.")]
+    [SerializeField] private float spawnMinDistance = 80f;
+    [Tooltip("Cars are moved to a route point at most this far from the player who needs them.")]
+    [SerializeField] private float spawnMaxDistance = 170f;
+    [Tooltip("Cars further than this from all players can be moved to a player who has too few.")]
+    [SerializeField] private float releaseDistance = 250f;
+    [SerializeField] private float rebalanceInterval = 1f;
+    [SerializeField] private float publishInterval = 0.2f;
+
     [Header("Scene")]
     [SerializeField] private bool addRoadColliders = true;
     [SerializeField] private bool drawRoutes = true;
 
     private readonly List<TrafficRoute> routes = new();
     private readonly List<TrafficCar> cars = new();
+    private readonly List<SpawnSample> spawnSamples = new();
+    private readonly List<Vector3> anchors = new();
     private Random random;
+    private int routeHash;
+    private bool isAuthority;
+    private bool warnedRouteMismatch;
+    private byte[] lastState;
+    private float nextRebalance;
+    private float nextPublish;
 
     public IReadOnlyList<TrafficRoute> Routes => routes;
     public IReadOnlyList<TrafficCar> Cars => cars;
+
+    /// Lalu lintas yang sedang berjalan. Null kalau scene jalan raya tidak dimuat.
+    public static TrafficNetwork Active { get; private set; }
+
+    private void OnEnable() => Active = this;
+
+    private void OnDisable()
+    {
+        if (Active == this) Active = null;
+    }
 
     private void Awake()
     {
@@ -65,9 +108,383 @@ public sealed class TrafficNetwork : MonoBehaviour
             return;
         }
 
-        Vector3 center = trafficCenter != null ? trafficCenter.position : fallbackCenter;
-        SpawnCars(SelectRoutes(center));
-        LogReport(sectionCount, center);
+        routeHash = ComputeRouteHash();
+        BuildSpawnSamples();
+        LogReport(sectionCount);
+        Debug.Log($"[Traffic] Route conflicts: {TrafficConflictBuilder.Build(routes)}.");
+    }
+
+    private void Update()
+    {
+        if (routes.Count == 0) return;
+
+        TrafficSync sync = TrafficSync.Instance;
+        bool online = sync != null && sync.IsReady;
+        int authorityClient = RefreshAnchors(online);
+        bool authority = !online || (authorityClient >= 0 && authorityClient == sync.LocalClientId);
+
+        if (cars.Count == 0 && !TrySpawnCars(online, authority, sync)) return;
+
+        if (authority != isAuthority)
+        {
+            // A new authority continues from the last known state rather than a stale local one.
+            if (authority && online) ApplyLatestState(sync);
+            SetAuthority(authority);
+        }
+
+        if (authority)
+        {
+            if (Time.time >= nextRebalance)
+            {
+                nextRebalance = Time.time + rebalanceInterval;
+                Rebalance();
+            }
+
+            if (online && Time.time >= nextPublish)
+            {
+                nextPublish = Time.time + publishInterval;
+                sync.PublishState(EncodeState());
+            }
+        }
+        else if (online)
+        {
+            ApplyLatestState(sync);
+        }
+
+        if (online && !warnedRouteMismatch && sync.RouteHash != 0 && sync.RouteHash != routeHash)
+        {
+            warnedRouteMismatch = true;
+            Debug.LogError($"[Traffic] Route list differs from the other clients ({routeHash} vs {sync.RouteHash}); cars will not line up.");
+        }
+    }
+
+    private void SetAuthority(bool authority)
+    {
+        isAuthority = authority;
+        for (int i = 0; i < cars.Count; i++) cars[i].SetSimulating(authority);
+    }
+
+    /// Fills anchors with the positions traffic should gather around and returns the authority's clientID.
+    private int RefreshAnchors(bool online)
+    {
+        anchors.Clear();
+        int lowest = -1;
+
+        IReadOnlyList<PlayerVenueSync> players = PlayerVenueSync.All;
+        for (int i = 0; i < players.Count; i++)
+        {
+            PlayerVenueSync player = players[i];
+            if (player == null || player.Venue != VenueId.World) continue;
+
+            int owner = player.OwnerClientId;
+            if (online && owner < 0) continue;
+
+            anchors.Add(player.transform.position);
+            if (owner >= 0 && (lowest < 0 || owner < lowest)) lowest = owner;
+        }
+
+        if (!online && anchors.Count == 0)
+            anchors.Add(trafficCenter != null ? trafficCenter.position : fallbackCenter);
+
+        return lowest;
+    }
+
+    private bool TrySpawnCars(bool online, bool authority, TrafficSync sync)
+    {
+        int seed;
+        if (online)
+        {
+            seed = sync.Seed;
+            if (seed == 0)
+            {
+                if (!authority) return false;
+                seed = NewSeed();
+                sync.PublishSetup(seed, routeHash);
+            }
+        }
+        else
+        {
+            seed = randomSeed != 0 ? randomSeed : NewSeed();
+        }
+
+        var carRandom = new Random(seed);
+        Transform root = carRoot != null ? carRoot : transform;
+        for (int i = 0; i < maxCars; i++) SpawnCar(carRandom, root);
+
+        SetAuthority(authority);
+        if (online) ApplyLatestState(sync);
+        return true;
+    }
+
+    private static int NewSeed()
+    {
+        int seed = Guid.NewGuid().GetHashCode();
+        return seed != 0 ? seed : 1;
+    }
+
+    // ---------------------------------------------------------------- Follow players
+
+    private void Rebalance()
+    {
+        if (anchors.Count == 0 || spawnSamples.Count == 0) return;
+
+        int[] counts = new int[anchors.Count];
+        int[] owners = new int[cars.Count];
+        var free = new List<TrafficCar>();
+        var unplaced = new List<TrafficCar>();
+
+        for (int i = 0; i < cars.Count; i++)
+        {
+            TrafficCar car = cars[i];
+            owners[i] = -1;
+            if (car.Route == null)
+            {
+                unplaced.Add(car);
+                continue;
+            }
+
+            int nearest = NearestAnchor(car.transform.position, out float distanceToAnchor);
+            if (distanceToAnchor > releaseDistance)
+            {
+                free.Add(car);
+                continue;
+            }
+
+            owners[i] = nearest;
+            counts[nearest]++;
+        }
+
+        int moves = 0;
+        while (true)
+        {
+            int needy = -1;
+            int bestDeficit = 0;
+            for (int a = 0; a < anchors.Count; a++)
+            {
+                int deficit = Quota(a) - counts[a];
+                if (deficit > bestDeficit)
+                {
+                    bestDeficit = deficit;
+                    needy = a;
+                }
+            }
+
+            if (needy < 0) break;
+
+            bool first = unplaced.Count > 0;
+            if (!first && moves >= k_MaxMovesPerTick) break;
+
+            TrafficCar donor = first ? unplaced[unplaced.Count - 1]
+                : free.Count > 0 ? free[free.Count - 1]
+                : TakeSurplusCar(owners, counts);
+            if (donor == null) break;
+
+            float minDistance = first ? k_FirstSpawnMinDistance : spawnMinDistance;
+            if (!TryFindSpawn(needy, minDistance, donor, out TrafficRoute route, out float distance))
+                break;
+
+            if (first) unplaced.RemoveAt(unplaced.Count - 1);
+            else if (free.Count > 0) free.RemoveAt(free.Count - 1);
+
+            donor.Place(route, distance);
+            counts[needy]++;
+            moves++;
+        }
+    }
+
+    private int Quota(int anchor)
+    {
+        int quota = cars.Count / anchors.Count;
+        return anchor < cars.Count % anchors.Count ? quota + 1 : quota;
+    }
+
+    private int NearestAnchor(Vector3 position, out float distance)
+    {
+        int nearest = 0;
+        float best = float.PositiveInfinity;
+        for (int a = 0; a < anchors.Count; a++)
+        {
+            float sqr = (anchors[a] - position).sqrMagnitude;
+            if (sqr < best)
+            {
+                best = sqr;
+                nearest = a;
+            }
+        }
+
+        distance = Mathf.Sqrt(best);
+        return nearest;
+    }
+
+    /// The furthest car of an over-quota player, as long as no player is close to it.
+    private TrafficCar TakeSurplusCar(int[] owners, int[] counts)
+    {
+        int bestIndex = -1;
+        float bestDistance = spawnMinDistance;
+        for (int i = 0; i < cars.Count; i++)
+        {
+            int owner = owners[i];
+            if (owner < 0 || counts[owner] <= Quota(owner)) continue;
+
+            NearestAnchor(cars[i].transform.position, out float distance);
+            if (distance >= bestDistance)
+            {
+                bestDistance = distance;
+                bestIndex = i;
+            }
+        }
+
+        if (bestIndex < 0) return null;
+
+        counts[owners[bestIndex]]--;
+        owners[bestIndex] = -1;
+        return cars[bestIndex];
+    }
+
+    /// Picks a route point near the anchor, preferring one a building hides from every player.
+    /// Other clients' cameras are unknown here, so sight lines are checked from the avatars.
+    private bool TryFindSpawn(int anchor, float minDistance, TrafficCar self, out TrafficRoute route, out float distance)
+    {
+        route = null;
+        distance = 0f;
+
+        float minSqr = minDistance * minDistance;
+        float maxSqr = spawnMaxDistance * spawnMaxDistance;
+        float clearanceSqr = k_SpawnClearance * k_SpawnClearance;
+        int offset = random.Next(spawnSamples.Count);
+        int occlusionChecks = 0;
+        bool found = false;
+
+        for (int n = 0; n < spawnSamples.Count; n++)
+        {
+            SpawnSample sample = spawnSamples[(n + offset) % spawnSamples.Count];
+
+            float anchorSqr = (sample.Position - anchors[anchor]).sqrMagnitude;
+            if (anchorSqr < minSqr || anchorSqr > maxSqr) continue;
+            if (!IsClear(sample.Position, minSqr, clearanceSqr, self)) continue;
+
+            if (!found)
+            {
+                route = sample.Route;
+                distance = sample.Distance;
+                found = true;
+            }
+
+            if (IsHiddenFromAnchors(sample.Position))
+            {
+                route = sample.Route;
+                distance = sample.Distance;
+                return true;
+            }
+
+            if (++occlusionChecks >= k_MaxOcclusionChecks) break;
+        }
+
+        return found;
+    }
+
+    private bool IsClear(Vector3 position, float anchorMinSqr, float clearanceSqr, TrafficCar self)
+    {
+        for (int a = 0; a < anchors.Count; a++)
+            if ((anchors[a] - position).sqrMagnitude < anchorMinSqr) return false;
+
+        for (int i = 0; i < cars.Count; i++)
+        {
+            TrafficCar other = cars[i];
+            if (other == self || other.Route == null) continue;
+            if ((other.transform.position - position).sqrMagnitude < clearanceSqr) return false;
+        }
+
+        return true;
+    }
+
+    private bool IsHiddenFromAnchors(Vector3 position)
+    {
+        for (int a = 0; a < anchors.Count; a++)
+        {
+            if (!Physics.Linecast(anchors[a] + Vector3.up * 1.6f, position + Vector3.up, ~0, QueryTriggerInteraction.Ignore))
+                return false;
+        }
+        return true;
+    }
+
+    private void BuildSpawnSamples()
+    {
+        spawnSamples.Clear();
+        for (int r = 0; r < routes.Count; r++)
+        {
+            TrafficRoute route = routes[r];
+            float end = route.Closed ? route.Length : route.Length - k_SpawnEndMargin;
+            for (float d = 0f; d < end; d += k_SpawnSampleStep)
+            {
+                route.Evaluate(d, out Vector3 position, out _, out _);
+                spawnSamples.Add(new SpawnSample(route, d, position));
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- Snapshot
+
+    private byte[] EncodeState()
+    {
+        // Normcore keeps a reference to the array it was given, so each publish needs its own.
+        byte[] state = new byte[cars.Count * k_BytesPerCar];
+
+        for (int i = 0; i < cars.Count; i++)
+        {
+            TrafficCar car = cars[i];
+            int o = i * k_BytesPerCar;
+            ushort route = car.Route != null ? (ushort)car.Route.Index : k_NoRoute;
+            ushort distance = (ushort)Mathf.Clamp(Mathf.RoundToInt(car.Distance * k_DistanceScale), 0, ushort.MaxValue);
+
+            state[o] = (byte)route;
+            state[o + 1] = (byte)(route >> 8);
+            state[o + 2] = (byte)distance;
+            state[o + 3] = (byte)(distance >> 8);
+            state[o + 4] = (byte)Mathf.Clamp(Mathf.RoundToInt(car.Speed * k_SpeedScale), 0, 255);
+            state[o + 5] = (byte)(car.Epoch | (car.Hidden ? k_HiddenFlag : 0));
+        }
+
+        return state;
+    }
+
+    private void ApplyLatestState(TrafficSync sync)
+    {
+        byte[] state = sync.State;
+        if (state == null || state.AsSpan().SequenceEqual(lastState)) return;
+
+        // Normcore overwrites the received array in place when the length is unchanged, so a new
+        // snapshot can arrive in the same array: compare contents against a private copy.
+        if (lastState == null || lastState.Length != state.Length) lastState = new byte[state.Length];
+        Buffer.BlockCopy(state, 0, lastState, 0, state.Length);
+        DecodeState(lastState);
+    }
+
+    private void DecodeState(byte[] state)
+    {
+        int count = Mathf.Min(cars.Count, state.Length / k_BytesPerCar);
+        for (int i = 0; i < count; i++)
+        {
+            int o = i * k_BytesPerCar;
+            int routeIndex = state[o] | (state[o + 1] << 8);
+            TrafficRoute route = routeIndex < routes.Count ? routes[routeIndex] : null;
+            float distance = (state[o + 2] | (state[o + 3] << 8)) / k_DistanceScale;
+            float speed = state[o + 4] / k_SpeedScale;
+            byte flags = state[o + 5];
+
+            cars[i].ApplyState(route, distance, speed, (flags & k_HiddenFlag) != 0, (byte)(flags & EpochMask));
+        }
+    }
+
+    private int ComputeRouteHash()
+    {
+        unchecked
+        {
+            int hash = 17;
+            for (int i = 0; i < routes.Count; i++)
+                hash = hash * 31 + Mathf.RoundToInt(routes[i].Length);
+            return hash != 0 ? hash : 1;
+        }
     }
 
     private void AddRoadColliders()
@@ -98,94 +515,11 @@ public sealed class TrafficNetwork : MonoBehaviour
         Debug.Log($"[Traffic] Added {added} road colliders for the character.");
     }
 
-    private List<TrafficRoute> SelectRoutes(Vector3 center)
+    // Consumes the same random numbers per car whatever happens, so every client builds identical cars.
+    private void SpawnCar(Random carRandom, Transform root)
     {
-        List<TrafficRoute> ordered = routes
-            .OrderBy(r => r.ClosestDistanceTo(center))
-            .ThenByDescending(r => r.Length)
-            .ToList();
-
-        List<TrafficRoute> selected = ordered
-            .Where(r => r.ClosestDistanceTo(center) <= trafficRadius)
-            .ToList();
-
-        if (selected.Count == 0)
-            selected.AddRange(ordered.Take(Mathf.Min(ordered.Count, Mathf.Max(1, maxCars))));
-
-        int Capacity(TrafficRoute route) =>
-            Mathf.Max(1, Mathf.FloorToInt(route.Length / Mathf.Max(1f, carSpacing)));
-
-        if (selected.Sum(Capacity) < maxCars)
-        {
-            for (int i = 0; i < ordered.Count; i++)
-            {
-                if (selected.Contains(ordered[i])) continue;
-                selected.Add(ordered[i]);
-                if (selected.Sum(Capacity) >= maxCars) break;
-            }
-        }
-
-        return selected;
-    }
-
-    private void SpawnCars(List<TrafficRoute> selected)
-    {
-        int remaining = maxCars;
-        var assigned = new Dictionary<TrafficRoute, int>();
-        for (int i = 0; i < selected.Count; i++) assigned[selected[i]] = 0;
-
-        while (remaining > 0)
-        {
-            bool added = false;
-            for (int i = 0; i < selected.Count && remaining > 0; i++)
-            {
-                TrafficRoute route = selected[i];
-                int capacity = Mathf.Max(1, Mathf.FloorToInt(route.Length / Mathf.Max(1f, carSpacing)));
-                if (assigned[route] >= capacity) continue;
-
-                assigned[route]++;
-                remaining--;
-                added = true;
-            }
-
-            if (!added) break;
-        }
-
-        Transform root = carRoot != null ? carRoot : transform;
-        foreach (KeyValuePair<TrafficRoute, int> pair in assigned)
-        {
-            TrafficRoute route = pair.Key;
-            int count = pair.Value;
-            if (count <= 0) continue;
-
-            for (int i = 0; i < count; i++)
-            {
-                float slot = route.Length / count;
-                float baseDistance = (i + 0.5f) * slot;
-                float jitter = Mathf.Min(slot * 0.15f, 3f);
-                float distance = baseDistance + (float)(random.NextDouble() * 2.0 - 1.0) * jitter;
-
-                if (route.Closed)
-                {
-                    distance = Mathf.Repeat(distance, route.Length);
-                }
-                else
-                {
-                    float margin = Mathf.Min(10f, route.Length * 0.1f);
-                    distance = Mathf.Clamp(distance, margin, Mathf.Max(margin, route.Length - margin));
-                }
-
-                SpawnCar(route, distance, root);
-            }
-        }
-
-        if (remaining > 0)
-            Debug.LogWarning($"[Traffic] Placed {maxCars - remaining}/{maxCars} cars; not enough route capacity near the player.");
-    }
-
-    private void SpawnCar(TrafficRoute route, float distance, Transform root)
-    {
-        GameObject prefab = carPrefabs[random.Next(carPrefabs.Count)];
+        GameObject prefab = carPrefabs[carRandom.Next(carPrefabs.Count)];
+        float maxSpeed = Mathf.Lerp(speedRange.x, speedRange.y, (float)carRandom.NextDouble());
         if (prefab == null) return;
 
         GameObject instance = Instantiate(prefab);
@@ -203,20 +537,17 @@ public sealed class TrafficNetwork : MonoBehaviour
         TrafficCar car = instance.GetComponent<TrafficCar>();
         if (car == null) car = instance.AddComponent<TrafficCar>();
 
-        float maxSpeed = Mathf.Lerp(speedRange.x, speedRange.y, (float)random.NextDouble());
-        car.Initialize(route, distance, maxSpeed, acceleration, brake, lookAhead, stopDistance);
-
-        route.Cars.Add(car);
+        car.Initialize(cars, maxSpeed, acceleration, brake, lookAhead, stopDistance);
         cars.Add(car);
     }
 
-    private void LogReport(int sectionCount, Vector3 center)
+    private void LogReport(int sectionCount)
     {
+        Vector3 center = trafficCenter != null ? trafficCenter.position : fallbackCenter;
         int closed = routes.Count(r => r.Closed);
         int open = routes.Count - closed;
         var builder = new StringBuilder();
         builder.AppendLine($"[Traffic] Road sections: {sectionCount}; routes: {routes.Count} ({open} open, {closed} closed); total {routes.Sum(r => r.Length):0} m.");
-        builder.AppendLine($"[Traffic] Spawned {cars.Count} cars. Center: {center}; radius: {trafficRadius} m.");
 
         foreach (TrafficRoute route in routes.OrderByDescending(r => r.Length).Take(6))
             builder.AppendLine($"[Traffic]   route {route.Index}: {route.Length:0} m, closed={route.Closed}, nearest={route.ClosestDistanceTo(center):0} m");
@@ -243,7 +574,16 @@ public sealed class TrafficNetwork : MonoBehaviour
     {
         var segments = new List<LaneSegment>();
         int splineId = 0;
-        RoadSection[] sections = UnityEngine.Object.FindObjectsByType<RoadSection>();
+        // Route indices are sent over the network, so every client must build routes in the same order;
+        // FindObjectsByType does not guarantee one. Some sections share a position and name, so the
+        // hierarchy path is the final tie-break.
+        RoadSection[] sections = UnityEngine.Object.FindObjectsByType<RoadSection>()
+            .OrderBy(section => section.transform.position.x)
+            .ThenBy(section => section.transform.position.y)
+            .ThenBy(section => section.transform.position.z)
+            .ThenBy(section => section.name, StringComparer.Ordinal)
+            .ThenBy(section => HierarchyPath(section.transform), StringComparer.Ordinal)
+            .ToArray();
         sectionCount = sections.Length;
 
         for (int s = 0; s < sections.Length; s++)
@@ -295,6 +635,15 @@ public sealed class TrafficNetwork : MonoBehaviour
         }
 
         return BuildChains(Deduplicate(segments), mergeDistance, minTangentDot, minRouteLength);
+    }
+
+    /// Sibling indices from the scene root down: unique within a scene and identical on every client.
+    private static string HierarchyPath(Transform transform)
+    {
+        string path = transform.GetSiblingIndex().ToString("D5");
+        for (Transform parent = transform.parent; parent != null; parent = parent.parent)
+            path = parent.GetSiblingIndex().ToString("D5") + "/" + path;
+        return path;
     }
 
     public static string BuildAndDescribe(float sampleStep, float mergeDistance, float minTangentDot,
@@ -508,6 +857,20 @@ public sealed class TrafficNetwork : MonoBehaviour
 
         routes.Add(route);
         routeIndex++;
+    }
+
+    private readonly struct SpawnSample
+    {
+        public readonly TrafficRoute Route;
+        public readonly float Distance;
+        public readonly Vector3 Position;
+
+        public SpawnSample(TrafficRoute route, float distance, Vector3 position)
+        {
+            Route = route;
+            Distance = distance;
+            Position = position;
+        }
     }
 
     private readonly struct LaneSegment
