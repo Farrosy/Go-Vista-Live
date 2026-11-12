@@ -252,6 +252,7 @@ public class VenueTravelManager : MonoBehaviour
             avatar.SetPositionAndRotation(position, rotation);
             Physics.SyncTransforms();
             if (cc != null) cc.enabled = true;
+            local.SnapToGround();
 
             // 8. Set venue avatar lokal → PlayerVenueSync fires VenueChanged → filter re-evaluasi (selagi hitam).
             var venueSync = local.GetComponent<PlayerVenueSync>();

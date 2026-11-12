@@ -83,6 +83,12 @@ public class PlayerController : MonoBehaviour
     /// Tag di state Hit Knockback dan LayToIdle. Selama Animator ada di state ber-tag ini, pemain belum berdiri.
     public const string KnockdownTag = "Knockdown";
 
+    // Snap ke tanah saat spawn/teleport: cari tanah dari 1 m di atas sampai 3 m di bawah titik tujuan.
+    private const float GroundSnapProbeUp = 1f;
+    private const float GroundSnapProbeDown = 3f;
+    // Hasil RaycastNonAlloc tidak berurutan dan kelebihan hit dibuang, jadi buffer dibuat lega untuk area ramai.
+    private static readonly RaycastHit[] GroundSnapHits = new RaycastHit[32];
+
     private CharacterController cc;
     private float verticalVel;
     private float nextJumpTime;
@@ -143,6 +149,7 @@ public class PlayerController : MonoBehaviour
         if (realtimeTransform && realtimeTransform.enabled) realtimeTransform.RequestOwnership();
 
         Local = this;
+        SnapToGround();
     }
 
     void OnDestroy()
@@ -182,6 +189,49 @@ public class PlayerController : MonoBehaviour
         transform.SetPositionAndRotation(position, rotation);
         Physics.SyncTransforms();
         cc.enabled = true;
+        SnapToGround();
+    }
+
+    /// Tempelkan kapsul ke tanah di bawahnya (dipakai saat spawn/teleport). CharacterController baru
+    /// mendorong dirinya ke atas tanah setelah bergerak, jadi tanpa ini avatar yang ditaruh tepat di
+    /// permukaan terlihat tenggelam sebesar skin width sampai pemain mulai berjalan.
+    public void SnapToGround()
+    {
+        if (!cc) return;
+        Vector3 origin = transform.position + Vector3.up * GroundSnapProbeUp;
+        int count = Physics.RaycastNonAlloc(origin, Vector3.down, GroundSnapHits, GroundSnapProbeUp + GroundSnapProbeDown,
+            Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+
+        float bestDistance = float.MaxValue;
+        float groundY = 0f;
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit hit = GroundSnapHits[i];
+            if (hit.distance >= bestDistance || !IsGroundForSnap(hit.collider)) continue;
+            bestDistance = hit.distance;
+            groundY = hit.point.y;
+        }
+        if (bestDistance == float.MaxValue) return;   // tidak ada tanah di dekat titik ini: biarkan
+
+        float scale = transform.lossyScale.y;
+        float capsuleBottom = (cc.center.y - cc.height * 0.5f) * scale;
+        float targetY = groundY + cc.skinWidth * scale - capsuleBottom;
+
+        bool wasEnabled = cc.enabled;
+        cc.enabled = false;
+        transform.position = new Vector3(transform.position.x, targetY, transform.position.z);
+        Physics.SyncTransforms();
+        cc.enabled = wasEnabled;
+    }
+
+    /// Tanah = bukan avatar ini, bukan avatar/NPC lain (kapsulnya bisa berdiri di titik spawn),
+    /// dan bukan benda yang bergerak dengan fisika (mobil).
+    private bool IsGroundForSnap(Collider c)
+    {
+        if (c.transform.IsChildOf(transform)) return false;
+        if (c is CharacterController || c.GetComponentInParent<PlayerController>() || c.GetComponentInParent<NpcAgent>()) return false;
+        Rigidbody body = c.attachedRigidbody;
+        return body == null || body.isKinematic;
     }
 
     /// Tertabrak mobil: putar Hit Knockback. Kalau tidak mati, lanjut LayToIdle lalu kontrol dibuka lagi.
