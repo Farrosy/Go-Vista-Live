@@ -194,9 +194,11 @@ public static partial class GameHudBuilder {
             vitalsGroup.blocksRaycasts = false;
 
             (HealthArcView health, OxygenArcView oxygen, CanvasGroup minimapGroup) = BuildMinimap(vitalsArea, fonts);
+            BuildQuestWaypoint((RectTransform)minimapGroup.transform, fonts);
             Canvas coinCanvas = BuildCoin(safeArea, fonts);
             DeathScreenView death = BuildDeathScreen(root.transform, fonts);
             BuildQuest(root.transform, safeArea, fonts);
+            BuildQuestToast(safeArea, fonts);
 
             var hud = root.AddComponent<GameHudView>();
             Bind(hud, ("vitals", vitals), ("health", health), ("oxygen", oxygen), ("rootCanvas", canvas),
@@ -298,7 +300,7 @@ public static partial class GameHudBuilder {
         Image chip = SlicedImage("Minus Chip", group, "Panels/chip_minus.png");
         TopLeft(chip.rectTransform, 140f, 74f, 110f, SpriteHeight(chip));
         var chipGroup = chip.gameObject.AddComponent<CanvasGroup>();
-        TextMeshProUGUI chipLabel = Text("Label", chip.rectTransform, fonts.Bold, "−50", 23f, Color.white, TextAlignmentOptions.Midline);
+        TextMeshProUGUI chipLabel = Text("Label", chip.rectTransform, fonts.Bold, "−20", 23f, Color.white, TextAlignmentOptions.Midline);
         Stretch(chipLabel.rectTransform, 0f, 0f, 0f, 6f);
 
         var view = group.gameObject.AddComponent<CoinPillView>();

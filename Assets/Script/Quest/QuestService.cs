@@ -9,7 +9,8 @@ using UnityEngine;
 ///  1. QuestGiver (nanti di NPC) memanggil Accept(quest). Tanda ! muncul di tombol Quest.
 ///  2. Tujuan selesai lewat QuestLocation (GoToLocation), DialogueUI.DialogueFinished (FinishDialogue),
 ///     atau CompleteObjective dari kode (Manual).
-///  3. Semua tujuan selesai: quest pindah ke completedQuests dan hilang dari Daftar Quest.
+///  3. Semua tujuan selesai: quest pindah ke completedQuests, hadiah koin (rewardCoins) diberikan,
+///     dan quest hilang dari Daftar Quest.
 /// </summary>
 public static class QuestService {
     /// <summary>Dipicu setiap daftar quest, progres, pin, atau tanda ! berubah. UI cukup render ulang.</summary>
@@ -160,6 +161,8 @@ public static class QuestService {
             Save.completedQuests.Add(quest.Id);
             if (Save.pinnedQuestId == quest.Id) Save.pinnedQuestId = "";
             Debug.Log($"[Quest] Selesai: {quest.title}");
+            // Disimpan bersama status quest selesai di SaveNow() di bawah, supaya hadiah tidak bisa didapat dua kali.
+            PlayerCoins.Add(quest.rewardCoins, saveNow: false);
             QuestCompleted?.Invoke(quest);
         } else if (quest.sequentialObjectives) {
             // Tujuan berikutnya bisa jadi lokasi tempat pemain sedang berdiri.

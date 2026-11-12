@@ -39,6 +39,10 @@ public class QuestData : ScriptableObject {
     public bool sequentialObjectives;
     public QuestObjective[] objectives = new QuestObjective[1];
 
+    [Header("Hadiah")]
+    [Tooltip("Go Vista Coin yang diberikan saat quest selesai. 0 = tanpa hadiah koin.")]
+    [Min(0)] public int rewardCoins;
+
     public string Id => string.IsNullOrEmpty(questId) ? name : questId;
 
     public string ObjectiveId(int index) {
