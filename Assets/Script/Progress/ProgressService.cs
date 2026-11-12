@@ -201,7 +201,6 @@ public static class ProgressService {
     }
 
     // TODO (next develop): tambahkan helper untuk data baru di sini, misalnya:
-    //   public static void AddCoins(int amount) { Current.coins += amount; MarkDirty(); }
     //   public static void MarkDistrictVisited(string districtId) { ...pola sama dengan MarkDialogueCompleted... }
 
     // ================================================================ Migrasi
@@ -216,6 +215,7 @@ public static class ProgressService {
         foreach (QuestProgress quest in p.activeQuests) quest.completedObjectives ??= new List<string>();
         p.completedQuests ??= new List<string>();
         p.pinnedQuestId ??= "";
+        p.coins = CoinRules.Sanitize(p.coins);
         p.playerName = PlayerNameRules.Sanitize(p.playerName);
         // Posisi terakhir tidak dipakai lagi (spawn selalu di PlayerSpawnPoint). Kosongkan data
         // lama supaya ikut terhapus dari cloud di save berikutnya.

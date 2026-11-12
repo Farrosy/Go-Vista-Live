@@ -23,22 +23,22 @@ public sealed class CoinPillView : MonoBehaviour {
         _chipRect = (RectTransform)minusChip.transform;
         _chipHome = _chipRect.anchoredPosition;
         minusChip.alpha = 0f;
-        _displayed = SessionCoins.Balance;
-        ShowBalance(SessionCoins.Balance);
+        _displayed = PlayerCoins.Balance;
+        ShowBalance(PlayerCoins.Balance);
     }
 
-    private void OnEnable() => SessionCoins.Changed += OnCoinsChanged;
-    private void OnDisable() => SessionCoins.Changed -= OnCoinsChanged;
+    private void OnEnable() => PlayerCoins.Changed += OnCoinsChanged;
+    private void OnDisable() => PlayerCoins.Changed -= OnCoinsChanged;
 
     private void OnCoinsChanged(int delta) {
-        _rollPerSecond = Mathf.Abs(SessionCoins.Balance - _displayed) / RollSeconds;
+        _rollPerSecond = Mathf.Abs(PlayerCoins.Balance - _displayed) / RollSeconds;
         if (delta >= 0) return;
         minusChipLabel.text = $"−{-delta}";
         _chipTime = 0f;
     }
 
     private void Update() {
-        _displayed = Mathf.MoveTowards(_displayed, SessionCoins.Balance, _rollPerSecond * Time.deltaTime);
+        _displayed = Mathf.MoveTowards(_displayed, PlayerCoins.Balance, _rollPerSecond * Time.deltaTime);
         ShowBalance(Mathf.RoundToInt(_displayed));
 
         if (_chipTime > ChipSeconds) return;
