@@ -38,6 +38,10 @@ public class PlayerProgress {
     /// <summary>Ada quest baru yang belum dilihat: tanda ! di tombol Quest. Hilang saat panel dibuka.</summary>
     public bool hasNewQuest;
 
+    // ---------------------------------------------------------------- Koin (lihat PlayerCoins)
+    /// <summary>Saldo Go Vista Coin. Save lama tanpa field ini otomatis mulai dari saldo awal (100).</summary>
+    public int coins = CoinRules.StartingBalance;
+
     // ---------------------------------------------------------------- Posisi terakhir (TIDAK DIPAKAI)
     // Dulu dipakai untuk spawn di posisi terakhir. Sekarang pemain selalu spawn di PlayerSpawnPoint,
     // dan ProgressService.Migrate() mengosongkan field ini. Dibiarkan supaya save lama tetap terbaca.
@@ -51,13 +55,12 @@ public class PlayerProgress {
     // NEXT DEVELOP: belum dipakai, tinggal di-uncomment dan dihubungkan.
     // =====================================================================
 
-    // TODO (next develop) – Koin, poin, dan item
-    //   public int coins;
+    // TODO (next develop) – Poin dan item (koin sudah dipakai, lihat field coins di atas)
     //   public int points;
     //   public List<InventoryItem> items = new List<InventoryItem>();
     //   // [Serializable] public class InventoryItem { public string itemId; public int amount; }
     //
-    //   Tambahkan helper di ProgressService, misalnya AddCoins(int amount) dan AddItem(string itemId, int amount),
+    //   Tambahkan helper di ProgressService, misalnya AddItem(string itemId, int amount),
     //   yang mengubah nilai lalu memanggil MarkDirty().
     //
     //   ⚠ KEAMANAN: data ini disimpan dari sisi client, jadi bisa dicurangi (misalnya koin diedit

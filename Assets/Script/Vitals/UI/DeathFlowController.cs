@@ -65,7 +65,7 @@ public sealed class DeathFlowController : MonoBehaviour {
 
     private IEnumerator RunDeath() {
         LockPlayer();
-        int coinsLost = SessionCoins.ApplyDeathPenalty();
+        int coinsLost = PlayerCoins.ApplyDeathPenalty();
         DeathScreenContent content = screen.Prepare(coinsLost, vitals.State.Cause);
         if (content.impactEffects) PlayImpactEffects();
         StartCoroutine(ZoomCamera());

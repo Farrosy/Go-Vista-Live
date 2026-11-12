@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42a28fe17bee6fe4595a8fb40d280502, type: 3}
+  m_Name: CityTour
+  m_EditorClassIdentifier: Assembly-CSharp::QuestData
+  questId: city-tour
+  title: Tur Kota Go Vista
+  description: Ikuti Vio & Vira berkeliling dan kenali gedung-gedung di Go Vista.
+  sequentialObjectives: 1
+  objectives:
+  - objectiveId: central-plaza
+    description: Kenalan dengan Vio & Vira di Central Plaza
+    type: 0
+    locationId: tour-central-plaza
+    dialogue: {fileID: 0}
+  - objectiveId: banking-center
+    description: Kunjungi Banking Center
+    type: 1
+    locationId: 
+    dialogue: {fileID: 11400000, guid: 16c4e2f9a84b72fe2a28ea7d75d6719f, type: 2}
+  - objectiveId: dupoin
+    description: Kunjungi Dupoin
+    type: 1
+    locationId: 
+    dialogue: {fileID: 11400000, guid: 0481fe6111db3c1b48944baf0ab7e993, type: 2}
+  - objectiveId: inovation-tower
+    description: Kunjungi Inovation Tower
+    type: 1
+    locationId: 
+    dialogue: {fileID: 11400000, guid: 3421fac2d46e71779bdf2a65eb6212d9, type: 2}
+  - objectiveId: trading-academy
+    description: Kunjungi Trading Academy
+    type: 1
+    locationId: 
+    dialogue: {fileID: 11400000, guid: e86e630b78cfb1a0a8603e3034631067, type: 2}
+  - objectiveId: kvb
+    description: Kunjungi KVB
+    type: 1
+    locationId: 
+    dialogue: {fileID: 11400000, guid: feeff4cdf0446d75292820e46a1a8122, type: 2}
+  - objectiveId: vista-palace
+    description: Kunjungi Vista Palace, markas Vio & Vira
+    type: 1
+    locationId: 
+    dialogue: {fileID: 11400000, guid: 08892424ee1878242bf681015438e815, type: 2}
+  rewardCoins: 200
