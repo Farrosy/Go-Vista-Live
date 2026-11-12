@@ -5,16 +5,15 @@ using UnityEngine.UI;
 using UnityEngine.Android;
 #endif
 
-/// Tombol mic in-game di bawah tombol pause. UI dibuat lewat kode, tampil selama ada avatar lokal.
+/// Tombol mic in-game di bawah minimap, di kanan tombol chat (lihat HudLayout). UI dibuat lewat kode, tampil selama
+/// ada avatar lokal, panel chat tertutup (panel chat menutupi pojok yang sama), dan pemain tidak sedang di layar mati.
 /// Cincin berubah hijau saat pemain terdeteksi bicara.
 ///
 /// Normcore meminta izin mikrofon saat avatar spawn dan tidak mencoba lagi kalau ditolak, jadi pemain yang
 /// menolak harus mengizinkannya di Pengaturan HP lalu masuk room lagi. Tombol menjelaskan hal itu.
 public sealed class VoiceMicButton : MonoBehaviour {
     private const int CanvasSortingOrder = 26; // Di atas HUD (25), di bawah menu pause (51) dan chat (52).
-    private const float ButtonSize = 96f;
-    private const float RightMargin = 30f;
-    private const float TopMargin = 142f; // Tepat di bawah tombol pause (30 + 96 + 16).
+    private const float ButtonSize = HudLayout.MicButtonSize;
     private const float RingThickness = 4f;
     private const float IconInset = 24f;
     private const float HintGap = 12f;
@@ -58,8 +57,11 @@ public sealed class VoiceMicButton : MonoBehaviour {
             _avatar = local;
             _deniedForThisAvatar = false;
         }
-        _canvas.enabled = local != null;
-        if (local == null) return;
+        _canvas.enabled = local != null && !ChatPanel.IsPanelOpen && !PlayerInputHub.IsDeathLocked;
+        if (!_canvas.enabled) {
+            _hintUntil = 0f;
+            return;
+        }
 
         bool micOn = VoiceSession.MicEnabled && MicUsable;
         bool speaking = micOn && VoiceRules.IsSpeaking(local.VoiceVolume);
@@ -94,7 +96,7 @@ public sealed class VoiceMicButton : MonoBehaviour {
 
         Sprite circle = VoiceIcons.Circle;
         Button button = ChatUiKit.CreateButton("Mic Button", safeArea, circle, FriendsTheme.Neutral);
-        ChatUiKit.PlaceTopRight((RectTransform)button.transform, RightMargin, TopMargin, ButtonSize, ButtonSize);
+        ChatUiKit.Place((RectTransform)button.transform, HudLayout.MicButtonLeft, HudLayout.MicButtonTop, ButtonSize, ButtonSize);
         button.onClick.AddListener(OnClick);
         _ring = (Image)button.targetGraphic;
 
@@ -125,8 +127,8 @@ public sealed class VoiceMicButton : MonoBehaviour {
 
     private GameObject BuildHint(RectTransform parent) {
         RectTransform hint = ChatUiKit.CreateRect("Permission Hint", parent);
-        ChatUiKit.PlaceTopRight(hint, RightMargin + ButtonSize + HintGap, TopMargin + (ButtonSize - HintHeight) / 2f,
-                                HintWidth, HintHeight);
+        ChatUiKit.Place(hint, HudLayout.MicButtonLeft + ButtonSize + HintGap,
+                        HudLayout.MicButtonTop + (ButtonSize - HintHeight) / 2f, HintWidth, HintHeight);
         ChatUiKit.AddShape(hint.gameObject, VoiceIcons.Rounded, ChatTheme.Panel, 1.6f).raycastTarget = false;
         TextMeshProUGUI text = ChatUiKit.CreateText("Text", hint, font, PermissionHint, ChatTheme.NameSize, Color.white,
                                                     FontStyles.Normal, TextAlignmentOptions.Center);

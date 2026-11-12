@@ -29,6 +29,15 @@ public class GoVistaHudImporter : AssetPostprocessor
 
         string root = path.Substring(0, idx + Folder.Length);
         string rel = path.Substring(root.Length);
+
+        // Busur minimap dipakai sebagai Image Filled Radial360. Mesh Tight membuang tepi transparan sehingga
+        // pusat putaran bergeser dan busur terpotong, jadi sprite minimap harus Full Rect.
+        if (rel.StartsWith("Minimap/")) {
+            var full = new TextureImporterSettings();
+            ti.ReadTextureSettings(full);
+            full.spriteMeshType = SpriteMeshType.FullRect;
+            ti.SetTextureSettings(full);
+        }
         string jsonPath = root + "sprites.json";
         if (!File.Exists(jsonPath)) return;
 

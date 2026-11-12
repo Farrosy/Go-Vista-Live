@@ -8,15 +8,14 @@ public sealed class GameHudView : MonoBehaviour {
     private const float CarHitVignetteSeconds = 0.5f;
     private const float VignetteMinAlpha = 0.35f;
     private const float FadePerSecond = 4f;
-    private const float VitalsLeft = 187f;
-    private const float GapFromChatPanel = 24f;
-    private const float ShiftPixelsPerSecond = 2000f;
+    private const float MinimapFadePerSecond = 8f;
 
     [SerializeField] private LocalPlayerVitals vitals;
-    [SerializeField] private HealthBarView health;
-    [SerializeField] private OxygenBarView oxygen;
+    [SerializeField] private HealthArcView health;
+    [SerializeField] private OxygenArcView oxygen;
     [SerializeField] private Canvas rootCanvas;
     [SerializeField] private CanvasGroup vitalsGroup;
+    [SerializeField] private CanvasGroup minimapGroup;
     [SerializeField] private Canvas coinCanvas;
     [SerializeField] private Image redVignette;
     [SerializeField] private Image underwaterOverlay;
@@ -24,10 +23,7 @@ public sealed class GameHudView : MonoBehaviour {
     [SerializeField] private int coinSortingOnDeathScreen = 56;
 
     private Camera _camera;
-    private RectTransform _vitalsRect;
     private float _underwaterAlpha;
-
-    private void Awake() => _vitalsRect = (RectTransform)vitalsGroup.transform;
 
     private void Update() {
         bool hasPlayer = PlayerController.Local != null;
@@ -40,7 +36,7 @@ public sealed class GameHudView : MonoBehaviour {
         float delta = Time.deltaTime;
         health.Render(state, time, delta);
         oxygen.Render(state, vitals.HeadUnderWater, time, delta);
-        UpdateVitalsPosition(delta);
+        UpdateMinimapVisibility(delta);
         UpdateRedVignette(state, time);
         UpdateUnderwaterOverlay(delta);
     }
@@ -52,14 +48,11 @@ public sealed class GameHudView : MonoBehaviour {
         if (active) redVignette.enabled = false;
     }
 
-    /// Panel chat terbuka otomatis saat masuk game dan berada di pojok yang sama. Bar digeser ke sampingnya
-    /// supaya HP dan peringatan O₂ tidak pernah tertutup.
-    private void UpdateVitalsPosition(float delta) {
-        float besideChat = ChatTheme.ScreenMargin + ChatTheme.PanelWidth + GapFromChatPanel - VitalsLeft;
-        float target = ChatPanel.IsPanelOpen ? besideChat : 0f;
-        Vector2 position = _vitalsRect.anchoredPosition;
-        position.x = Mathf.MoveTowards(position.x, target, ShiftPixelsPerSecond * delta);
-        _vitalsRect.anchoredPosition = position;
+    /// Panel chat terbuka di pojok yang sama dengan minimap, jadi minimap (dengan busur HP/O₂) disembunyikan
+    /// selama chat terbuka. Chip peringatan O₂ ada di tengah atas, jadi tetap terlihat.
+    private void UpdateMinimapVisibility(float delta) {
+        float target = ChatPanel.IsPanelOpen ? 0f : 1f;
+        minimapGroup.alpha = Mathf.MoveTowards(minimapGroup.alpha, target, MinimapFadePerSecond * delta);
     }
 
     private void UpdateRedVignette(VitalsState state, float time) {
