@@ -3,6 +3,8 @@ using UnityEngine;
 [System.Serializable]
 public class DialogueLine
 {
+    [Tooltip("Opsional: nama pembicara khusus baris ini (mis. 'Vira' di dialog duo). Kosong = Speaker Name dialog.")]
+    public string speaker;
     [TextArea(2, 5)] public string text;
     [Tooltip("Opsional: ganti ekspresi wajah hanya untuk baris ini")]
     public Sprite portraitOverride;
@@ -41,6 +43,8 @@ public class DialogueOption
 [System.Serializable]
 public class DialogueReplyLine
 {
+    [Tooltip("Opsional: nama pembicara khusus baris ini. Kosong = Speaker Name dialog.")]
+    public string speaker;
     [TextArea(2, 5)] public string text;
     [Tooltip("Opsional: ganti ekspresi wajah hanya untuk baris ini")]
     public Sprite portraitOverride;
@@ -91,6 +95,9 @@ public class DialogueData : ScriptableObject
         string qid = q != null && !string.IsNullOrEmpty(q.questionId) ? q.questionId : "q" + lineIndex;
         return Id + "/" + qid;
     }
+
+    /// Nama pembicara untuk satu baris: speaker baris itu, atau speakerName dialog kalau kosong.
+    public string SpeakerFor(string lineSpeaker) => string.IsNullOrEmpty(lineSpeaker) ? speakerName : lineSpeaker;
 
     public static string OptionId(DialogueOption option, int optionIndex) =>
         option != null && !string.IsNullOrEmpty(option.optionId) ? option.optionId : ((char)('a' + optionIndex)).ToString();
