@@ -18,6 +18,11 @@ public class DialogueTrigger : MonoBehaviour
              "Kosong = stage terakhir diulang.")]
     [SerializeField] private DialogueData repeatDialogue;
 
+    [Tooltip("Dialog yang hanya diputar sesuai status quest, mis. NPC tujuan quest: 'Oh my twin is here?' hanya " +
+             "selama quest aktif. Diputar setelah stage yang belum selesai; kalau cocok, menggantikan Repeat Dialogue. " +
+             "Yang paling atas dan cocok yang dipakai.")]
+    [SerializeField] private QuestDialogue[] questDialogues;
+
     // Field lama (satu dialog). Dipindah otomatis ke 'stages' supaya scene/prefab lama tidak rusak.
     [SerializeField, HideInInspector, FormerlySerializedAs("dialogue")] private DialogueData legacyDialogue;
 
@@ -65,8 +70,8 @@ public class DialogueTrigger : MonoBehaviour
         legacyDialogue = null;
     }
 
-    /// Urutan dialog untuk interaksi ini: semua stage yang belum selesai. Kalau semua selesai:
-    /// Repeat Dialogue, atau stage terakhir kalau Repeat Dialogue kosong.
+    /// Urutan dialog untuk interaksi ini: semua stage yang belum selesai, lalu Quest Dialogue yang cocok dengan
+    /// status quest. Kalau tidak ada: Repeat Dialogue, atau stage terakhir kalau Repeat Dialogue kosong.
     public List<DialogueData> GetSequence()
     {
         var result = new List<DialogueData>();
@@ -78,6 +83,8 @@ public class DialogueTrigger : MonoBehaviour
             last = s;
             if (!ProgressService.IsDialogueCompleted(s.Id)) result.Add(s);
         }
+        DialogueData questDialogue = FindQuestDialogue();
+        if (questDialogue && !result.Contains(questDialogue)) result.Add(questDialogue);
         if (result.Count == 0)
         {
             if (repeatDialogue) result.Add(repeatDialogue);
@@ -86,11 +93,44 @@ public class DialogueTrigger : MonoBehaviour
         return result;
     }
 
+    private DialogueData FindQuestDialogue()
+    {
+        foreach (var entry in questDialogues ?? System.Array.Empty<QuestDialogue>())
+            if (entry != null && entry.dialogue && entry.Matches()) return entry.dialogue;
+        return null;
+    }
+
     public void StartDialogue()
     {
         if (!DialogueUI.Instance) return;
 
         bool started = DialogueUI.Instance.StartDialogue(GetSequence(), focusPoint, () => DialogueEnded?.Invoke());
         if (started) DialogueStarted?.Invoke();
+    }
+}
+
+/// Kapan Quest Dialogue diputar.
+public enum QuestDialogueCondition
+{
+    /// Selama quest sudah diterima tapi belum selesai.
+    QuestActive,
+    /// Setelah quest selesai.
+    QuestCompleted,
+}
+
+/// Satu dialog NPC yang bergantung pada status quest (lihat DialogueTrigger.questDialogues).
+[System.Serializable]
+public class QuestDialogue
+{
+    public QuestData quest;
+    public QuestDialogueCondition when;
+    public DialogueData dialogue;
+
+    public bool Matches()
+    {
+        if (!quest) return false;
+        return when == QuestDialogueCondition.QuestActive
+            ? QuestService.IsActive(quest.Id)
+            : QuestService.IsCompleted(quest.Id);
     }
 }

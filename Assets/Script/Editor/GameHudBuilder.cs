@@ -16,7 +16,7 @@ using UnityEngine.UI;
 ///  - Komponen WaterSurface pada objek "water" di WorldScene.
 /// Ukuran mengikuti README di Assets/GoVista_HUD_Assets (mockup x 1,417 pada referensi 1920x1080).
 /// </summary>
-public static class GameHudBuilder {
+public static partial class GameHudBuilder {
     public const string PrefabPath = "Assets/Prefab/GameHudCanvas.prefab";
     private const string CanvasName = "GameHudCanvas";
     private const string HostScenePath = "Assets/Scenes/MainMultiplayerScene.unity";
@@ -33,7 +33,6 @@ public static class GameHudBuilder {
     private const int DeathSortingOrder = 55;
     private const float SlicedMultiplier = 1.41f;
     private const int BubbleCount = 10;
-    private const int SegmentCount = VitalsRules.OxygenSegmentCount;
     private const int SpeedLineCount = 18;
     private const int DustCount = 5;
     private const string DeathContentFolder = AssetRoot + "DeathScreens";
@@ -63,6 +62,7 @@ public static class GameHudBuilder {
     public static void BuildAll() {
         Fonts fonts = EnsureFonts();
         EnsureSpriteAtlas();
+        EnsureQuestSpritesInAtlas();
         GameObject prefab = BuildPrefab(fonts);
         InstallInHostScene(prefab);
         InstallWaterSurface();
@@ -193,14 +193,14 @@ public static class GameHudBuilder {
             vitalsGroup.interactable = false;
             vitalsGroup.blocksRaycasts = false;
 
-            HealthBarView health = BuildHealth(vitalsArea, fonts);
-            OxygenBarView oxygen = BuildOxygen(vitalsArea, fonts);
+            (HealthArcView health, OxygenArcView oxygen, CanvasGroup minimapGroup) = BuildMinimap(vitalsArea, fonts);
             Canvas coinCanvas = BuildCoin(safeArea, fonts);
             DeathScreenView death = BuildDeathScreen(root.transform, fonts);
+            BuildQuest(root.transform, safeArea, fonts);
 
             var hud = root.AddComponent<GameHudView>();
             Bind(hud, ("vitals", vitals), ("health", health), ("oxygen", oxygen), ("rootCanvas", canvas),
-                ("vitalsGroup", vitalsGroup), ("coinCanvas", coinCanvas), ("redVignette", vignette),
+                ("vitalsGroup", vitalsGroup), ("minimapGroup", minimapGroup), ("coinCanvas", coinCanvas), ("redVignette", vignette),
                 ("underwaterOverlay", underwater));
             var flow = root.AddComponent<DeathFlowController>();
             Bind(flow, ("vitals", vitals), ("screen", death), ("hud", hud), ("fallFx", fallFx));
@@ -212,96 +212,70 @@ public static class GameHudBuilder {
         }
     }
 
-    private static HealthBarView BuildHealth(RectTransform parent, Fonts fonts) {
-        const float frameWidth = 425f;
-        const float paddingLeft = 25.5f;
-        const float paddingRight = 5.7f;
-        const float fillHeight = 28f;
+    /// Minimap di kiri atas (sesuai storyboard) dengan busur HP di kiri dan O₂ di kanan.
+    /// Isi peta sengaja hanya placeholder: "Map Mask/Map Content" adalah tempat tim minimap memasang petanya.
+    private static (HealthArcView, OxygenArcView, CanvasGroup) BuildMinimap(RectTransform parent, Fonts fonts) {
+        const string folder = "Minimap/";
+        RectTransform group = TopLeft(NewRect("Minimap", parent), HudLayout.MinimapLeft, HudLayout.MinimapTop,
+            HudLayout.MinimapSize, HudLayout.MinimapSize);
+        var minimapGroup = group.gameObject.AddComponent<CanvasGroup>();
+        minimapGroup.interactable = false;
+        minimapGroup.blocksRaycasts = false;
 
-        RectTransform group = TopLeft(NewRect("Health Bar", parent), 187f, 31f, 472f, 80f);
-        Image frame = SlicedImage("Frame", group, "Bars/bar_frame_health.png");
-        TopLeft(frame.rectTransform, 47f, 13f, frameWidth, SpriteHeight(frame));
-        float fillTop = 13f + 5.7f;
-        Image trail = SlicedImage("Damage Trail", group, "Bars/bar_fill_damage.png");
-        TopLeft(trail.rectTransform, 47f + paddingLeft, fillTop, 100f, fillHeight);
-        Image fill = SlicedImage("Fill", group, "Bars/bar_fill_health.png");
-        TopLeft(fill.rectTransform, 47f + paddingLeft, fillTop, 100f, fillHeight);
+        Stretch(PlainImage("Backdrop", group, folder + "minimap_backdrop.png").rectTransform);
+        Image mask = PlainImage("Map Mask", group, folder + "minimap_mask.png");
+        Stretch(mask.rectTransform);
+        mask.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+        Stretch(PlainImage("Map Content", mask.rectTransform, folder + "minimap_placeholder.png").rectTransform);
 
-        TextMeshProUGUI label = Text("Value", group, fonts.Bold, "100 / 100", 24f, Color.white, TextAlignmentOptions.MidlineRight);
-        label.fontSharedMaterial = fonts.BoldUnderlay;
-        TopLeft(label.rectTransform, 47f + paddingLeft, fillTop - 2f, frameWidth - paddingLeft - 20f, fillHeight + 4f);
+        RectTransform healthRect = Stretch(NewRect("Health Arc", group));
+        Stretch(PlainImage("Frame", healthRect, folder + "minimap_hp_frame.png").rectTransform);
+        Image trail = PlainImage("Damage Trail", healthRect, folder + "minimap_hp_fill.png");
+        trail.color = new Color(1f, 1f, 1f, 0.4f);
+        Image healthFill = PlainImage("Fill", healthRect, folder + "minimap_hp_fill.png");
+        foreach (Image image in new[] { trail, healthFill }) {
+            Stretch(image.rectTransform);
+            MinimapArc.Setup(image, clockwise: true);
+        }
+        var health = healthRect.gameObject.AddComponent<HealthArcView>();
+        Bind(health, ("fill", healthFill), ("trail", trail));
 
-        RectTransform badgeGroup = CenterPivotTopLeft(NewRect("Badge", group), 0f, 0f, 74f, 80f);
-        Image badge = PlainImage("Circle", badgeGroup, "Badges/badge_health.png");
-        Stretch(badge.rectTransform);
-        Image icon = PlainImage("Icon", badgeGroup, "Icons/icon_heart.png");
-        Center(icon.rectTransform, 0f, 3f, 37f, 37f);
+        RectTransform oxygenRect = Stretch(NewRect("Oxygen Arc", group));
+        var oxygenGroup = oxygenRect.gameObject.AddComponent<CanvasGroup>();
+        Stretch(PlainImage("Frame", oxygenRect, folder + "minimap_oxygen_frame.png").rectTransform);
+        Image oxygenFill = PlainImage("Fill", oxygenRect, folder + "minimap_oxygen_fill.png");
+        Stretch(oxygenFill.rectTransform);
+        MinimapArc.Setup(oxygenFill, clockwise: false);
+        // Belum ada sprite busur O₂ merah: pakai busur HP yang dicerminkan ke kanan.
+        Image dangerFill = PlainImage("Danger Fill", oxygenRect, folder + "minimap_hp_fill.png");
+        Stretch(dangerFill.rectTransform);
+        dangerFill.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
+        MinimapArc.Setup(dangerFill, clockwise: true);
+        dangerFill.gameObject.SetActive(false);
 
-        var view = group.gameObject.AddComponent<HealthBarView>();
-        Bind(view, ("frame", frame), ("frameNormal", Load("Bars/bar_frame_health.png")),
-            ("frameCritical", Load("Bars/bar_frame_health_critical.png")), ("badge", badge),
-            ("badgeNormal", Load("Badges/badge_health.png")), ("badgeCritical", Load("Badges/badge_health_critical.png")),
-            ("badgeGroup", badgeGroup), ("fill", fill), ("fillNormal", Load("Bars/bar_fill_health.png")),
-            ("fillCritical", Load("Bars/bar_fill_health_critical.png")), ("trail", trail), ("label", label));
-        SetFloat(view, "innerWidth", frameWidth - paddingLeft - paddingRight);
-        return view;
+        (Image chip, TextMeshProUGUI chipLabel) = BuildOxygenChip(parent, fonts);
+        var oxygen = oxygenRect.gameObject.AddComponent<OxygenArcView>();
+        Bind(oxygen, ("arcGroup", oxygenGroup), ("arcRect", oxygenRect), ("fill", oxygenFill),
+            ("dangerFill", dangerFill), ("chip", chip), ("chipWarning", Load("Panels/chip_warning_yellow.png")),
+            ("chipDanger", Load("Panels/chip_warning_red.png")), ("chipLabel", chipLabel));
+        return (health, oxygen, minimapGroup);
     }
 
-    private static OxygenBarView BuildOxygen(RectTransform parent, Fonts fonts) {
-        const float frameLeft = 40f;
-        const float frameWidth = 340f;
-        const float segmentWidth = 26.5f;
-        const float segmentGap = 4.25f;
-        const float segmentHeight = 20f;
-
-        RectTransform group = TopLeft(NewRect("Oxygen Bar", parent), 190f, 118f, 560f, 130f);
-        var canvasGroup = group.gameObject.AddComponent<CanvasGroup>();
-        canvasGroup.interactable = false;
-        canvasGroup.blocksRaycasts = false;
-        RectTransform content = TopLeft(NewRect("Content", group), 0f, 0f, 560f, 130f);
-
-        Image frame = SlicedImage("Frame", content, "Bars/bar_frame_oxygen.png");
-        TopLeft(frame.rectTransform, frameLeft, 11f, frameWidth, SpriteHeight(frame));
-
-        var segments = new Image[SegmentCount];
-        for (int i = 0; i < SegmentCount; i++) {
-            Image segment = SlicedImage($"Segment {i + 1}", content, "Bars/o2_segment_full.png");
-            TopLeft(segment.rectTransform, frameLeft + 22.7f + i * (segmentWidth + segmentGap), 11f + 5.7f,
-                segmentWidth, segmentHeight);
-            segments[i] = segment;
-        }
-
-        TextMeshProUGUI label = Text("Value", content, fonts.Bold, "O<sub>2</sub> 100%", 23f, Color.white,
-            TextAlignmentOptions.MidlineLeft);
-        TopLeft(label.rectTransform, frameLeft + frameWidth + 14f, 11f, 150f, 34f);
-
-        RectTransform badgeGroup = CenterPivotTopLeft(NewRect("Badge", content), 0f, 0f, 62f, 68f);
-        Image badge = PlainImage("Circle", badgeGroup, "Badges/badge_oxygen.png");
-        Stretch(badge.rectTransform);
-        Image icon = PlainImage("Icon", badgeGroup, "Icons/icon_oxygen.png");
-        Center(icon.rectTransform, 0f, 3f, 32f, 32f);
-
-        Image chip = SlicedImage("Warning Chip", content, "Panels/chip_warning_yellow.png");
-        TopLeft(chip.rectTransform, 0f, 74f, 372f, SpriteHeight(chip));
-        Image arrow = PlainImage("Arrow", chip.rectTransform, "Icons/icon_arrow_up.png");
+    /// Chip "Segera kembali ke darat!" di tengah atas, supaya tetap terlihat walau minimap tertutup chat.
+    private static (Image, TextMeshProUGUI) BuildOxygenChip(RectTransform parent, Fonts fonts) {
+        const float width = 372f;
+        Image chip = SlicedImage("Oxygen Warning Chip", parent, "Panels/chip_warning_yellow.png");
+        RectTransform rect = chip.rectTransform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, -30f);
+        rect.sizeDelta = new Vector2(width, SpriteHeight(chip));
+        Image arrow = PlainImage("Arrow", rect, "Icons/icon_arrow_up.png");
         TopLeft(arrow.rectTransform, 20f, 11f, 24f, 24f);
-        TextMeshProUGUI chipLabel = Text("Label", chip.rectTransform, fonts.Bold, "Segera kembali ke darat!", 23f, Color.white,
+        TextMeshProUGUI label = Text("Label", rect, fonts.Bold, "Segera kembali ke darat!", 23f, Color.white,
             TextAlignmentOptions.Midline);
-        TopLeft(chipLabel.rectTransform, 44f, 3f, 320f, 40f);
+        TopLeft(label.rectTransform, 44f, 3f, 320f, 40f);
         chip.gameObject.SetActive(false);
-
-        var view = group.gameObject.AddComponent<OxygenBarView>();
-        Bind(view, ("group", canvasGroup), ("content", content), ("frame", frame),
-            ("frameNormal", Load("Bars/bar_frame_oxygen.png")), ("frameWarning", Load("Bars/bar_frame_oxygen_warning.png")),
-            ("frameDanger", Load("Bars/bar_frame_oxygen_danger.png")), ("badge", badge),
-            ("badgeNormal", Load("Badges/badge_oxygen.png")), ("badgeWarning", Load("Badges/badge_oxygen_warning.png")),
-            ("badgeDanger", Load("Badges/badge_oxygen_danger.png")), ("badgeGroup", badgeGroup),
-            ("segmentFull", Load("Bars/o2_segment_full.png")), ("segmentWarning", Load("Bars/o2_segment_warning.png")),
-            ("segmentDanger", Load("Bars/o2_segment_danger.png")), ("segmentEmpty", Load("Bars/o2_segment_empty.png")),
-            ("label", label), ("chip", chip), ("chipWarning", Load("Panels/chip_warning_yellow.png")),
-            ("chipDanger", Load("Panels/chip_warning_red.png")), ("chipLabel", chipLabel));
-        BindArray(view, "segments", segments);
-        return view;
+        return (chip, label);
     }
 
     private static Canvas BuildCoin(RectTransform parent, Fonts fonts) {

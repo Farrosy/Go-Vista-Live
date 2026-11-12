@@ -18,10 +18,23 @@ public class PlayerInputHub : MonoBehaviour
     private bool chatTypingLocked;
     private bool deathLocked;
     private bool stunLocked;
+    private bool panelLocked;
     private bool ignoreJoystickUntilNeutral;
 
-    /// True saat dialog/cutscene, menu pause, sedang mengetik chat, atau layar mati: gerak, sprint, dan look dimatikan.
-    public bool InputLocked => inputLocked || pauseLocked || chatTypingLocked || deathLocked;
+    /// True saat dialog/cutscene, menu pause, sedang mengetik chat, layar mati, atau panel HUD (mis. Daftar Quest)
+    /// terbuka: gerak, sprint, dan look dimatikan.
+    public bool InputLocked => inputLocked || pauseLocked || chatTypingLocked || deathLocked || panelLocked;
+
+    /// True saat dialog, menu pause/travel, atau layar mati sedang tampil. Panel HUD tidak boleh dibuka
+    /// (dan ditutup kalau sedang terbuka) selama ini.
+    public bool OverlayActive => inputLocked || pauseLocked || deathLocked;
+
+    /// True sejak pemain mati (tenggelam, tertabrak, jatuh) sampai bangkit lagi. Tombol HUD seperti Quest dan mic
+    /// disembunyikan selama ini.
+    public bool DeathLocked => deathLocked;
+
+    /// Aman dipanggil walau hub belum ada di scene.
+    public static bool IsDeathLocked => Instance != null && Instance.deathLocked;
 
     /// InputLocked, atau sedang tertabrak/bangkit: gerak, sprint, dan lompat mati, tapi kamera tetap bisa digeser.
     public bool MovementLocked => InputLocked || stunLocked;
@@ -106,6 +119,15 @@ public class PlayerInputHub : MonoBehaviour
     {
         if (deathLocked == locked) return;
         deathLocked = locked;
+        if (locked) ignoreJoystickUntilNeutral = true;
+        ClearPendingInput();
+    }
+
+    /// <summary>Lock selama panel HUD modal terbuka (Daftar Quest). O₂ tetap berkurang, beda dengan pause.</summary>
+    public void SetPanelLocked(bool locked)
+    {
+        if (panelLocked == locked) return;
+        panelLocked = locked;
         if (locked) ignoreJoystickUntilNeutral = true;
         ClearPendingInput();
     }

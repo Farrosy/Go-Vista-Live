@@ -28,6 +28,16 @@ public class PlayerProgress {
     /// <summary>Nama pemain yang tampil di daftar pemain (lihat PlayerNameRules). Kosong = "Player N".</summary>
     public string playerName = "";
 
+    // ---------------------------------------------------------------- Quest (lihat QuestService)
+    /// <summary>Quest yang sedang berjalan, urut dari yang paling lama diterima.</summary>
+    public List<QuestProgress> activeQuests = new List<QuestProgress>();
+    /// <summary>ID quest (QuestData.Id) yang sudah selesai. Quest ini tidak bisa diterima lagi.</summary>
+    public List<string> completedQuests = new List<string>();
+    /// <summary>Quest yang dipin pemain (tampil paling atas). Kosong = tidak ada.</summary>
+    public string pinnedQuestId = "";
+    /// <summary>Ada quest baru yang belum dilihat: tanda ! di tombol Quest. Hilang saat panel dibuka.</summary>
+    public bool hasNewQuest;
+
     // ---------------------------------------------------------------- Posisi terakhir (TIDAK DIPAKAI)
     // Dulu dipakai untuk spawn di posisi terakhir. Sekarang pemain selalu spawn di PlayerSpawnPoint,
     // dan ProgressService.Migrate() mengosongkan field ini. Dibiarkan supaya save lama tetap terbaca.
@@ -85,4 +95,12 @@ public class DialogueAnswer {
     public string questionKey = "";
     public string optionId = "";
     public bool correct;
+}
+
+/// <summary>Progres satu quest yang sedang berjalan.</summary>
+[Serializable]
+public class QuestProgress {
+    public string questId = "";
+    /// <summary>ID tujuan (QuestData.ObjectiveId) yang sudah selesai.</summary>
+    public List<string> completedObjectives = new List<string>();
 }

@@ -9,7 +9,7 @@ public enum ChatContext {
     Hidden,
     /// Ruang tunggu room (setelah join, sebelum MULAI). Panel mulai tertutup supaya tidak menutupi daftar pemain.
     WaitingRoom,
-    /// Di dalam world/venue. Panel mulai terbuka.
+    /// Di dalam world/venue. Panel mulai tertutup supaya minimap terlihat; tombol chat pindah ke bawah minimap.
     InGame,
 }
 
@@ -136,7 +136,8 @@ public sealed class ChatPanel : MonoBehaviour {
             SetExpanded(false);
             SetUnread(0);
         } else {
-            SetExpanded(context == ChatContext.InGame);
+            SetExpanded(false);
+            PlaceToggle(context);
         }
         RefreshVisibility();
     }
@@ -149,6 +150,16 @@ public sealed class ChatPanel : MonoBehaviour {
             if (_ui.Input.isFocused) _ui.Input.DeactivateInputField();
             SetTyping(false);
         }
+    }
+
+    /// Di dalam game tombol chat ada di bawah minimap (storyboard HUD); di ruang tunggu tidak ada minimap,
+    /// jadi tombol tetap di pojok kiri atas.
+    private void PlaceToggle(ChatContext context) {
+        var rect = (RectTransform)_ui.ToggleButton.transform;
+        if (context == ChatContext.InGame)
+            ChatUiKit.Place(rect, HudLayout.ChatButtonLeft, HudLayout.ButtonsTop, ChatTheme.ToggleSize, ChatTheme.ToggleSize);
+        else
+            ChatUiKit.Place(rect, ChatTheme.ScreenMargin, ChatTheme.ScreenMargin, ChatTheme.ToggleSize, ChatTheme.ToggleSize);
     }
 
     private void Expand() => SetExpanded(true);
