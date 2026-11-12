@@ -234,11 +234,12 @@ public static class CharacterSelectBuilder {
         var turntable = new GameObject("Turntable").transform;
         turntable.SetParent(stageGo.transform, false);
 
-        // Karakter ~2 m (kaki di y -0.6). Kamera di depan (+Z), menghadap ke karakter.
+        // Karakter 1.8 m (kaki di y -0.08, lantai Floor di y -0.10). Kamera di depan (+Z),
+        // sedikit menunduk supaya lantai terlihat.
         var camGo = new GameObject("Preview Camera", typeof(Camera));
         camGo.transform.SetParent(stageGo.transform, false);
-        camGo.transform.localPosition = new Vector3(0f, 0.45f, 4.6f);
-        camGo.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+        camGo.transform.localPosition = new Vector3(0f, 1.22f, 4.07f);
+        camGo.transform.localRotation = Quaternion.Euler(7f, 180f, 0f);
         var cam = camGo.GetComponent<Camera>();
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = StageColor;

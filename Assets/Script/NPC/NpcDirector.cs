@@ -53,10 +53,14 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
     [Header("Scheduling")]
     [Tooltip("Seconds between authority re-evaluations (catches clients joining/leaving World). Kept low-frequency, not per-frame.")]
     [SerializeField] private float reEvalInterval = 1f;
+    [Tooltip("How many NPCs the authority instantiates per frame when spawning the roster. Lower = smoother entry, roster takes longer to fill.")]
+    [SerializeField] private int spawnPerFrame = 4;
 
     private Realtime _realtime;
     private RealtimeView _view;
     private Coroutine _loop;
+    private Coroutine _spawnRoutine;
+    private bool _spawning;
 
     void Awake()
     {
@@ -77,6 +81,10 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
         VenueTravelManager.VenueChanged -= Evaluate;
         if (_loop != null) StopCoroutine(_loop);
         _loop = null;
+        // StopCoroutine does not run the iterator's finally block, so clear the guard here too.
+        if (_spawnRoutine != null) StopCoroutine(_spawnRoutine);
+        _spawnRoutine = null;
+        _spawning = false;
     }
 
     protected override void OnRealtimeModelReplaced(NpcDirectorModel previousModel, NpcDirectorModel currentModel)
@@ -117,10 +125,18 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
             return;
         }
 
+        if (_spawning) return;   // a batched spawn is in progress; it finishes (or aborts) on its own
+
         if (!model.rosterSpawned)
-            SpawnRoster();
+        {
+            // Flag BEFORE StartCoroutine: its first step runs synchronously and may re-enter Evaluate.
+            _spawning = true;
+            _spawnRoutine = StartCoroutine(SpawnRoster());
+        }
         else
+        {
             ResumeRoster();
+        }
     }
 
     /// Authority = lowest owner-clientID among avatars currently in the World venue, and that's us,
@@ -148,8 +164,26 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
         return authorityId != int.MaxValue && myId == authorityId;
     }
 
-    /// First authority only: instantiate the crowd once, into the persistent MainMultiplayerScene.
-    private void SpawnRoster()
+    /// Authority only: instantiate the crowd into the persistent MainMultiplayerScene.
+    /// Spread over several frames (spawnPerFrame each) — instantiating the whole roster in one frame
+    /// froze the game for a moment right after entering the world.
+    /// Resumable: it only spawns what's missing (count − NPCs that already exist), and rosterSpawned is
+    /// set only once the roster is complete. If this authority disconnects or loses authority mid-spawn,
+    /// it stops, and the next authority tops the roster up instead of leaving it half-filled or doubling it.
+    private IEnumerator SpawnRoster()
+    {
+        try
+        {
+            foreach (object step in SpawnMissingNpcs()) yield return step;
+        }
+        finally
+        {
+            _spawning = false;
+            _spawnRoutine = null;
+        }
+    }
+
+    private IEnumerable<object> SpawnMissingNpcs()
     {
         var options = new Realtime.InstantiateOptions
         {
@@ -163,11 +197,20 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
         Scene persistent = gameObject.scene; // the director lives in MainMultiplayerScene.
         var rng = new System.Random();
         var placed = new List<Vector3>();
+        for (int i = 0; i < NpcAgent.All.Count; i++)
+            if (NpcAgent.All[i] != null) placed.Add(NpcAgent.All[i].transform.position);
         float minSpacingSqr = minSpacing * minSpacing;
+        int existing = placed.Count;
         int spawned = 0;
 
-        for (int i = 0; i < count; i++)
+        for (int i = existing; i < count; i++)
         {
+            // Between batches the room may have dropped or another client may have become authority.
+            if (!_realtime.connected || model == null || !ComputeIsAuthority())
+            {
+                Debug.Log($"[NpcDirector] Roster spawn stopped at {existing + spawned}/{count}; the next authority will finish it.", this);
+                yield break;
+            }
             if (!TrySampleWalkable(rng, minSpacingSqr, placed, out var pos)) continue;
             var rot = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
             var go = Realtime.Instantiate(PickPrefabName(rng), pos, rot, options);
@@ -177,10 +220,11 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
             if (go.scene != persistent) SceneManager.MoveGameObjectToScene(go, persistent);
             placed.Add(pos);
             spawned++;
+            if (spawned % Mathf.Max(1, spawnPerFrame) == 0) yield return null;
         }
 
         model.rosterSpawned = true;
-        Debug.Log($"[NpcDirector] Spawned {spawned}/{count} networked NPCs into '{persistent.name}'.", this);
+        Debug.Log($"[NpcDirector] Spawned {spawned} networked NPCs ({existing} already existed, target {count}) into '{persistent.name}'.", this);
     }
 
     /// Authority after a migration (roster already exists): take ownership of every NPC so its agent
