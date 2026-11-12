@@ -130,7 +130,25 @@ public static class ProgressService {
     }
 
     private static void OnDialogueFinished(DialogueData dialogue) {
+        if (ShouldAskAgain(dialogue)) return; // pemain memilih jawaban "tanya lagi nanti"
         MarkDialogueCompleted(dialogue.Id);
+    }
+
+    /// <summary>True kalau jawaban terakhir pemain di salah satu pertanyaan dialog ini adalah opsi
+    /// askAgainLater. Dialog seperti ini tidak dianggap tamat dan tidak memberi quest.</summary>
+    public static bool ShouldAskAgain(DialogueData dialogue) {
+        if (dialogue == null || dialogue.lines == null) return false;
+        for (int i = 0; i < dialogue.lines.Length; i++) {
+            DialogueLine line = dialogue.lines[i];
+            if (line == null || !line.isQuestion || line.question?.options == null) continue;
+            DialogueAnswer answer = GetDialogueAnswer(dialogue.QuestionKey(i));
+            if (answer == null) continue;
+            DialogueOption[] options = line.question.options;
+            for (int o = 0; o < options.Length; o++)
+                if (options[o] != null && options[o].askAgainLater && DialogueData.OptionId(options[o], o) == answer.optionId)
+                    return true;
+        }
+        return false;
     }
 
     /// <summary>Jawaban terakhir untuk pertanyaan ini, atau null kalau belum pernah dijawab.</summary>
@@ -193,6 +211,11 @@ public static class ProgressService {
         p.completedDialogues ??= new List<string>();
         p.dialogueAnswers ??= new List<DialogueAnswer>();
         p.characterId ??= "";
+        p.activeQuests ??= new List<QuestProgress>();
+        p.activeQuests.RemoveAll(q => q == null || string.IsNullOrEmpty(q.questId));
+        foreach (QuestProgress quest in p.activeQuests) quest.completedObjectives ??= new List<string>();
+        p.completedQuests ??= new List<string>();
+        p.pinnedQuestId ??= "";
         p.playerName = PlayerNameRules.Sanitize(p.playerName);
         // Posisi terakhir tidak dipakai lagi (spawn selalu di PlayerSpawnPoint). Kosongkan data
         // lama supaya ikut terhapus dari cloud di save berikutnya.

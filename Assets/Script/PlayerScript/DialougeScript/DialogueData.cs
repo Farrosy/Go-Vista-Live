@@ -33,6 +33,9 @@ public class DialogueOption
     public bool isCorrect;
     [Tooltip("Balasan NPC kalau opsi ini dipilih. Setelah habis, dialog lanjut ke baris berikutnya.")]
     public DialogueReplyLine[] reply;
+    [Tooltip("ON = kalau pemain memilih opsi ini, dialog TIDAK dianggap tamat: NPC menanyakannya lagi saat diajak " +
+             "bicara berikutnya, dan QuestGiver yang menunggu dialog ini tidak memberi quest (mis. jawaban 'No').")]
+    public bool askAgainLater;
 }
 
 [System.Serializable]
