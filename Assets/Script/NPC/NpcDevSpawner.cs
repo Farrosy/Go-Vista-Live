@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
@@ -50,40 +51,54 @@ public class NpcDevSpawner : MonoBehaviour
     [Tooltip("NavMesh.SamplePosition search radius when snapping a random point onto the mesh.")]
     [SerializeField] private float sampleRadius = 3f;
 
+    [Header("Scheduling (same rule as NpcDirector)")]
+    [Tooltip("Maximum NPCs instantiated in one frame (also capped by Spawn Budget Ms).")]
+    [SerializeField] private int spawnPerFrame = 4;
+    [Tooltip("Milliseconds per frame that may be spent instantiating NPCs. At least one NPC per frame.")]
+    [SerializeField] private float spawnBudgetMs = 4f;
+
     [Header("Determinism")]
     [Tooltip("0 = fully random each run; any other value seeds the layout so runs are repeatable.")]
     [SerializeField] private int randomSeed = 0;
 
     private readonly List<Vector3> placed = new List<Vector3>();
 
-    void Start()
+    IEnumerator Start()
     {
         // Never in a build.
         if (!Application.isEditor)
         {
             Destroy(gameObject);
-            return;
+            yield break;
         }
 
         // Never when the networked stack is live — Phase-4 NpcDirector owns the crowd there.
         if (FindAnyObjectByType<Realtime>() != null)
         {
             Debug.Log("[NpcDevSpawner] Realtime present — standing down (NpcDirector owns the crowd in multiplayer).", this);
-            return;
+            yield break;
         }
 
         var pool = BuildPool();
         if (pool.Length == 0)
         {
             Debug.LogWarning("[NpcDevSpawner] No prefabs (assign the crowd variants or keep them in Assets/Resources).", this);
-            return;
+            yield break;
         }
 
         var rng = randomSeed != 0 ? new System.Random(randomSeed) : new System.Random();
         float minSpacingSqr = minSpacing * minSpacing;
         int spawned = 0;
+        int spawnedThisFrame = 0;
+        var frameTimer = System.Diagnostics.Stopwatch.StartNew();
         for (int i = 0; i < count; i++)
         {
+            if (!SpawnBudget.CanSpawnMore(spawnedThisFrame, frameTimer.Elapsed.TotalMilliseconds, spawnBudgetMs, spawnPerFrame))
+            {
+                yield return null;
+                spawnedThisFrame = 0;
+                frameTimer.Restart();
+            }
             if (!TrySampleWalkable(rng, minSpacingSqr, out var pos)) continue;
             var prefab = pool[rng.Next(pool.Length)]; // random 4-way character
             var go = Instantiate(prefab, pos, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f), transform);
@@ -91,6 +106,7 @@ public class NpcDevSpawner : MonoBehaviour
             DisableNetworking(go);
             placed.Add(pos);
             spawned++;
+            spawnedThisFrame++;
         }
         Debug.Log($"[NpcDevSpawner] Spawned {spawned}/{count} dev NPCs onto the Pedestrian navmesh.", this);
     }

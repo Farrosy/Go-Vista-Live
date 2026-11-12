@@ -53,8 +53,11 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
     [Header("Scheduling")]
     [Tooltip("Seconds between authority re-evaluations (catches clients joining/leaving World). Kept low-frequency, not per-frame.")]
     [SerializeField] private float reEvalInterval = 1f;
-    [Tooltip("How many NPCs the authority instantiates per frame when spawning the roster. Lower = smoother entry, roster takes longer to fill.")]
+    [Tooltip("Maximum NPCs the authority instantiates in one frame while spawning the roster (also capped by Spawn Budget Ms).")]
     [SerializeField] private int spawnPerFrame = 4;
+    [Tooltip("Milliseconds per frame the authority may spend instantiating NPCs. At least one NPC is spawned per frame. " +
+             "Lower = smoother entry into World, roster takes longer to fill (~1 NPC per frame on slow devices).")]
+    [SerializeField] private float spawnBudgetMs = 4f;
 
     private Realtime _realtime;
     private RealtimeView _view;
@@ -165,8 +168,9 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
     }
 
     /// Authority only: instantiate the crowd into the persistent MainMultiplayerScene.
-    /// Spread over several frames (spawnPerFrame each) — instantiating the whole roster in one frame
-    /// froze the game for a moment right after entering the world.
+    /// Spread over several frames by a time budget (spawnBudgetMs, at most spawnPerFrame NPCs, at least one) —
+    /// instantiating the whole roster in one frame froze the game right after entering the world, and a fixed
+    /// 4 per frame still cost ~35 ms per frame for ~30 frames because each NPC is heavy.
     /// Resumable: it only spawns what's missing (count − NPCs that already exist), and rosterSpawned is
     /// set only once the roster is complete. If this authority disconnects or loses authority mid-spawn,
     /// it stops, and the next authority tops the roster up instead of leaving it half-filled or doubling it.
@@ -202,10 +206,18 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
         float minSpacingSqr = minSpacing * minSpacing;
         int existing = placed.Count;
         int spawned = 0;
+        int spawnedThisFrame = 0;
+        var frameTimer = System.Diagnostics.Stopwatch.StartNew();
 
         for (int i = existing; i < count; i++)
         {
-            // Between batches the room may have dropped or another client may have become authority.
+            if (!SpawnBudget.CanSpawnMore(spawnedThisFrame, frameTimer.Elapsed.TotalMilliseconds, spawnBudgetMs, spawnPerFrame))
+            {
+                yield return null;
+                spawnedThisFrame = 0;
+                frameTimer.Restart();
+            }
+            // Between frames the room may have dropped or another client may have become authority.
             if (!_realtime.connected || model == null || !ComputeIsAuthority())
             {
                 Debug.Log($"[NpcDirector] Roster spawn stopped at {existing + spawned}/{count}; the next authority will finish it.", this);
@@ -220,7 +232,7 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
             if (go.scene != persistent) SceneManager.MoveGameObjectToScene(go, persistent);
             placed.Add(pos);
             spawned++;
-            if (spawned % Mathf.Max(1, spawnPerFrame) == 0) yield return null;
+            spawnedThisFrame++;
         }
 
         model.rosterSpawned = true;
