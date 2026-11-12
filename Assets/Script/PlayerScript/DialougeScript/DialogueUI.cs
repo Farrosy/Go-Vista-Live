@@ -28,6 +28,19 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
     [Tooltip("Opsional: parent semua tombol, ikut disembunyikan/ditampilkan")]
     [SerializeField] private GameObject optionsRoot;
 
+    [Header("Gaya per pembicara (opsional)")]
+    [Tooltip("Gambar kotak dialog yang diganti sesuai pembicara (mis. Box). Kosong = tidak pernah diganti.")]
+    [SerializeField] private Image boxImage;
+    [Tooltip("Pembicara dengan kotak berwarna sendiri, mis. Vio = biru, Vira = pink. Pembicara lain memakai gambar asli.")]
+    [SerializeField] private SpeakerStyle[] speakerStyles;
+
+    [System.Serializable]
+    private struct SpeakerStyle
+    {
+        public string speaker;
+        public Sprite box;
+    }
+
     [Header("Audio")]
     [SerializeField] private AudioSource voiceSource;
 
@@ -40,6 +53,11 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
     public static event System.Action<DialogueData> DialogueFinished;
     /// Dipanggil saat pemain memilih opsi: (dialog, kunci pertanyaan, id opsi, benar?). Dipakai ProgressService.
     public static event System.Action<DialogueData, string, string, bool> AnswerChosen;
+    /// Dipanggil setiap baris baru mulai tampil, dengan nama pembicaranya (dipakai maskot duo untuk animasi bicara).
+    public static event System.Action<string> SpeakerChanged;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => SpeakerChanged = null;
 
     private CanvasGroup group;
     private CameraOrbit cameraOrbit;
@@ -54,11 +72,13 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
     private System.Action onEnded;
     private readonly List<DialogueData> queue = new List<DialogueData>();   // stage berikutnya dalam satu interaksi
     private int queueIndex;
+    private Sprite defaultBox;
 
     void Awake()
     {
         Instance = this;
         group = GetComponent<CanvasGroup>();
+        if (boxImage) defaultBox = boxImage.sprite;
 
         if (optionButtons != null)
         {
@@ -121,7 +141,6 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
         if (d.focusCamera && cameraOrbit && npcPoint)
             cameraOrbit.FocusOn(npcPoint, d.cameraDistance, d.cameraHeight, d.cameraSideOffset);
 
-        if (nameLabel) nameLabel.text = d.speakerName;
         HideOptions();
         ShowMainLine();
     }
@@ -170,17 +189,22 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
     private void ShowMainLine()
     {
         var line = CurrentMain;
-        ShowText(line.text, line.portraitOverride);
+        ShowText(line.speaker, line.text, line.portraitOverride);
     }
 
     private void ShowReplyLine()
     {
         var line = reply[replyIndex];
-        ShowText(line.text, line.portraitOverride);
+        ShowText(line.speaker, line.text, line.portraitOverride);
     }
 
-    private void ShowText(string text, Sprite portraitOverride)
+    private void ShowText(string lineSpeaker, string text, Sprite portraitOverride)
     {
+        string speaker = data.SpeakerFor(lineSpeaker);
+        if (nameLabel) nameLabel.text = speaker;
+        ApplySpeakerStyle(speaker);
+        SpeakerChanged?.Invoke(speaker);
+
         Sprite face = portraitOverride ? portraitOverride : data.portrait;
         if (portraitImage)
         {
@@ -326,6 +350,7 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
         PlayerInputHub.Instance.SetLocked(false);
         if (InteractButtonUI.Instance) InteractButtonUI.Instance.SetSuppressed(false);
         queue.Clear();
+        SpeakerChanged?.Invoke(null);
 
         var cb = onEnded;
         onEnded = null;
@@ -344,6 +369,16 @@ public class DialogueUI : MonoBehaviour, IPointerClickHandler
     private void ShowContinue(bool v)
     {
         if (continueIndicator) continueIndicator.SetActive(v);
+    }
+
+    private void ApplySpeakerStyle(string speaker)
+    {
+        if (!boxImage) return;
+        Sprite box = defaultBox;
+        if (speakerStyles != null)
+            foreach (var style in speakerStyles)
+                if (style.box && style.speaker == speaker) { box = style.box; break; }
+        boxImage.sprite = box;
     }
 
     private void SetVisible(bool v)
