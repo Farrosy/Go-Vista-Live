@@ -60,6 +60,8 @@ public class PlayerController : MonoBehaviour
 
     public bool IsLocal { get; private set; }
     public bool IsFrozen => frozen;
+    /// True selama masuk, menyetir, dan keluar mobil (VehicleOccupant). Gerak, lompat, dan tertabrak mati.
+    public bool InVehicle { get; private set; }
     public bool IsSprinting { get; private set; }
     public float Speed01 { get; private set; }   // 0 = diam, 0.5 = jalan, 1 = sprint
     public bool IsGroundedForAnim => Time.time - lastGroundedTime <= groundedGrace;
@@ -181,9 +183,22 @@ public class PlayerController : MonoBehaviour
         shoveTimer = seconds;
     }
 
-    /// Pindahkan avatar tanpa terhalang CharacterController.
+    /// Dipanggil VehicleOccupant. Posisi avatar selama di mobil diatur VehicleOccupant, bukan script ini.
+    public void SetInVehicle(bool value)
+    {
+        InVehicle = value;
+        launchPending = false;
+        verticalVel = 0f;
+        shoveTimer = 0f;
+        IsSprinting = false;
+        Speed01 = 0f;
+        lastGroundedTime = Time.time;
+    }
+
+    /// Pindahkan avatar tanpa terhalang CharacterController. Kalau sedang di mobil, keluar dulu tanpa animasi.
     public void TeleportTo(Vector3 position, Quaternion rotation)
     {
+        if (InVehicle && TryGetComponent(out VehicleOccupant occupant)) occupant.ExitImmediate();
         shoveTimer = 0f;
         cc.enabled = false;
         transform.SetPositionAndRotation(position, rotation);
@@ -240,7 +255,7 @@ public class PlayerController : MonoBehaviour
     /// supaya animasi Hit Knockback terlihat terpental menjauhi mobil.
     public void KnockDown(bool fatal, Vector3 pushDirection)
     {
-        if (!IsLocal) return;
+        if (!IsLocal || InVehicle) return;
         Vector3 face = Vector3.ProjectOnPlane(-pushDirection, Vector3.up);
         if (face.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(face.normalized, Vector3.up);
         IsKnockedDown = true;
@@ -268,6 +283,16 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         UpdateKnockdown();
+
+        if (InVehicle)
+        {
+            // Diam di kursi. Speed 0 + menapak supaya kembali ke Locomotion idle setelah animasi keluar.
+            IsSprinting = false;
+            Speed01 = 0f;
+            lastGroundedTime = Time.time;
+            UpdateAnimator();
+            return;
+        }
 
         if (frozen)
         {
@@ -331,7 +356,7 @@ public class PlayerController : MonoBehaviour
     {
         var input = PlayerInputHub.Instance;
         // Pakai toleransi menapak tanah: cc.isGrounded bisa false sesaat di tanjakan/anak tangga.
-        if (!IsLocal || frozen || wading || IsKnockedDown || (input && input.MovementLocked) || !IsGroundedForAnim ||
+        if (!IsLocal || frozen || wading || IsKnockedDown || InVehicle || (input && input.MovementLocked) || !IsGroundedForAnim ||
             launchPending ||
             Time.time < nextJumpTime)
             return;

@@ -14,6 +14,7 @@ public class InteractButtonUI : MonoBehaviour
 
     private readonly List<Interactable> inRange = new List<Interactable>();
     private Interactable current;
+    private Interactable forced;
     private CanvasGroup group;
     private bool suppressed;
     private bool previewing;
@@ -47,7 +48,11 @@ public class InteractButtonUI : MonoBehaviour
         float bestDist = float.MaxValue;
         // Avatar lokal bisa baru muncul setelah UI ini aktif (multiplayer), jadi diambil tiap frame.
         var player = PlayerController.Local ? PlayerController.Local.transform : null;
-        if (player && !suppressed)
+        if (forced)
+        {
+            if (!suppressed) best = forced;
+        }
+        else if (player && !suppressed)
         {
             foreach (var i in inRange)
             {
@@ -58,6 +63,14 @@ public class InteractButtonUI : MonoBehaviour
 
         if (DialogueUI.Instance != null && DialogueUI.Instance.IsActive) return;  // sembunyikan saat dialog
         if (best != current) SetCurrent(best);
+    }
+
+    /// Dipakai saat menyetir: tombol hanya untuk target ini (Keluar mobil), interactable lain di sekitar diabaikan.
+    public void SetForcedTarget(Interactable target) => forced = target;
+
+    public void ClearForcedTarget(Interactable target)
+    {
+        if (forced == target) forced = null;
     }
 
     /// Dipakai dialog: sembunyikan prompt + tombol selama dialog berjalan.

@@ -20,8 +20,12 @@ public static class SettingsPanelRedesign {
     private const float Width = 860f;
     // Baris akun ("Masuk sebagai …") pindah ke menu PROFIL (Docs/Profil/08a), jadi dialog lebih pendek.
     private const float AccountRowHeight = 70f;
-    private const float Height = 840f - AccountRowHeight;
-    private const float DoneY = 698f - AccountRowHeight;
+    // Baris MOBIL (tipe kontrol setir) disisipkan di atas SELESAI.
+    private const float DriveRowHeight = 168f;
+    private const float DriveRowY = 628f;
+    private const float Height = 840f - AccountRowHeight + DriveRowHeight;
+    private const float DoneY = 698f - AccountRowHeight + DriveRowHeight;
+    private const string DriveSectionName = "Settings Drive Section";
     private const float Pad = 44f;
     private const float Inner = Width - Pad * 2f; // 772
 
@@ -55,6 +59,8 @@ public static class SettingsPanelRedesign {
             panel.Init(Find<Slider>(rect, "Settings Sensitivity Slider"), Find<Text>(rect, "Settings Sensitivity Value"),
                        null, Find<Button>(rect, "Settings Controls Button"),
                        Find<Button>(rect, "Settings Done Button"), Find<Button>(rect, "Settings Close Button"));
+            panel.InitDriveControls(Find<Button>(rect, "Settings Drive Wheel Button"),
+                                    Find<Button>(rect, "Settings Drive Buttons Button"));
             SetLayerRecursive(rect, LayerMask.NameToLayer("UI"));
             root.SetActive(false); // dibuka lewat SettingsPanel.Open()
             return PrefabUtility.SaveAsPrefabAsset(root, PanelPrefabPath);
@@ -167,6 +173,8 @@ public static class SettingsPanelRedesign {
                     TextAnchor.MiddleLeft, SubColor).rectTransform, 122f, 60f, 560f, 30f);
         Icon("Settings Controls Chevron", controlsFace, "icon-chevron-right", SubColor, Inner - 28f - 40f, 38f, 40f);
 
+        BuildDriveRow(dialog, DriveRowY);
+
         // ---- SELESAI: tombol utama, gaya sama dengan MAIN.
         Button done = MenuButton("Settings Done Button", dialog, BlueColor, VioletColor, VioletLipColor,
                                  new Color(1f, 1f, 1f, 0.18f), 1.2f, out RectTransform doneFace);
@@ -194,6 +202,50 @@ public static class SettingsPanelRedesign {
                 done.anchoredPosition += new Vector2(0f, AccountRowHeight);
             PrefabUtility.SaveAsPrefabAsset(root, PanelPrefabPath);
             return "baris akun dihapus, SELESAI dinaikkan";
+        } finally {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
+    /// ---- MOBIL: pilih tipe kontrol belok (roda setir / tombol kiri-kanan). Warna pilihan diatur SettingsPanel.
+    private static void BuildDriveRow(RectTransform dialog, float y) {
+        Place(Label(DriveSectionName, dialog, "MOBIL", 20, true, TextAnchor.MiddleLeft, MutedColor).rectTransform,
+              Pad, y, 400f, 28f);
+        Place(Label("Settings Drive Hint", dialog, "Kontrol belok saat menyetir", 22, false, TextAnchor.MiddleLeft,
+                    SubColor).rectTransform, Pad, y + 32f, Inner, 30f);
+        float half = (Inner - 16f) * 0.5f;
+        Button wheel = GhostButton("Settings Drive Wheel Button", dialog, "icon-steering", "SETIR", 28, 40f);
+        Place((RectTransform)wheel.transform, Pad, y + 72f, half, 80f);
+        Button buttons = GhostButton("Settings Drive Buttons Button", dialog, "icon-arrow-right", "TOMBOL", 28, 36f);
+        Place((RectTransform)buttons.transform, Pad + half + 16f, y + 72f, half, 80f);
+    }
+
+    /// Patch SettingsPanel.prefab yang sudah ada (editan manual lain tetap): sisipkan baris MOBIL di atas SELESAI,
+    /// turunkan SELESAI, perpanjang dialog. Aman diulang. Dipanggil Go Vista > Mobil > Siapkan Sistem Mobil.
+    public static string AddDriveRow() {
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(PanelPrefabPath) == null)
+            return "tidak ditemukan, dilewati";
+        GameObject root = PrefabUtility.LoadPrefabContents(PanelPrefabPath);
+        try {
+            if (FindDeep(root.transform, DriveSectionName) != null)
+                return "baris MOBIL sudah ada";
+            if (!(FindDeep(root.transform, "Settings Done Button") is RectTransform done))
+                return "tombol SELESAI tidak ditemukan, dilewati";
+
+            var dialog = (RectTransform)root.transform;
+            float rowY = -done.anchoredPosition.y;   // Place(): y = jarak dari atas
+            BuildDriveRow(dialog, rowY);
+            done.anchoredPosition -= new Vector2(0f, DriveRowHeight);
+            done.SetAsLastSibling();
+            dialog.sizeDelta = new Vector2(dialog.sizeDelta.x, dialog.sizeDelta.y + DriveRowHeight);
+
+            var panel = root.GetComponent<SettingsPanel>();
+            panel.InitDriveControls(Find<Button>(dialog, "Settings Drive Wheel Button"),
+                                    Find<Button>(dialog, "Settings Drive Buttons Button"));
+            EditorUtility.SetDirty(panel);
+            SetLayerRecursive(dialog, root.layer);
+            PrefabUtility.SaveAsPrefabAsset(root, PanelPrefabPath);
+            return "baris MOBIL ditambahkan";
         } finally {
             PrefabUtility.UnloadPrefabContents(root);
         }
