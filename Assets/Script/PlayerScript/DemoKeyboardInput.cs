@@ -24,7 +24,8 @@ public sealed class DemoKeyboardInput : MonoBehaviour
         if (hub == null) return;
 
         if (Input.GetKeyDown(KeyCode.Escape)) UnlockCursor();
-        if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked) LockCursor();
+        // Selama panel/menu terbuka (mis. peta penuh, Daftar Quest) kursor tetap bebas untuk klik UI.
+        if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked && !hub.InputLocked) LockCursor();
 
         if (Cursor.lockState == CursorLockMode.Locked)
         {
