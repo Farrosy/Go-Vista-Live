@@ -38,6 +38,39 @@ public class CameraOrbit : MonoBehaviour
     private float fDistance, fHeight, fSide;
     private float blend;   // 0 = kamera normal, 1 = fokus penuh
 
+    [Header("Menyetir")]
+    [Tooltip("Jeda tanpa geser layar sebelum kamera kembali ke belakang mobil (detik)")]
+    [SerializeField] private float vehicleRecenterDelay = 1.2f;
+    [Tooltip("Kecepatan kamera kembali ke belakang mobil")]
+    [SerializeField] private float vehicleRecenterSpeed = 2.5f;
+    [Tooltip("Sudut pitch kamera saat kembali ke belakang mobil")]
+    [SerializeField] private float vehiclePitch = 12f;
+
+    private Transform vehicle;
+    private Rigidbody vehicleBody;
+    private float vehicleDistance;
+    private float vehicleHeight;
+    private float lastLookTime;
+
+    /// Kamera mengikuti mobil (dipakai VehicleOccupant selama menyetir). Target player tetap disimpan.
+    public void SetVehicleView(Transform car, float followDistance, float pivotHeight)
+    {
+        vehicle = car;
+        vehicleBody = car ? car.GetComponent<Rigidbody>() : null;
+        vehicleDistance = followDistance;
+        vehicleHeight = pivotHeight;
+        currentDistance = -1f;
+        lastLookTime = Time.time;
+    }
+
+    public void ClearVehicleView()
+    {
+        if (!vehicle) return;
+        vehicle = null;
+        vehicleBody = null;
+        currentDistance = -1f;
+    }
+
     /// Pengali jarak kamera. Di bawah 1 = zoom mendekat (dipakai saat layar mati).
     public float DistanceScale { get; set; } = 1f;
 
@@ -78,14 +111,26 @@ public class CameraOrbit : MonoBehaviour
             float lookSpeed = sensitivity * GameSettings.CameraSensitivity; // pengali dari menu Pengaturan
             yaw += look.x * lookSpeed;
             pitch = Mathf.Clamp(pitch - look.y * lookSpeed, minPitch, maxPitch);
+            if (look.sqrMagnitude > 0f) lastLookTime = Time.time;
         }
+        if (vehicle) RecenterBehindVehicle();
 
         // Pose kamera normal (selalu dihitung, jadi saat kembali posisinya persis seperti sebelum fokus)
         Quaternion orbitRot = Quaternion.Euler(pitch, yaw, 0f);
-        // Ikuti skala avatar (mis. dikecilkan di venue) supaya framing kamera sama seperti di World.
-        float avatarScale = Mathf.Max(0.05f, target.localScale.y);
-        Vector3 pivot = target.position + pivotOffset * avatarScale;
-        Vector3 orbitPos = pivot - orbitRot * Vector3.forward * (distance * DistanceScale * avatarScale);
+        Vector3 pivot;
+        Vector3 orbitPos;
+        if (vehicle)
+        {
+            pivot = vehicle.position + Vector3.up * vehicleHeight;
+            orbitPos = pivot - orbitRot * Vector3.forward * (vehicleDistance * DistanceScale);
+        }
+        else
+        {
+            // Ikuti skala avatar (mis. dikecilkan di venue) supaya framing kamera sama seperti di World.
+            float avatarScale = Mathf.Max(0.05f, target.localScale.y);
+            pivot = target.position + pivotOffset * avatarScale;
+            orbitPos = pivot - orbitRot * Vector3.forward * (distance * DistanceScale * avatarScale);
+        }
 
         blend = Mathf.MoveTowards(blend, focusing ? 1f : 0f, Time.deltaTime / Mathf.Max(0.01f, focusBlendTime));
 
@@ -110,6 +155,18 @@ public class CameraOrbit : MonoBehaviour
         ApplyPose(
             ResolveCollision(pivot, Vector3.Lerp(orbitPos, focusPos, t)),
             Quaternion.Slerp(orbitRot, focusRot, t));
+    }
+
+    /// Setelah pemain berhenti menggeser layar, kamera pelan-pelan kembali ke belakang mobil (searah laju,
+    /// termasuk saat mundur kamera tetap di belakang badan mobil).
+    private void RecenterBehindVehicle()
+    {
+        if (Time.time - lastLookTime < vehicleRecenterDelay) return;
+        float speed = vehicleBody ? vehicleBody.linearVelocity.magnitude : 0f;
+        if (speed < 1f) return;   // mobil diam: biarkan pemain melihat sekeliling
+        float t = 1f - Mathf.Exp(-vehicleRecenterSpeed * Time.deltaTime);
+        yaw = Mathf.LerpAngle(yaw, vehicle.eulerAngles.y, t);
+        pitch = Mathf.LerpAngle(pitch, vehiclePitch, t);
     }
 
     private void ApplyPose(Vector3 position, Quaternion rotation)
@@ -172,6 +229,7 @@ public class CameraOrbit : MonoBehaviour
     {
         if (!c) return true;
         if (target && c.transform.IsChildOf(target)) return true;
+        if (vehicle && c.transform.IsChildOf(vehicle)) return true;
         if (c is CharacterController) return true;
         if (c.GetComponentInParent<PlayerController>()) return true;
         if (c.GetComponentInParent<NpcController>()) return true;
