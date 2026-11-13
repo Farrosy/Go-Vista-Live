@@ -12,6 +12,12 @@ public sealed class MobileControls : MonoBehaviour
     private static SprintButton sprintButton;
     private static CanvasGroup[] dimGroups = new CanvasGroup[0];
     private static bool dimmed;
+    private static bool driving;
+    private static RectTransform controlsRoot;
+
+    /// Parent joystick & tombol (GameplayHUD). HUD menyetir dipasang di sini supaya ikut disembunyikan bersama
+    /// kontrol lain (menu, dialog, layar mati).
+    public static RectTransform ControlsRoot => controlsRoot;
 
     public static void SetVisible(bool visible)
     {
@@ -30,14 +36,28 @@ public sealed class MobileControls : MonoBehaviour
     {
         dimmed = value;
         if (value && sprintButton) sprintButton.ResetSprint();
+        ApplyGroups();
+        if (InteractButtonUI.Instance) InteractButtonUI.Instance.SetDisabled(value);
+    }
+
+    /// Saat di dalam mobil: joystick, lompat, dan lari disembunyikan (diganti HUD menyetir).
+    /// Tombol Interact tetap ada untuk Keluar, geser layar untuk kamera juga tetap jalan.
+    public static void SetDriving(bool value)
+    {
+        driving = value;
+        if (value && sprintButton) sprintButton.ResetSprint();
+        ApplyGroups();
+    }
+
+    private static void ApplyGroups()
+    {
         foreach (CanvasGroup group in dimGroups)
         {
             if (!group) continue;
-            group.alpha = value ? DimmedAlpha : 1f;
-            group.interactable = !value;
-            group.blocksRaycasts = !value;
+            group.alpha = driving ? 0f : dimmed ? DimmedAlpha : 1f;
+            group.interactable = !driving && !dimmed;
+            group.blocksRaycasts = !driving && !dimmed;
         }
-        if (InteractButtonUI.Instance) InteractButtonUI.Instance.SetDisabled(value);
     }
 
     private void Awake()
@@ -47,6 +67,7 @@ public sealed class MobileControls : MonoBehaviour
         sprintButton = GetComponentInChildren<SprintButton>(true);
         JumpButton jumpButton = GetComponentInChildren<JumpButton>(true);
         Joystick joystick = GetComponentInChildren<Joystick>(true);
+        controlsRoot = joystick ? joystick.transform.parent as RectTransform : transform as RectTransform;
         dimGroups = new[]
         {
             DimGroupFor(joystick ? joystick.gameObject : null),
