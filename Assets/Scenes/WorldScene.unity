@@ -10880,6 +10880,8 @@ GameObject:
   - component: {fileID: 242213261}
   - component: {fileID: 242213260}
   - component: {fileID: 242213259}
+  - component: {fileID: 242213264}
+  - component: {fileID: 242213263}
   m_Layer: 0
   m_Name: DockTravelPoint
   m_TagString: Untagged
@@ -10957,6 +10959,48 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &242213263
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242213258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00818d01f7ef7645a71213a85b2d91b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapBlip
+  pixelSize: 28
+  keepUpright: 1
+  clampToEdge: 1
+--- !u!114 &242213264
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242213258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f709c7dd788d4e4a9177a93761ce7c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapItem
+  itemSprite: {fileID: 21300000, guid: 45b2905f5deeeba4194f960e0d74ebf4, type: 3}
+  spriteColor: {r: 1, g: 1, b: 1, a: 1}
+  flipInX: 0
+  flipInY: 0
+  raycastTarget: 0
+  sizeOnMinimap: {x: 2, y: 0, z: 2}
+  sizeOnHighlight: 20
+  orderInLayer: 3
+  particlesHighlightMode: 0
+  particlesSprite: {fileID: 0}
+  particlesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  particlesSizeMultiplier: 1
+  followRotationOf: 0
+  customGameObjectToFollowRotation: {fileID: 0}
+  movementsSmoothing: 14
 --- !u!1001 &246618346
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -14452,6 +14496,69 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7035097163130550124, guid: 1e2902991d2906e479032fc447a87c67, type: 3}
   m_PrefabInstance: {fileID: 315044346}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &317195916
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 317195918}
+  - component: {fileID: 317195917}
+  m_Layer: 0
+  m_Name: Minimap Scanner (City)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &317195917
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 317195916}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42c23b4d5c5c80a4b996c7075f452c8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapScanner
+  currentTab: 1
+  _textureResultOfScan: {fileID: 2800000, guid: aabc23ff456cc5047acaed6b6d7d9f01, type: 3}
+  scanHeight: 400
+  scanArea: 19
+  scanResolution: 4
+  imageProcessing: 0
+  referenceVolume: {fileID: 0}
+  skipShadowInCapture: 0
+  skipFogInCapture: 0
+  skipGlowInCapture: 0
+  skipColorGradingInCapture: 0
+  skipTonemappingInCapture: 0
+  colorOfScanInGame: {r: 1, g: 1, b: 1, a: 1}
+  gameObjectsToIgnore:
+  - {fileID: 1135823176}
+  - {fileID: 186380691}
+  - {fileID: 1687959295}
+  - {fileID: 1254573028}
+  - {fileID: 85440372}
+--- !u!4 &317195918
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 317195916}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 25, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &317725153
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -19716,6 +19823,81 @@ MonoBehaviour:
   m_Center: {x: 0, y: 0, z: 0}
   m_Area: 1
   m_AffectedAgents: ffffffffi
+--- !u!1 &449653157
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 449653158}
+  - component: {fileID: 449653160}
+  - component: {fileID: 449653159}
+  m_Layer: 0
+  m_Name: Central Plaza
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &449653158
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 449653157}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 248.94658, y: 23.2, z: 153.95206}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1080257150}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &449653159
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 449653157}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00818d01f7ef7645a71213a85b2d91b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapBlip
+  pixelSize: 28
+  keepUpright: 1
+  clampToEdge: 0
+--- !u!114 &449653160
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 449653157}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f709c7dd788d4e4a9177a93761ce7c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapItem
+  itemSprite: {fileID: 21300000, guid: 18f3398e7f4adc243960060c1ad6e2a5, type: 3}
+  spriteColor: {r: 1, g: 1, b: 1, a: 1}
+  flipInX: 0
+  flipInY: 0
+  raycastTarget: 0
+  sizeOnMinimap: {x: 2, y: 0, z: 2}
+  sizeOnHighlight: 20
+  orderInLayer: 2
+  particlesHighlightMode: 0
+  particlesSprite: {fileID: 0}
+  particlesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  particlesSizeMultiplier: 1
+  followRotationOf: 0
+  customGameObjectToFollowRotation: {fileID: 0}
+  movementsSmoothing: 14
 --- !u!1001 &450339664
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -33411,6 +33593,81 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7035097163130550124, guid: 1e2902991d2906e479032fc447a87c67, type: 3}
   m_PrefabInstance: {fileID: 699761596}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &701391524
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 701391525}
+  - component: {fileID: 701391527}
+  - component: {fileID: 701391526}
+  m_Layer: 0
+  m_Name: Inovation Tower
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &701391525
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 701391524}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 151.71072, y: 23.2, z: 132.8137}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1080257150}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &701391526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 701391524}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00818d01f7ef7645a71213a85b2d91b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapBlip
+  pixelSize: 28
+  keepUpright: 1
+  clampToEdge: 0
+--- !u!114 &701391527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 701391524}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f709c7dd788d4e4a9177a93761ce7c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapItem
+  itemSprite: {fileID: 21300000, guid: 3e4767ff4c30d534d8ec305047600331, type: 3}
+  spriteColor: {r: 1, g: 1, b: 1, a: 1}
+  flipInX: 0
+  flipInY: 0
+  raycastTarget: 0
+  sizeOnMinimap: {x: 2, y: 0, z: 2}
+  sizeOnHighlight: 20
+  orderInLayer: 2
+  particlesHighlightMode: 0
+  particlesSprite: {fileID: 0}
+  particlesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  particlesSizeMultiplier: 1
+  followRotationOf: 0
+  customGameObjectToFollowRotation: {fileID: 0}
+  movementsSmoothing: 14
 --- !u!1 &702936578
 GameObject:
   m_ObjectHideFlags: 0
@@ -37376,6 +37633,81 @@ Transform:
   - {fileID: 328586291}
   m_Father: {fileID: 3252477}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &797316072
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 797316073}
+  - component: {fileID: 797316075}
+  - component: {fileID: 797316074}
+  m_Layer: 0
+  m_Name: Dupoin
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &797316073
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 797316072}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 181.66782, y: 23.2, z: 189.00905}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1080257150}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &797316074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 797316072}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00818d01f7ef7645a71213a85b2d91b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapBlip
+  pixelSize: 28
+  keepUpright: 1
+  clampToEdge: 0
+--- !u!114 &797316075
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 797316072}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f709c7dd788d4e4a9177a93761ce7c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapItem
+  itemSprite: {fileID: 21300000, guid: 713e730eb562b4c4c9887aada425f746, type: 3}
+  spriteColor: {r: 1, g: 1, b: 1, a: 1}
+  flipInX: 0
+  flipInY: 0
+  raycastTarget: 0
+  sizeOnMinimap: {x: 2, y: 0, z: 2}
+  sizeOnHighlight: 20
+  orderInLayer: 2
+  particlesHighlightMode: 0
+  particlesSprite: {fileID: 0}
+  particlesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  particlesSizeMultiplier: 1
+  followRotationOf: 0
+  customGameObjectToFollowRotation: {fileID: 0}
+  movementsSmoothing: 14
 --- !u!1001 &797695619
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -48834,6 +49166,44 @@ MonoBehaviour:
   m_IgnoreFromBuild: 0
   m_ApplyToChildren: 1
   m_AffectedAgents: ffffffffi
+--- !u!1 &1080257149
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1080257150}
+  m_Layer: 0
+  m_Name: Minimap Landmarks
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1080257150
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1080257149}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 449653158}
+  - {fileID: 1187304149}
+  - {fileID: 797316073}
+  - {fileID: 701391525}
+  - {fileID: 1923472912}
+  - {fileID: 1586948020}
+  - {fileID: 1087947472}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1080469377
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -49124,6 +49494,81 @@ Transform:
   - {fileID: 47158952}
   m_Father: {fileID: 95604840}
   m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+--- !u!1 &1087947471
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1087947472}
+  - component: {fileID: 1087947474}
+  - component: {fileID: 1087947473}
+  m_Layer: 0
+  m_Name: Vista Palace
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1087947472
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1087947471}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 77.194885, y: 23.2, z: 128.68715}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1080257150}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1087947473
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1087947471}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00818d01f7ef7645a71213a85b2d91b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapBlip
+  pixelSize: 28
+  keepUpright: 1
+  clampToEdge: 0
+--- !u!114 &1087947474
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1087947471}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f709c7dd788d4e4a9177a93761ce7c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapItem
+  itemSprite: {fileID: 21300000, guid: accba326f0960834da1b6be13f978025, type: 3}
+  spriteColor: {r: 1, g: 1, b: 1, a: 1}
+  flipInX: 0
+  flipInY: 0
+  raycastTarget: 0
+  sizeOnMinimap: {x: 2, y: 0, z: 2}
+  sizeOnHighlight: 20
+  orderInLayer: 2
+  particlesHighlightMode: 0
+  particlesSprite: {fileID: 0}
+  particlesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  particlesSizeMultiplier: 1
+  followRotationOf: 0
+  customGameObjectToFollowRotation: {fileID: 0}
+  movementsSmoothing: 14
 --- !u!1001 &1089445630
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -54613,6 +55058,81 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GreenTime: 20
   m_YellowTime: 5
+--- !u!1 &1187304148
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1187304149}
+  - component: {fileID: 1187304151}
+  - component: {fileID: 1187304150}
+  m_Layer: 0
+  m_Name: Banking Center
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1187304149
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1187304148}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 234.25563, y: 23.2, z: 203.23447}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1080257150}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1187304150
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1187304148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00818d01f7ef7645a71213a85b2d91b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapBlip
+  pixelSize: 28
+  keepUpright: 1
+  clampToEdge: 0
+--- !u!114 &1187304151
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1187304148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f709c7dd788d4e4a9177a93761ce7c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapItem
+  itemSprite: {fileID: 21300000, guid: 04c18cc86079c594c8aec561410e1c6c, type: 3}
+  spriteColor: {r: 1, g: 1, b: 1, a: 1}
+  flipInX: 0
+  flipInY: 0
+  raycastTarget: 0
+  sizeOnMinimap: {x: 2, y: 0, z: 2}
+  sizeOnHighlight: 20
+  orderInLayer: 2
+  particlesHighlightMode: 0
+  particlesSprite: {fileID: 0}
+  particlesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  particlesSizeMultiplier: 1
+  followRotationOf: 0
+  customGameObjectToFollowRotation: {fileID: 0}
+  movementsSmoothing: 14
 --- !u!1 &1189502081
 GameObject:
   m_ObjectHideFlags: 0
@@ -57564,6 +58084,10 @@ PrefabInstance:
     - target: {fileID: 4264042903384464176, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
       propertyPath: m_Name
       value: NPC_Kota 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4264042903384464176, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5461022712010094800, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
       propertyPath: m_LocalScale.x
@@ -71793,6 +72317,81 @@ MonoBehaviour:
       m_Data: []
   m_Knots:
     m_KnotsLink: []
+--- !u!1 &1586948019
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1586948020}
+  - component: {fileID: 1586948022}
+  - component: {fileID: 1586948021}
+  m_Layer: 0
+  m_Name: KVB
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1586948020
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1586948019}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 113.30453, y: 23.2, z: 249.67422}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1080257150}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1586948021
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1586948019}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00818d01f7ef7645a71213a85b2d91b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapBlip
+  pixelSize: 28
+  keepUpright: 1
+  clampToEdge: 0
+--- !u!114 &1586948022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1586948019}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f709c7dd788d4e4a9177a93761ce7c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapItem
+  itemSprite: {fileID: 21300000, guid: 5a4c52e1e21b6ef4fa5a3a4246e69fad, type: 3}
+  spriteColor: {r: 1, g: 1, b: 1, a: 1}
+  flipInX: 0
+  flipInY: 0
+  raycastTarget: 0
+  sizeOnMinimap: {x: 2, y: 0, z: 2}
+  sizeOnHighlight: 20
+  orderInLayer: 2
+  particlesHighlightMode: 0
+  particlesSprite: {fileID: 0}
+  particlesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  particlesSizeMultiplier: 1
+  followRotationOf: 0
+  customGameObjectToFollowRotation: {fileID: 0}
+  movementsSmoothing: 14
 --- !u!1 &1587110213
 GameObject:
   m_ObjectHideFlags: 0
@@ -74274,6 +74873,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7035097163130550124, guid: 1e2902991d2906e479032fc447a87c67, type: 3}
   m_PrefabInstance: {fileID: 1638941560}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1641809555
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1982605471183838194, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_Name
+      value: GpsRoadNetwork
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4948289117562940004, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 7b9c03ba26286984ea6d14984109fd58, type: 3}
 --- !u!1 &1644042426
 GameObject:
   m_ObjectHideFlags: 0
@@ -76267,6 +76923,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: NPC_Kota
       objectReference: {fileID: 0}
+    - target: {fileID: 4264042903384464176, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5461022712010094800, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.85
@@ -76352,6 +77012,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
+--- !u!1 &1687959295 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4264042903384464176, guid: 8960f81b752fb9340b5cc2bc4845e6ad, type: 3}
+  m_PrefabInstance: {fileID: 1687959294}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1688179944
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -87811,6 +88476,81 @@ MonoBehaviour:
   m_Center: {x: 0, y: 0, z: 0}
   m_Area: 1
   m_AffectedAgents: ffffffffi
+--- !u!1 &1923472911
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1923472912}
+  - component: {fileID: 1923472914}
+  - component: {fileID: 1923472913}
+  m_Layer: 0
+  m_Name: Trading Academy
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1923472912
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1923472911}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 184.45613, y: 23.2, z: 123.79205}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1080257150}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1923472913
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1923472911}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00818d01f7ef7645a71213a85b2d91b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapBlip
+  pixelSize: 28
+  keepUpright: 1
+  clampToEdge: 0
+--- !u!114 &1923472914
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1923472911}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f709c7dd788d4e4a9177a93761ce7c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::MTAssets.EasyMinimapSystem.MinimapItem
+  itemSprite: {fileID: 21300000, guid: 62e227c40e64fd84fac61faee1d78c08, type: 3}
+  spriteColor: {r: 1, g: 1, b: 1, a: 1}
+  flipInX: 0
+  flipInY: 0
+  raycastTarget: 0
+  sizeOnMinimap: {x: 2, y: 0, z: 2}
+  sizeOnHighlight: 20
+  orderInLayer: 2
+  particlesHighlightMode: 0
+  particlesSprite: {fileID: 0}
+  particlesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  particlesSizeMultiplier: 1
+  followRotationOf: 0
+  customGameObjectToFollowRotation: {fileID: 0}
+  movementsSmoothing: 14
 --- !u!1 &1927531383
 GameObject:
   m_ObjectHideFlags: 0
@@ -96450,3 +97190,6 @@ SceneRoots:
   - {fileID: 1678653621}
   - {fileID: 972542338}
   - {fileID: 1135823177}
+  - {fileID: 317195918}
+  - {fileID: 1080257150}
+  - {fileID: 1641809555}

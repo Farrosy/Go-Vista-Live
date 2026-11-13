@@ -82,8 +82,10 @@ public class CameraOrbit : MonoBehaviour
 
         // Pose kamera normal (selalu dihitung, jadi saat kembali posisinya persis seperti sebelum fokus)
         Quaternion orbitRot = Quaternion.Euler(pitch, yaw, 0f);
-        Vector3 pivot = target.position + pivotOffset;
-        Vector3 orbitPos = pivot - orbitRot * Vector3.forward * (distance * DistanceScale);
+        // Ikuti skala avatar (mis. dikecilkan di venue) supaya framing kamera sama seperti di World.
+        float avatarScale = Mathf.Max(0.05f, target.localScale.y);
+        Vector3 pivot = target.position + pivotOffset * avatarScale;
+        Vector3 orbitPos = pivot - orbitRot * Vector3.forward * (distance * DistanceScale * avatarScale);
 
         blend = Mathf.MoveTowards(blend, focusing ? 1f : 0f, Time.deltaTime / Mathf.Max(0.01f, focusBlendTime));
 
