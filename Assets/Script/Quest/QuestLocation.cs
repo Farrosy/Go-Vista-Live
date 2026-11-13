@@ -3,17 +3,25 @@ using UnityEngine;
 
 /// Area tujuan quest "Pergi ke lokasi". Pasang pada objek dengan Collider (otomatis dijadikan trigger),
 /// lalu isi locationId yang sama dengan QuestObjective.locationId.
+/// GPS dan marker minimap otomatis mengarah ke sini selama tujuan GoToLocation-nya aktif (lihat QuestWaypoint).
 [RequireComponent(typeof(Collider))]
 public sealed class QuestLocation : MonoBehaviour {
     [Tooltip("ID lokasi, mis. 'pasar-baru'. Samakan dengan locationId di tujuan QuestData.")]
     [SerializeField] private string locationId;
 
     private static readonly List<QuestLocation> Occupied = new List<QuestLocation>();
+    private static readonly List<QuestLocation> Enabled = new List<QuestLocation>();
 
     public string LocationId => locationId;
 
+    /// Semua QuestLocation yang aktif di scene yang sedang dimuat.
+    public static IReadOnlyList<QuestLocation> All => Enabled;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetStatics() => Occupied.Clear();
+    private static void ResetStatics() {
+        Occupied.Clear();
+        Enabled.Clear();
+    }
 
     /// <summary>True kalau pemain lokal sedang berdiri di salah satu area dengan ID ini.</summary>
     public static bool IsLocalPlayerInside(string id) {
@@ -30,7 +38,16 @@ public sealed class QuestLocation : MonoBehaviour {
         GetComponent<Collider>().isTrigger = true;
     }
 
-    private void OnDisable() => Occupied.Remove(this);
+    private void OnEnable() {
+        Enabled.Add(this);
+        QuestWaypoint.MarkDirty();
+    }
+
+    private void OnDisable() {
+        Occupied.Remove(this);
+        Enabled.Remove(this);
+        QuestWaypoint.MarkDirty();
+    }
 
     private void OnTriggerEnter(Collider other) {
         if (!IsLocalPlayer(other) || Occupied.Contains(this)) return;

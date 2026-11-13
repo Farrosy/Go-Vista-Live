@@ -117,7 +117,8 @@ Margin teks dialog juga sudah dibetulkan (dulu margin kanan −1097 px sehingga 
 | `QuestGiver.cs` | Pemberi quest: `AfterDialogue`, `OnEnter`, `Manual` |
 | `QuestLocation.cs` | Area trigger untuk objective `GoToLocation` |
 | `QuestAvailableIndicator.cs` | Tanda `!` melayang di atas pemberi quest |
-| `QuestWaypoint.cs` | Tujuan aktif untuk marker minimap |
+| `QuestWaypoint.cs` | Tujuan aktif untuk marker minimap dan GPS (dihitung otomatis dari quest yang dipin / aktif) |
+| `QuestTargetPoint.cs` | Titik GPS untuk objective selain `GoToLocation` (bicara dengan NPC, Manual, dll.) |
 | `CityTour/CityTourStop.cs` | Lingkaran gedung: menyalakan marker, memanggil pemandu |
 | `CityTour/CityTourGuide.cs` | Vio & Vira muncul (poof), dialog, hilang |
 | `CityTour/MascotDuo.cs` | Animasi bicara + pantulan maskot yang sedang bicara, menghadap pemain |
@@ -153,6 +154,29 @@ HUD (marker minimap + toast) dibangun lewat **Go Vista > HUD > Buat ulang GameHu
 2. Isi `questId` (unik, **jangan diganti setelah rilis**), `title`, objective (isi `objectiveId`), dan `rewardCoins` kalau ada hadiah.
 3. Pastikan `Resources/QuestDatabase` berisi quest itu (otomatis, atau **Go Vista > Quest > Perbarui QuestDatabase**).
 4. Pasang `QuestGiver` (+ `QuestAvailableIndicator` kalau perlu tanda `!`) di NPC pemberi.
+5. **GPS / marker minimap** (lihat bagian GPS di bawah):
+   - Objective `GoToLocation`: cukup pasang `QuestLocation` dengan `locationId` yang sama. GPS otomatis mengarah ke sana.
+   - Objective lain (mis. `FinishDialogue` bicara dengan NPC, atau `Manual`): pasang `QuestTargetPoint` di objek tujuan, isi `quest` + `objectiveId`.
+   - Tidak perlu kode tambahan.
+
+### GPS (rute di radar + peta penuh)
+
+Seperti GPS di GTA: garis rute mengikuti jalan dari pemain ke tujuan, di radar dan di **peta layar penuh**
+(ketuk radar, atau tombol **M**). Di peta penuh pemain bisa **mengetuk peta untuk memasang tujuan sendiri**
+(ketuk lagi / "Hapus Tujuan" untuk melepas; hilang otomatis saat sampai).
+
+- **Warna:** emas = tujuan quest, ungu = tujuan sendiri. Tujuan sendiri menang dari tujuan quest.
+- **Tujuan quest dipilih otomatis:** quest yang dipin dulu, lalu quest aktif lain (urutan Daftar Quest). Di tiap quest,
+  objective yang bisa dikerjakan dan punya titik di dunia (`QuestLocation` / `QuestTargetPoint` / `CityTourStop`).
+  Quest bebas urutan memilih titik terdekat. Jadi **pin quest = ganti tujuan GPS**.
+- **Dari kode:** `QuestWaypoint.Set(transform)` / `Clear(transform)` = override sementara (cutscene, event);
+  `QuestWaypoint.Register(questId, objectiveId, transform)` = daftarkan titik objective;
+  `GpsService.SetCustomWaypoint(pos)` / `ClearCustomWaypoint()` = tujuan pemain.
+- **Jaringan jalan:** dibangun otomatis dari spline jalan (`RoadSection`) lewat
+  **Go Vista > Minimap > Bangun jaringan jalan GPS (WorldScene)** → `Assets/Prefab/GpsRoadNetwork.prefab`
+  (komponen *Minimap Routes* milik Easy Minimap System, A*). **Jalankan lagi setiap jalan kota berubah.**
+- File: `Script/UI/Minimap/Gps/` (`GpsService`, `GpsRoute`, `GoVistaFullMap`, `UiPolyline`),
+  `Script/Editor/GpsRoadNetworkBuilder.cs`, `Script/Editor/GameHudBuilder.FullMap.cs`.
 
 ---
 
@@ -164,7 +188,9 @@ HUD (marker minimap + toast) dibangun lewat **Go Vista > HUD > Buat ulang GameHu
 - [ ] **Cek kendaraan:** saat pemain sudah bisa menyetir, tambahkan "sedang di kendaraan" di `CityTourGuide.CanPresent` supaya maskot muncul setelah pemain turun.
 - [ ] **Interior gedung:** setelah interior ada, teks gedung sebaiknya menyebut apa yang bisa dilakukan di dalamnya.
 - [ ] **Teks Dupoin & KVB:** sengaja netral (brand broker sungguhan). Ganti dengan copy resmi kalau mereka partner/sponsor.
-- [ ] **Minimap:** peta masih placeholder; marker tujuan sudah berfungsi tanpa peta.
+- [x] **Minimap:** radar gaya GTA SA + GPS rute + peta layar penuh dengan tujuan sendiri (lihat bagian GPS).
+- [ ] **GPS di tengah taman/plaza:** rute dimulai dari titik jalan terdekat ke pemain, jadi kalau pemain di tengah
+  taman garis bisa sedikit mundur dulu ke jalan terdekat. Hilang begitu pemain di jalan.
 - [ ] **Animasi bicara Vio & Vira (dikerjakan manual):** maskot memakai model + controller pemain chibi lama (`MaleAnimationController` / `FemaleAnimationController`, tinggi 1,80 m). Tambahkan parameter bool `IsTalking` + state **Talk** (`MaleChibiAnimation/idle_talking_loop_fit.anim`, bisa dipakai keduanya) dengan transisi Locomotion ↔ Talk tanpa exit time. `MascotDuo` otomatis menyalakan `IsTalking` di maskot yang sedang bicara; selama parameternya belum ada, hanya pantulan kecil yang terlihat.
 - [ ] Ganti judul Q1 dan hapus/isi `New Quest Data.asset` kalau quest testing dipakai lagi.
 - [x] **Collider gedung:** Inovation Tower dan Vista Palace (ditaruh langsung dari FBX, bukan prefab ithappy) sekarang punya MeshCollider seperti gedung lain, jadi tidak bisa ditembus. Masih tanpa collider di WorldScene: `elite_residental_building_007` (dan skyline latar belakang).
