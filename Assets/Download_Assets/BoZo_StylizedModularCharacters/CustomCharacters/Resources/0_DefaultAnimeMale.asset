@@ -199,8 +199,8 @@ MonoBehaviour:
       decalDatas: []
     - outfit: HairFront/BSMC_HairFront_Fohawk
       colors:
-      - {r: 0.25882334, g: 0.25882334, b: 0.25882334, a: 1}
-      - {r: 0.42452815, g: 0.42452815, b: 0.42452815, a: 1}
+      - {r: 0.2588235, g: 0.2588235, b: 0.2588235, a: 1}
+      - {r: 0.42452824, g: 0.42452824, b: 0.42452824, a: 1}
       - {r: 0, g: 0, b: 0, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
@@ -220,8 +220,8 @@ MonoBehaviour:
       decalDatas: []
     - outfit: HairBack/BSMC_HairBack_Scrappy
       colors:
-      - {r: 0.25882336, g: 0.25882336, b: 0.25882336, a: 1}
-      - {r: 0.36320734, g: 0.36320734, b: 0.36320734, a: 1}
+      - {r: 0.2588235, g: 0.2588235, b: 0.2588235, a: 1}
+      - {r: 0.36320746, g: 0.36320746, b: 0.36320746, a: 1}
       - {r: 0, g: 0, b: 0, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
@@ -323,11 +323,11 @@ MonoBehaviour:
       color: {r: 0, g: 0, b: 0, a: 0}
       swatch: 0
       decalDatas: []
-    - outfit: Top/BSMC_Top_TankTop
+    - outfit: Top/BSMC_Top_Hoodie
       colors:
       - {r: 0.011764695, g: 0.27843133, b: 0.6431373, a: 1}
-      - {r: 0, g: 0, b: 0, a: 0}
-      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 0.011764695, g: 0.27843133, b: 0.6431373, a: 1}
+      - {r: 0.9496855, g: 0.9496855, b: 0.9496855, a: 1}
       - {r: 0, g: 0, b: 0, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
@@ -343,15 +343,66 @@ MonoBehaviour:
       partVisibility: 
       color: {r: 0, g: 0, b: 0, a: 0}
       swatch: 0
-      decalDatas: []
-    - outfit: Bottom/BSMC_Bottom_BigShorts
+      decalDatas:
+      - decal: Decal_GoVistaText
+        decalTexture: {fileID: 2800000, guid: 538fd092d8d25cbc0af3a563bcec9599, type: 3}
+        parent: spine_04
+        pos: {x: 0.08687518, y: 0.1158332, z: -0.05}
+        yaw: 0
+        roll: 0
+        pitch: 0
+        scale: 0.15
+        color: {r: 1, g: 1, b: 1, a: 1}
+    - outfit: Bottom/BSMC_Bottom_CargoPants
       colors:
-      - {r: 0.50980395, g: 0.50980395, b: 0.50980395, a: 1}
+      - {r: 0.21435468, g: 0.22146562, b: 0.21479912, a: 1}
+      - {r: 0.21568628, g: 0.21960784, b: 0.21568628, a: 1}
+      - {r: 0.011764695, g: 0.27843133, b: 0.6431373, a: 1}
+      - {r: 1, g: 0, b: 0.9240179, a: 0}
+      - {r: 0.9695323, g: 1, b: 0, a: 0}
+      - {r: 0, g: 0.8895352, b: 1, a: 0}
+      - {r: 1, g: 1, b: 1, a: 0}
+      - {r: 0.5, g: 0.5, b: 0.5, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
+      decal: 
+      decalColors: []
+      decalScale: {x: 0, y: 0, z: 0, w: 0}
+      pattern: 
+      patternColors: []
+      patternScale: {x: 0, y: 0, z: 0, w: 0}
+      partVisibility: 
+      color: {r: 0, g: 0, b: 0, a: 0}
+      swatch: 0
+      decalDatas: []
+    - outfit: Feet/BSMC_Feet_CoolShoes
+      colors:
+      - {r: 0, g: 0, b: 0, a: 1}
+      - {r: 0.7490196, g: 0.7490196, b: 0.7490196, a: 1}
+      - {r: 1, g: 1, b: 1, a: 1}
+      - {r: 0.78616345, g: 0.78616345, b: 0.78616345, a: 1}
+      - {r: 0.81761, g: 0.81761, b: 0.81761, a: 1}
+      - {r: 0.9607844, g: 0.9607844, b: 0.9607844, a: 1}
+      - {r: 1, g: 1, b: 1, a: 0}
+      - {r: 0.5, g: 0.5, b: 0.5, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
-      - {r: 0, g: 0, b: 0, a: 0}
-      - {r: 0, g: 0, b: 0, a: 0}
-      - {r: 0, g: 0, b: 0, a: 0}
+      decal: 
+      decalColors: []
+      decalScale: {x: 0, y: 0, z: 0, w: 0}
+      pattern: 
+      patternColors: []
+      patternScale: {x: 0, y: 0, z: 0, w: 0}
+      partVisibility: 
+      color: {r: 0, g: 0, b: 0, a: 0}
+      swatch: 0
+      decalDatas: []
+    - outfit: Socks/Socks_BasicSocks
+      colors:
+      - {r: 0.25157222, g: 0.25157222, b: 0.25157222, a: 1}
+      - {r: 0.25098038, g: 0.25098038, b: 0.25098038, a: 0}
+      - {r: 1, g: 0.462745, b: 0, a: 0}
+      - {r: 1, g: 0, b: 0.9240179, a: 0}
+      - {r: 0.9695323, g: 1, b: 0, a: 0}
+      - {r: 0, g: 0.8895352, b: 1, a: 0}
       - {r: 1, g: 1, b: 1, a: 0}
       - {r: 0.5, g: 0.5, b: 0.5, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}

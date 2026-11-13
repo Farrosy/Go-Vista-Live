@@ -35,7 +35,7 @@ MonoBehaviour:
     - 100
     - 0
     - 0
-    - 50
+    - 0
     faceIDs:
     - BodyType
     - Weight
@@ -365,9 +365,81 @@ MonoBehaviour:
       color: {r: 0, g: 0, b: 0, a: 0}
       swatch: 0
       decalDatas: []
-    - outfit: Top/BSMC_Top_TankTop
+    - outfit: Top/BSMC_Top_Hoodie
       colors:
-      - {r: 0.011764695, g: 0.27843133, b: 0.6431373, a: 1}
+      - {r: 1, g: 0.43921566, b: 0.43921566, a: 1}
+      - {r: 1, g: 0.43921566, b: 0.43921566, a: 1}
+      - {r: 0.9496855, g: 0.9496855, b: 0.9496855, a: 1}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 1, g: 1, b: 1, a: 0}
+      - {r: 0.5, g: 0.5, b: 0.5, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      decal: 
+      decalColors: []
+      decalScale: {x: 0, y: 0, z: 0, w: 0}
+      pattern: 
+      patternColors: []
+      patternScale: {x: 0, y: 0, z: 0, w: 0}
+      partVisibility: 
+      color: {r: 0, g: 0, b: 0, a: 0}
+      swatch: 0
+      decalDatas:
+      - decal: Decal_GoVistaText
+        decalTexture: {fileID: 2800000, guid: 538fd092d8d25cbc0af3a563bcec9599, type: 3}
+        parent: spine_04
+        pos: {x: 0.07860119, y: 0.12824404, z: -0.05}
+        yaw: 0
+        roll: 0
+        pitch: 0
+        scale: 0.15
+        color: {r: 1, g: 1, b: 1, a: 1}
+    - outfit: Bottom/BSMC_Bottom_ShortShorts
+      colors:
+      - {r: 0.72327036, g: 0.72327036, b: 0.72327036, a: 1}
+      - {r: 0.7610062, g: 0.67056143, b: 0.57673734, a: 1}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 1, g: 1, b: 1, a: 0}
+      - {r: 0.5, g: 0.5, b: 0.5, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      decal: 
+      decalColors: []
+      decalScale: {x: 0, y: 0, z: 0, w: 0}
+      pattern: 
+      patternColors: []
+      patternScale: {x: 0, y: 0, z: 0, w: 0}
+      partVisibility: 
+      color: {r: 0, g: 0, b: 0, a: 0}
+      swatch: 0
+      decalDatas: []
+    - outfit: Hat/BSMC_Hat_Ballcap
+      colors:
+      - {r: 1, g: 0.43921566, b: 0.43921566, a: 1}
+      - {r: 1, g: 0.43921566, b: 0.43921566, a: 1}
+      - {r: 1, g: 0.43921566, b: 0.43921566, a: 1}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      - {r: 1, g: 1, b: 1, a: 0}
+      - {r: 0.5, g: 0.5, b: 0.5, a: 0}
+      - {r: 0, g: 0, b: 0, a: 0}
+      decal: 
+      decalColors: []
+      decalScale: {x: 0, y: 0, z: 0, w: 0}
+      pattern: 
+      patternColors: []
+      patternScale: {x: 0, y: 0, z: 0, w: 0}
+      partVisibility: 
+      color: {r: 0, g: 0, b: 0, a: 0}
+      swatch: 0
+      decalDatas: []
+    - outfit: UpperFace/BSMC_Face_SimpleGlasses
+      colors:
+      - {r: 0.20754713, g: 0.20754713, b: 0.20754713, a: 1}
       - {r: 0, g: 0, b: 0, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
@@ -386,14 +458,35 @@ MonoBehaviour:
       color: {r: 0, g: 0, b: 0, a: 0}
       swatch: 0
       decalDatas: []
-    - outfit: Bottom/BSMC_Bottom_ShortShorts
+    - outfit: Feet/BSMC_Feet_CoolShoes
       colors:
-      - {r: 0.51113325, g: 0.51113325, b: 0.51113325, a: 1}
-      - {r: 0.7610062, g: 0.67056143, b: 0.57673734, a: 1}
+      - {r: 1, g: 0.43921566, b: 0.43921566, a: 1}
+      - {r: 0.7490196, g: 0.7490196, b: 0.7490196, a: 1}
+      - {r: 1, g: 1, b: 1, a: 1}
+      - {r: 0.78616345, g: 0.78616345, b: 0.78616345, a: 1}
+      - {r: 0.81761, g: 0.81761, b: 0.81761, a: 1}
+      - {r: 0.9607844, g: 0.9607844, b: 0.9607844, a: 1}
+      - {r: 1, g: 1, b: 1, a: 0}
+      - {r: 0.5, g: 0.5, b: 0.5, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
-      - {r: 0, g: 0, b: 0, a: 0}
-      - {r: 0, g: 0, b: 0, a: 0}
-      - {r: 0, g: 0, b: 0, a: 0}
+      decal: 
+      decalColors: []
+      decalScale: {x: 0, y: 0, z: 0, w: 0}
+      pattern: 
+      patternColors: []
+      patternScale: {x: 0, y: 0, z: 0, w: 0}
+      partVisibility: 
+      color: {r: 0, g: 0, b: 0, a: 0}
+      swatch: 0
+      decalDatas: []
+    - outfit: Socks/Socks_BasicSocks
+      colors:
+      - {r: 1, g: 1, b: 1, a: 1}
+      - {r: 0.25098038, g: 0.25098038, b: 0.25098038, a: 0}
+      - {r: 1, g: 0.462745, b: 0, a: 0}
+      - {r: 1, g: 0, b: 0.9240179, a: 0}
+      - {r: 0.9695323, g: 1, b: 0, a: 0}
+      - {r: 0, g: 0.8895352, b: 1, a: 0}
       - {r: 1, g: 1, b: 1, a: 0}
       - {r: 0.5, g: 0.5, b: 0.5, a: 0}
       - {r: 0, g: 0, b: 0, a: 0}
