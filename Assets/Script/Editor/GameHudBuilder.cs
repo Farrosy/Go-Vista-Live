@@ -198,6 +198,7 @@ public static partial class GameHudBuilder {
             Canvas coinCanvas = BuildCoin(safeArea, fonts);
             DeathScreenView death = BuildDeathScreen(root.transform, fonts);
             BuildQuest(root.transform, safeArea, fonts);
+            BuildFullMap(root.transform, safeArea, fonts);
             BuildQuestToast(safeArea, fonts);
 
             var hud = root.AddComponent<GameHudView>();
@@ -215,7 +216,7 @@ public static partial class GameHudBuilder {
     }
 
     /// Minimap di kiri atas (sesuai storyboard) dengan busur HP di kiri dan O₂ di kanan.
-    /// Isi peta sengaja hanya placeholder: "Map Mask/Map Content" adalah tempat tim minimap memasang petanya.
+    /// "Map Mask/Map Content" tetap jadi placeholder saat tidak ada peta; radarnya dibangun di GameHudBuilder.Minimap.cs.
     private static (HealthArcView, OxygenArcView, CanvasGroup) BuildMinimap(RectTransform parent, Fonts fonts) {
         const string folder = "Minimap/";
         RectTransform group = TopLeft(NewRect("Minimap", parent), HudLayout.MinimapLeft, HudLayout.MinimapTop,
@@ -228,7 +229,9 @@ public static partial class GameHudBuilder {
         Image mask = PlainImage("Map Mask", group, folder + "minimap_mask.png");
         Stretch(mask.rectTransform);
         mask.gameObject.AddComponent<Mask>().showMaskGraphic = false;
-        Stretch(PlainImage("Map Content", mask.rectTransform, folder + "minimap_placeholder.png").rectTransform);
+        Image mapPlaceholder = PlainImage("Map Content", mask.rectTransform, folder + "minimap_placeholder.png");
+        Stretch(mapPlaceholder.rectTransform);
+        BuildRadar(group, mapPlaceholder.gameObject);
 
         RectTransform healthRect = Stretch(NewRect("Health Arc", group));
         Stretch(PlainImage("Frame", healthRect, folder + "minimap_hp_frame.png").rectTransform);

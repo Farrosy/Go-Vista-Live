@@ -33,11 +33,14 @@ public sealed class CityTourStop : MonoBehaviour {
 
     private void OnEnable() {
         QuestService.Changed += Refresh;
+        // GPS dan marker minimap mengarah ke sini selama tujuan gedung ini bisa dikerjakan (QuestWaypoint).
+        if (quest != null) QuestWaypoint.Register(quest.Id, objectiveId, transform);
         Refresh();
     }
 
     private void OnDisable() {
         QuestService.Changed -= Refresh;
+        QuestWaypoint.Unregister(transform);
         _playerInside = false;
         SetActive(false);
     }
@@ -58,8 +61,6 @@ public sealed class CityTourStop : MonoBehaviour {
     private void SetActive(bool active) {
         _active = active;
         if (marker != null) marker.SetActive(active);
-        if (active) QuestWaypoint.Set(transform);
-        else QuestWaypoint.Clear(transform);
     }
 
     // Dicek tiap frame selama pemain di dalam, supaya maskot tetap muncul setelah pemain selesai

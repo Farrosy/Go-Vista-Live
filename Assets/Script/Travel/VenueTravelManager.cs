@@ -47,7 +47,7 @@ public class VenueTravelManager : MonoBehaviour
     [Tooltip("Skala avatar saat berada di venue (World tetap 1). Interior venue lebih sempit, jadi avatar " +
              "dikecilkan supaya proporsional dengan furnitur/pintu normal.")]
     [Range(0.3f, 1f)]
-    [SerializeField] private float _venueAvatarScale = 0.7f;
+    [SerializeField] private float _venueAvatarScale = 0.9f;
 
     private ISceneTransition _transition;
     private Realtime _realtime;
