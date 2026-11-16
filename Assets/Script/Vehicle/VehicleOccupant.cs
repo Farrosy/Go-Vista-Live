@@ -2,21 +2,23 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// Status pemain lokal di dalam mobil. Ditambahkan otomatis ke root player oleh PlayerCar saat pertama masuk.
+/// Status pemain di dalam mobil. Dipasang otomatis di root avatar:
+///  - Pemain LOKAL: oleh PlayerCar saat menekan Interact. Fasenya ditulis ke CarSync supaya pemain lain melihatnya.
+///  - Avatar pemain LAIN: oleh CarSync, yang memanggil ApplyRemoteSeat tiap frame sesuai state kursi dari jaringan.
 ///
 /// Selama di dalam mobil:
-///  - PlayerController berhenti membaca joystick (SetInVehicle), CharacterController dan NavMeshObstacle dimatikan,
-///    collider pemain mengabaikan collider mobil.
-///  - Posisi player disimpan relatif ke mobil dan ditempelkan tiap frame (player TIDAK di-parent ke mobil, supaya
-///    RealtimeTransform Normcore tidak bermasalah dengan reparenting).
+///  - CharacterController dan NavMeshObstacle mati, collider avatar mengabaikan collider mobil.
+///  - Posisi avatar disimpan relatif ke mobil dan ditempelkan tiap LateUpdate (avatar TIDAK di-parent ke mobil,
+///    supaya RealtimeTransform Normcore tidak bermasalah). Di layar pemain lain ini juga menimpa posisi dari
+///    RealtimeTransform avatar, jadi avatar selalu duduk di mobil yang terlihat di layar itu.
 ///  - Animasi masuk/keluar (root motion) menggeser posisi relatif itu dari pintu ke kursi. Root motion diskalakan ke
 ///    ukuran Tommy (karakter asli animasinya) supaya karakter lain tetap mendarat di kursi.
 ///
-/// Animasi (HumanoidPlayerController, sama seperti asset AllStar): pintu kiri = animasi sopir, pintu kanan = animasi
-/// penumpang, duduk = Drive (kursi sopir) atau Ride (kursi lain). Tinggi kursi di-blend lewat SeatHeight
-/// (0 = mobil rendah, 1 = mobil tinggi seperti van).
+/// Animasi (HumanoidPlayerController): pintu kiri = animasi sopir, pintu kanan = animasi penumpang, duduk = Drive
+/// (kursi sopir) atau Ride. Tinggi kursi di-blend lewat SeatHeight (0 = mobil rendah, 1 = mobil tinggi).
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(10000)]   // LateUpdate setelah komponen lain (RealtimeTransform, PlayerAnimSync) menulis posisi
 [RequireComponent(typeof(PlayerController))]
 public class VehicleOccupant : MonoBehaviour {
     private enum Phase { None, Entering, Seated, Exiting }
@@ -29,6 +31,8 @@ public class VehicleOccupant : MonoBehaviour {
     public const string CarLeftParam = "CarLeft";
     public const string CarDriverParam = "CarDriver";
     public const string SeatHeightParam = "SeatHeight";
+    private const string DriveState = "CarDrive";
+    private const string RideState = "CarRide";
 
     private const float ReferenceHumanScale = 1.111f;   // humanScale Tommy (AllStarCharacterLibrary)
     // Batas aman kalau Animator belum punya state mobil / transisinya macet.
@@ -45,6 +49,7 @@ public class VehicleOccupant : MonoBehaviour {
 
     private PlayerController player;
     private CharacterController characterController;
+    private bool controllerWasEnabled;
     private NavMeshObstacle obstacle;
     private bool obstacleWasEnabled;
     private Animator animator;
@@ -80,40 +85,18 @@ public class VehicleOccupant : MonoBehaviour {
         if (InVehicle) ExitImmediate();
     }
 
+    // ------------------------------------------------------------------ Pemain lokal
+
     /// <summary>Mulai animasi masuk ke kursi seatIndex.</summary>
     public bool Enter(PlayerCar target, int seatIndex) {
-        if (InVehicle || !target || !animator) return false;
+        if (InVehicle || !target || !animator || !target.EntryPointOf(seatIndex)) return false;
         Transform entry = target.EntryPointOf(seatIndex);
-        if (!entry) return false;
-
-        car = target;
-        seat = seatIndex;
-        SetPhase(Phase.Entering);
-        player.SetInVehicle(true);
-        characterController.enabled = false;
-        if (obstacle) {
-            obstacleWasEnabled = obstacle.enabled;
-            obstacle.enabled = false;
-        }
-        SetIgnoreCarCollisions(true);
-
+        Attach(target, seatIndex);
         localPosition = car.transform.InverseTransformPoint(entry.position);
         localRotation = Quaternion.Inverse(car.transform.rotation) * entry.rotation;
         ApplyPose();
-
-        rootMotionScale = animator.humanScale > 0f ? ReferenceHumanScale / animator.humanScale : 1f;
-        if (!relay) relay = animator.GetComponent<VehicleRootMotionRelay>();
-        if (!relay) relay = animator.gameObject.AddComponent<VehicleRootMotionRelay>();
-        relay.Init(this);
-        rootMotionWasOn = animator.applyRootMotion;
-        animator.applyRootMotion = true;
-        animator.SetBool(CarLeftHash, car.IsLeftSide(seat));
-        animator.SetBool(CarDriverHash, car.IsDriverSeat(seat));
-        animator.SetFloat(SeatHeightHash, car.SeatHeightOf(seat));
-        animator.SetBool(InVehicleHash, true);
+        SetPhase(Phase.Entering);
         animator.SetTrigger(CarEnterHash);
-
-        MobileControls.SetDriving(true);
         car.OnEntering(this, seat);
         return true;
     }
@@ -121,12 +104,7 @@ public class VehicleOccupant : MonoBehaviour {
     /// <summary>Tombol Keluar. Ditolak kalau mobil masih melaju.</summary>
     public bool RequestExit() {
         if (phase != Phase.Seated || !car || !DriveRules.CanExit(car.Drive.ForwardSpeed)) return false;
-        SetPhase(Phase.Exiting);
-        SetExitBlocked(false);
-        VehicleDriveHud.Hide();
-        ReleaseCamera();
-        car.OnExitStarted(this, seat);
-        animator.SetBool(InVehicleHash, false);
+        BeginExit();
         return true;
     }
 
@@ -145,9 +123,98 @@ public class VehicleOccupant : MonoBehaviour {
             animator.ResetTrigger(CarEnterHash);
             animator.Play("Locomotion", 0, 0f);
         }
-        Restore();
+        Detach(immediate: true);
         transform.SetPositionAndRotation(position, rotation);
         Physics.SyncTransforms();
+    }
+
+    // ------------------------------------------------------------------ Avatar pemain lain
+
+    /// <summary>
+    /// Dipanggil CarSync tiap frame untuk avatar pemain lain sesuai state kursi dari jaringan.
+    /// seatPose/seatYaw = posisi duduk relatif mobil yang dikirim pemain itu setelah selesai masuk.
+    /// </summary>
+    public void ApplyRemoteSeat(PlayerCar target, int seatIndex, VehicleSeatPhase remote, Vector3 seatPose, float seatYaw) {
+        if (IsLocal || !target) return;
+
+        // Pindah mobil / kursi: lepas dulu.
+        if (InVehicle && (car != target || seat != seatIndex)) ExitImmediate();
+
+        if (!InVehicle) {
+            switch (remote) {
+                case VehicleSeatPhase.Entering:
+                    Enter(target, seatIndex);
+                    break;
+                case VehicleSeatPhase.Seated:
+                    // Pemain yang baru masuk room / baru kembali ke World: langsung duduk.
+                    SnapSeated(target, seatIndex, seatPose, seatYaw);
+                    break;
+            }
+            return;
+        }
+
+        if (remote == VehicleSeatPhase.Seated && phase == Phase.Entering && phaseTime > EnterTimeout) BeginSeated();
+        if (remote == VehicleSeatPhase.Exiting && (phase == Phase.Seated || phase == Phase.Entering)) {
+            if (phase == Phase.Entering) BeginSeated();
+            BeginExit();
+        }
+    }
+
+    /// <summary>Kursi avatar pemain lain dikosongkan di jaringan.</summary>
+    public void RemoteSeatCleared() {
+        if (IsLocal || !InVehicle) return;
+        // Animasi keluar yang sedang jalan dibiarkan selesai (Update → FinishExit).
+        if (phase == Phase.Exiting) return;
+        ExitImmediate();
+    }
+
+    private void SnapSeated(PlayerCar target, int seatIndex, Vector3 seatPose, float seatYaw) {
+        Attach(target, seatIndex);
+        localPosition = seatPose;
+        localRotation = Quaternion.Euler(0f, seatYaw, 0f);
+        ApplyPose();
+        animator.Play(target.IsDriverSeat(seatIndex) ? DriveState : RideState, 0, 0f);
+        SetPhase(Phase.Seated);
+    }
+
+    // ------------------------------------------------------------------ Bersama
+
+    /// Siapkan avatar untuk duduk di mobil (tanpa memilih fase).
+    private void Attach(PlayerCar target, int seatIndex) {
+        car = target;
+        seat = seatIndex;
+        player.SetInVehicle(true);
+        controllerWasEnabled = characterController.enabled;
+        characterController.enabled = false;
+        if (obstacle) {
+            obstacleWasEnabled = obstacle.enabled;
+            obstacle.enabled = false;
+        }
+        SetIgnoreCarCollisions(true);
+
+        rootMotionScale = animator.humanScale > 0f ? ReferenceHumanScale / animator.humanScale : 1f;
+        if (!relay) relay = animator.GetComponent<VehicleRootMotionRelay>();
+        if (!relay) relay = animator.gameObject.AddComponent<VehicleRootMotionRelay>();
+        relay.Init(this);
+        rootMotionWasOn = animator.applyRootMotion;
+        animator.applyRootMotion = true;
+        animator.SetBool(CarLeftHash, car.IsLeftSide(seat));
+        animator.SetBool(CarDriverHash, car.IsDriverSeat(seat));
+        animator.SetFloat(SeatHeightHash, car.SeatHeightOf(seat));
+        animator.SetBool(InVehicleHash, true);
+
+        if (IsLocal) MobileControls.SetDriving(true);
+    }
+
+    private void BeginExit() {
+        SetPhase(Phase.Exiting);
+        if (IsLocal) {
+            SetExitBlocked(false);
+            VehicleDriveHud.Hide();
+            ReleaseCamera();
+        }
+        car.OnExitStarted(this, seat);
+        animator.SetBool(InVehicleHash, false);
     }
 
     /// Dipanggil VehicleRootMotionRelay tiap frame animasi.
@@ -172,7 +239,7 @@ public class VehicleOccupant : MonoBehaviour {
                 if ((state.IsTag(SeatedStateTag) && !transitioning) || phaseTime > EnterTimeout) BeginSeated();
                 break;
             case Phase.Seated:
-                SetExitBlocked(!DriveRules.CanExit(car.Drive.ForwardSpeed));
+                if (IsLocal) SetExitBlocked(!DriveRules.CanExit(car.Drive.ForwardSpeed));
                 break;
             case Phase.Exiting:
                 bool stillInCar = transitioning || state.IsTag(VehicleStateTag) || state.IsTag(SeatedStateTag);
@@ -182,13 +249,15 @@ public class VehicleOccupant : MonoBehaviour {
     }
 
     void LateUpdate() {
-        // Setelah Animator dan interpolasi Rigidbody mobil, supaya pemain tidak bergetar di kursi.
+        // Setelah Animator, interpolasi Rigidbody mobil, dan RealtimeTransform avatar: avatar tidak bergetar di kursi.
         if (InVehicle && car) ApplyPose();
     }
 
     private void BeginSeated() {
         SetPhase(Phase.Seated);
-        car.OnSeated(this, seat);
+        float yaw = localRotation.eulerAngles.y;
+        car.OnSeated(this, seat, localPosition, yaw);
+        if (!IsLocal) return;
         if (car.IsDriverSeat(seat)) VehicleDriveHud.Show(car.Drive);
         CameraOrbit orbit = FindCamera();
         if (orbit) orbit.SetVehicleView(car.transform, car.CameraDistance, car.CameraHeight);
@@ -203,27 +272,31 @@ public class VehicleOccupant : MonoBehaviour {
             if (drift.magnitude > MaxExitDrift) position = entry.position;
         }
         Quaternion rotation = YawOnly(transform.rotation);
-        Restore();
-        player.TeleportTo(position, rotation);   // CharacterController hidup lagi + menapak tanah
+        Detach(immediate: false);
+        // Pemain lokal: CharacterController hidup lagi + menapak tanah. Avatar pemain lain: posisinya kembali
+        // diatur RealtimeTransform.
+        if (IsLocal) player.TeleportTo(position, rotation);
     }
 
-    /// Kembalikan semua yang diubah Enter(). Tidak memindahkan player.
-    private void Restore() {
+    /// Kembalikan semua yang diubah Attach(). Tidak memindahkan avatar.
+    private void Detach(bool immediate) {
         PlayerCar leftCar = car;
         int leftSeat = seat;
         SetPhase(Phase.None);
-        SetExitBlocked(false);
-        VehicleDriveHud.Hide();
-        ReleaseCamera();
+        if (IsLocal) {
+            SetExitBlocked(false);
+            VehicleDriveHud.Hide();
+            ReleaseCamera();
+            MobileControls.SetDriving(false);
+        }
         if (animator) animator.applyRootMotion = rootMotionWasOn;
         SetIgnoreCarCollisions(false, leftCar);
         if (obstacle) obstacle.enabled = obstacleWasEnabled;
-        characterController.enabled = true;
+        characterController.enabled = controllerWasEnabled;
         player.SetInVehicle(false);
-        MobileControls.SetDriving(false);
         car = null;
         seat = -1;
-        if (leftCar) leftCar.OnLeft(this, leftSeat);
+        if (leftCar) leftCar.OnLeft(this, leftSeat, immediate);
     }
 
     private void ApplyPose() {

@@ -2,8 +2,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using Normal.Realtime;
 using UnityEditor.Animations;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Menyiapkan sistem mobil pemain dari asset AllStarCharacterLibrary. Menu: Go Vista > Mobil.
@@ -15,21 +18,22 @@ using UnityEngine;
 ///     - prefab Matador_Drivable, baris MOBIL di SettingsPanel.prefab.
 ///  2. Buat Prefab Mobil dari Prefab AllStar Terpilih: pilih prefab mobil di Assets/AllStarCharacterLibrary/Prefabs
 ///     (Project window), lalu jalankan. Hasil: Assets/Prefab/Vehicles/&lt;Nama&gt;_Drivable.prefab.
-///  3. Taruh Matador di SpawnPointMobil.
+///  3. Pasang Spawner Mobil: VehicleDirector di MainMultiplayerScene (mobil di-spawn lewat jaringan).
 ///
 /// Didukung: mobil darat (CarModelControl.vehicleType = 0). Bus, pesawat, gyrocopter, paraglider punya animasi
 /// dan cara kendali lain, jadi ditolak.
 /// </summary>
 public static class VehicleSetup {
     private const string AllStarPrefabFolder = "Assets/AllStarCharacterLibrary/Prefabs/";
-    private const string PrefabFolder = "Assets/Prefab/Vehicles";
+    // Di Resources karena mobil di-spawn lewat Realtime.Instantiate("Vehicles/<Nama>_Drivable") (VehicleDirector).
+    private const string PrefabFolder = "Assets/Resources/Vehicles";
+    private const string LegacyPrefabFolder = "Assets/Prefab/Vehicles";
     public const string DrivablePrefabPath = PrefabFolder + "/Matador_Drivable.prefab";
     private const string ControllerPath = "Assets/Characters/Animation/AnimationController/HumanoidPlayerController.controller";
     private const string ClipFolder = "Assets/AllStarCharacterLibrary/Characters/Tommy/";
     private const string IconFolder = "Assets/Resources/UI/Icons/";
     private const string IconTemplatePath = IconFolder + "icon-play.png";
     private const string ActionFolder = "Assets/NPCAction/";
-    private const string PromptPrefabPath = "Assets/MobilePrefabs/NewInteractPrompt.prefab";
     private const string SpawnMarkerName = "SpawnPointMobil";
     private const int GroundVehicleType = 0;
 
@@ -74,6 +78,7 @@ public static class VehicleSetup {
         WriteIcon("icon-steering", SteeringWheel, log);
         WriteIcon("icon-arrow-right", ArrowRight, log);
         WriteIcon("icon-pedal", Pedal, log);
+        WriteIcon("icon-car-door", CarDoor, log);
     }
 
     private delegate float Shape(float x, float y);   // x,y: -1..1 (kanan, atas). Return 1 = terisi.
@@ -148,14 +153,26 @@ public static class VehicleSetup {
         return 1f;
     }
 
+    private static float CarDoor(float x, float y) {
+        // Pintu mobil dilihat dari samping: sisi depan atas miring (bingkai kaca), lubang jendela, gagang.
+        const float left = -0.7f, right = 0.7f, bottom = -0.85f, top = 0.75f, slantStart = 0.05f, slant = 0.9f;
+        if (x < left || x > right || y < bottom || y > top) return 0f;
+        if (y > slantStart && x < left + (y - slantStart) * slant) return 0f;
+        bool window = y > 0.17f && y < 0.62f && x < 0.56f && x > left + (y - slantStart) * slant + 0.16f;
+        bool handle = y > -0.14f && y < -0.02f && x > 0.18f && x < 0.52f;
+        return window || handle ? 0f : 1f;
+    }
+
     // ------------------------------------------------------------------ InteractionAction
 
-    private static InteractionAction enterAction, exitAction;
+    private static InteractionAction enterAction, rideAction, exitAction;
 
     private static void CreateActions(List<string> log) {
         Sprite steering = AssetDatabase.LoadAssetAtPath<Sprite>(IconFolder + "icon-steering.png");
+        Sprite door = AssetDatabase.LoadAssetAtPath<Sprite>(IconFolder + "icon-car-door.png");
         Sprite logout = AssetDatabase.LoadAssetAtPath<Sprite>(IconFolder + "icon-logout.png");
-        enterAction = CreateAction("EnterCar", "Masuk", steering, log);
+        enterAction = CreateAction("EnterCar", "Menyetir", steering, log);
+        rideAction = CreateAction("RideCar", "Menumpang", door, log);
         exitAction = CreateAction("ExitCar", "Keluar", logout, log);
     }
 
@@ -177,8 +194,9 @@ public static class VehicleSetup {
 
     private static bool LoadActions() {
         enterAction = AssetDatabase.LoadAssetAtPath<InteractionAction>(ActionFolder + "EnterCar.asset");
+        rideAction = AssetDatabase.LoadAssetAtPath<InteractionAction>(ActionFolder + "RideCar.asset");
         exitAction = AssetDatabase.LoadAssetAtPath<InteractionAction>(ActionFolder + "ExitCar.asset");
-        return enterAction && exitAction;
+        return enterAction && rideAction && exitAction;
     }
 
     // ------------------------------------------------------------------ Animator
@@ -323,8 +341,10 @@ public static class VehicleSetup {
         string path = $"{PrefabFolder}/{source.name}_Drivable.prefab";
         if (!overwrite && AssetDatabase.LoadAssetAtPath<GameObject>(path))
             return $"{source.name}: {path} sudah ada";
-        if (!enterAction && !LoadActions()) return "InteractionAction EnterCar/ExitCar belum ada";
-        if (!AssetDatabase.IsValidFolder(PrefabFolder)) AssetDatabase.CreateFolder("Assets/Prefab", "Vehicles");
+        if ((!enterAction || !rideAction || !exitAction) && !LoadActions())
+            return "InteractionAction EnterCar/RideCar/ExitCar belum ada (jalankan menu 1)";
+        if (!AssetDatabase.IsValidFolder(PrefabFolder)) AssetDatabase.CreateFolder("Assets/Resources", "Vehicles");
+        MoveLegacyPrefab(source.name);
 
         var root = (GameObject)PrefabUtility.InstantiatePrefab(source);
         try {
@@ -344,11 +364,11 @@ public static class VehicleSetup {
 
             var model = root.GetComponent<CarModelControl>();
             int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
-            var prompt = AssetDatabase.LoadAssetAtPath<InteractPromptWorld>(PromptPrefabPath);
 
-            // Satu kursi per pintu. Zona trigger di titik pintu (EnterL/EnterR/EnterBL/...).
+            // Satu kursi per pintu (maks. CarSyncModel.MaxSeats yang disinkronkan). Zona trigger di titik pintu.
+            // Tanpa prompt dunia: cukup tombol Interact (ikon setir = sopir, ikon pintu = penumpang).
             var seats = new List<PlayerCar.Seat>();
-            for (int i = 0; i < model.entryPoints.Length; i++) {
+            for (int i = 0; i < model.entryPoints.Length && seats.Count < CarSyncModel.MaxSeats; i++) {
                 EntryPoint entry = model.entryPoints[i];
                 if (!entry.entryPoint) continue;
                 string role = entry.driver ? "Sopir" : "Penumpang";
@@ -361,8 +381,7 @@ public static class VehicleSetup {
                 box.size = new Vector3(1.6f, 2f, 1.6f);
                 var enter = zone.AddComponent<Interactable>();
                 enter.displayName = $"{source.name} ({role})";
-                enter.action = enterAction;
-                SetPrompt(enter, prompt, new Vector3(0f, 1.9f, 0f));
+                enter.action = entry.driver ? enterAction : rideAction;
                 seats.Add(new PlayerCar.Seat { entryIndex = i, enterInteractable = enter });
             }
 
@@ -377,6 +396,11 @@ public static class VehicleSetup {
             exit.action = exitAction;
 
             root.AddComponent<PlayerCar>().Init(model, seats.ToArray(), exit);
+
+            // Jaringan: RealtimeView + CarSync (state kursi, pose mobil). Tanpa RealtimeTransform: fisika disinkronkan
+            // CarSync sendiri (hanya sopir yang mensimulasikan).
+            root.AddComponent<RealtimeView>();
+            root.AddComponent<CarSync>();
 
             // Simpan ke path yang sama = GUID tetap, instance di scene ikut ter-update.
             PrefabUtility.SaveAsPrefabAsset(root, path);
@@ -414,54 +438,78 @@ public static class VehicleSetup {
         }
     }
 
-    private static void SetPrompt(Interactable interactable, InteractPromptWorld prompt, Vector3 offset) {
-        var so = new SerializedObject(interactable);
-        so.FindProperty("promptPrefab").objectReferenceValue = prompt;
-        so.FindProperty("promptOffset").vector3Value = offset;
-        so.ApplyModifiedPropertiesWithoutUndo();
+    /// Prefab dari versi sebelumnya (Assets/Prefab/Vehicles) dipindah ke Resources. MoveAsset menjaga GUID,
+    /// jadi referensi lama tetap valid.
+    private static void MoveLegacyPrefab(string sourceName) {
+        string legacy = $"{LegacyPrefabFolder}/{sourceName}_Drivable.prefab";
+        string target = $"{PrefabFolder}/{sourceName}_Drivable.prefab";
+        if (!AssetDatabase.LoadAssetAtPath<GameObject>(legacy) || AssetDatabase.LoadAssetAtPath<GameObject>(target)) return;
+        string error = AssetDatabase.MoveAsset(legacy, target);
+        if (!string.IsNullOrEmpty(error)) Debug.LogWarning($"[Mobil] Gagal memindah {legacy}: {error}");
+    }
+
+
+    /// RealtimeView baru mengisi daftar komponennya (_components) di OnValidate, yang tidak dipanggil oleh
+    /// AddComponent dari script di scene. Tanpa ini VehicleDirector tidak punya model jaringan.
+    private static void RegisterViewComponents(RealtimeView view) {
+        var onValidate = typeof(RealtimeView).GetMethod("OnValidate",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+        onValidate?.Invoke(view, null);
+        EditorUtility.SetDirty(view);
     }
 
     // ------------------------------------------------------------------ Scene
 
-    [MenuItem("Go Vista/Mobil/3. Taruh Matador di SpawnPointMobil")]
-    public static void PlaceAtSpawnMarker() {
-        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(DrivablePrefabPath);
-        GameObject marker = GameObject.Find(SpawnMarkerName);
-        if (!prefab || !marker) {
-            Debug.LogError($"[Mobil] Butuh prefab {DrivablePrefabPath} dan object '{SpawnMarkerName}' di scene.");
+    private const string MainScenePath = "Assets/Scenes/MainMultiplayerScene.unity";
+    private const string WorldScenePath = "Assets/Scenes/WorldScene.unity";
+    private const string DirectorObjectName = "VehicleDirector";
+
+    /// <summary>
+    /// Mobil di-spawn VehicleDirector (jaringan), bukan ditaruh manual:
+    ///  - MainMultiplayerScene: tambah object VehicleDirector (RealtimeView + VehicleDirector) kalau belum ada.
+    ///  - WorldScene: hapus mobil PlayerCar yang ditaruh manual (versi sebelumnya), matikan collider SpawnPointMobil.
+    /// Kedua scene harus terbuka (WorldScene boleh additive) dan disimpan setelahnya.
+    /// </summary>
+    [MenuItem("Go Vista/Mobil/3. Pasang Spawner Mobil (VehicleDirector)")]
+    public static void InstallDirector() {
+        var log = new List<string>();
+        Scene main = SceneManager.GetSceneByPath(MainScenePath);
+        Scene world = SceneManager.GetSceneByPath(WorldScenePath);
+        if (!main.isLoaded || !world.isLoaded) {
+            EditorUtility.DisplayDialog("Pasang Spawner Mobil",
+                "Buka MainMultiplayerScene, lalu buka WorldScene secara additive (klik kanan > Open Scene Additive), " +
+                "kemudian jalankan menu ini lagi.", "OK");
             return;
         }
-        var existing = Object.FindObjectsByType<PlayerCar>(FindObjectsInactive.Include)
-            .FirstOrDefault(c => c.gameObject.scene == marker.scene && c.name == prefab.name);
-        GameObject car = existing ? existing.gameObject
-                                  : (GameObject)PrefabUtility.InstantiatePrefab(prefab, marker.scene);
-        Undo.RegisterCreatedObjectUndo(car, "Taruh Matador");
 
-        // Posisi XZ = cube. Tinggi = tanah di bawah cube (cube-nya sendiri diabaikan).
-        Transform t = marker.transform;
-        Vector3 position = t.position;
-        Collider markerCollider = marker.GetComponent<Collider>();
-        float bestY = float.NaN, bestDistance = float.MaxValue;
-        foreach (RaycastHit hit in Physics.RaycastAll(t.position + Vector3.up * 5f, Vector3.down, 30f,
-                                                      Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) {
-            if (hit.collider == markerCollider || hit.collider.transform.IsChildOf(car.transform)) continue;
-            if (hit.distance < bestDistance) {
-                bestDistance = hit.distance;
-                bestY = hit.point.y;
-            }
+        if (main.GetRootGameObjects().Any(g => g.GetComponent<VehicleDirector>())) {
+            log.Add("MainMultiplayerScene: VehicleDirector sudah ada");
+        } else {
+            var director = new GameObject(DirectorObjectName);
+            SceneManager.MoveGameObjectToScene(director, main);
+            var view = director.AddComponent<RealtimeView>();
+            director.AddComponent<VehicleDirector>();
+            RegisterViewComponents(view);
+            Undo.RegisterCreatedObjectUndo(director, "Pasang VehicleDirector");
+            EditorSceneManager.MarkSceneDirty(main);
+            log.Add("MainMultiplayerScene: VehicleDirector ditambahkan");
         }
-        if (!float.IsNaN(bestY)) position.y = bestY;
-        // Depan mobil = sumbu X lokal cube (sisi panjangnya), sesuai keputusan desain.
-        Vector3 forward = Vector3.ProjectOnPlane(t.right, Vector3.up).normalized;
-        car.transform.SetPositionAndRotation(position, Quaternion.LookRotation(forward, Vector3.up));
 
-        // Cube hanya patokan: collider-nya dimatikan supaya tidak menabrak mobil.
-        if (markerCollider && markerCollider.enabled) {
+        foreach (GameObject root in world.GetRootGameObjects()) {
+            if (!root.GetComponent<PlayerCar>()) continue;
+            log.Add($"WorldScene: mobil '{root.name}' yang ditaruh manual dihapus");
+            Undo.DestroyObjectImmediate(root);
+            EditorSceneManager.MarkSceneDirty(world);
+        }
+        GameObject marker = world.GetRootGameObjects().FirstOrDefault(g => g.name == SpawnMarkerName);
+        if (!marker) {
+            log.Add($"WorldScene: '{SpawnMarkerName}' tidak ditemukan! VehicleDirector butuh object ini sebagai titik spawn.");
+        } else if (marker.TryGetComponent(out Collider markerCollider) && markerCollider.enabled) {
             Undo.RecordObject(markerCollider, "Matikan collider SpawnPointMobil");
             markerCollider.enabled = false;
+            EditorSceneManager.MarkSceneDirty(world);
+            log.Add($"WorldScene: collider '{SpawnMarkerName}' dimatikan");
         }
-        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(marker.scene);
-        Selection.activeGameObject = car;
-        Debug.Log($"[Mobil] Matador ditaruh di {position} (scene {marker.scene.name}).");
+        Debug.Log("[Mobil] Pasang spawner:\n- " + string.Join("\n- ", log) + "\nSimpan kedua scene (Ctrl+S).");
     }
 }

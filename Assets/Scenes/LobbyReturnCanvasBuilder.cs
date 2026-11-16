@@ -9,7 +9,6 @@ using UnityEngine.SceneManagement;
 
 [InitializeOnLoad]
 internal static class LobbyReturnCanvasBuilder {
-    private const string ScenePath = "Assets/Scenes/Multiplayer/LobbyReturnScene.unity";
     private const string PrefabPath = "Assets/Prefab/LobbyReturnCanvas.prefab";
     private const string MainScenePath = "Assets/Scenes/MainMultiplayerScene.unity";
     private const string VideoClipPath = "Assets/Art/Image/govista_lobby_loop_1080p.webm";
@@ -31,16 +30,10 @@ internal static class LobbyReturnCanvasBuilder {
         EnsurePrefabVisibilityController();
         prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
 
+        // Hanya background video lobby di MainMultiplayerScene. Dulu builder ini juga membuat salinan
+        // LobbyReturnScene, tapi scene itu tidak pernah dimuat game (keluar room memuat ulang
+        // MainMultiplayerScene), jadi sudah dihapus.
         EnsureBackgroundInMainScene(prefab);
-        if (!SceneHasLobbyController(ScenePath))
-            CreateFunctionalLobbyScene(prefab);
-
-        EditorBuildSettingsScene[] buildScenes = EditorBuildSettings.scenes;
-        var updatedScenes = new System.Collections.Generic.List<EditorBuildSettingsScene>(buildScenes);
-        if (!updatedScenes.Exists(item => item.path == ScenePath)) {
-            updatedScenes.Add(new EditorBuildSettingsScene(ScenePath, true));
-            EditorBuildSettings.scenes = updatedScenes.ToArray();
-        }
     }
 
     private static GameObject CreateCanvasPrefab() {
@@ -133,54 +126,6 @@ internal static class LobbyReturnCanvasBuilder {
     private static T GetOrAdd<T>(GameObject target) where T : Component {
         T component = target.GetComponent<T>();
         return component != null ? component : target.AddComponent<T>();
-    }
-
-    private static bool SceneHasLobbyController(string path) {
-        Scene scene = SceneManager.GetSceneByPath(path);
-        bool openedHere = !scene.IsValid() || !scene.isLoaded;
-        if (openedHere && AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null)
-            scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
-        if (!scene.IsValid() || !scene.isLoaded)
-            return false;
-        bool found = false;
-        foreach (GameObject root in scene.GetRootGameObjects()) {
-            if (root.GetComponentInChildren<LobyUISceneController>(true) != null) {
-                found = true;
-                break;
-            }
-        }
-        if (openedHere)
-            EditorSceneManager.CloseScene(scene, true);
-        return found;
-    }
-
-    private static void CreateFunctionalLobbyScene(GameObject prefab) {
-        if (AssetDatabase.LoadAssetAtPath<SceneAsset>(MainScenePath) == null) {
-            Debug.LogError("MainMultiplayerScene tidak ditemukan; LobbyReturnScene belum bisa dibuat.");
-            return;
-        }
-        Scene source = SceneManager.GetSceneByPath(MainScenePath);
-        bool openedHere = !source.IsValid() || !source.isLoaded;
-        if (openedHere)
-            source = EditorSceneManager.OpenScene(MainScenePath, OpenSceneMode.Additive);
-        if (!source.IsValid() || !source.isLoaded)
-            return;
-
-        GameObject imageCanvas = null;
-        bool alreadyHasCanvas = false;
-        foreach (GameObject root in source.GetRootGameObjects()) {
-            if (root.name == prefab.name) {
-                alreadyHasCanvas = true;
-                break;
-            }
-        }
-        if (!alreadyHasCanvas)
-            imageCanvas = PrefabUtility.InstantiatePrefab(prefab, source) as GameObject;
-        EditorSceneManager.SaveScene(source, ScenePath, true);
-        if (imageCanvas != null)
-            Object.DestroyImmediate(imageCanvas);
-        if (openedHere)
-            EditorSceneManager.CloseScene(source, true);
     }
 
     private static void EnsureBackgroundInMainScene(GameObject prefab) {

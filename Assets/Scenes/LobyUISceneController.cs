@@ -154,6 +154,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (_playerListRoutine != null)
             StopCoroutine(_playerListRoutine);
         ProgressService.Loaded -= RefreshAccountChip;
+        ProgressService.Loaded -= RefreshCharacterTile;
         ProgressService.PlayerNameChanged -= OnPlayerNameChanged;
         if (!Application.isPlaying || realtime == null)
             return;
@@ -232,9 +233,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         AddClickListener("Lobby Join Code Button", ConnectQuickmatchCode);
         AddClickListener("Lobby Close Button", ShowMainMenu);
         AddClickListener("Main Menu Play Button", OpenLobby);
-        // PROFIL (dulu KARAKTER). Nama lama tetap didengar kalau prefab belum di-patch installer.
+        AddClickListener(MainMenuTiles.CharacterTile, OpenCharacterScene);
         AddClickListener(MainMenuTiles.ProfileTile, OpenProfile);
-        AddClickListener(MainMenuTiles.CharacterTile, OpenProfile);
         AddClickListener("Main Menu Settings Button", OpenSettings);
         AddClickListener("Main Menu Quit Button", OpenExitConfirm);
         AddClickListener("Exit Cancel Button", CloseExitConfirm);
@@ -243,6 +243,9 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         LoginUIController.AccountChanged += OnAccountChanged;
         // Sapaan menu utama memakai nama pemain dari progres: segarkan saat progres ter-load / nama diganti.
         ProgressService.Loaded += RefreshAccountChip;
+        ProgressService.Loaded -= RefreshCharacterTile;
+        ProgressService.Loaded += RefreshCharacterTile;
+        RefreshCharacterTile();
         ProgressService.PlayerNameChanged += OnPlayerNameChanged;
         RefreshAccountChip();
 
@@ -608,14 +611,16 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         AddIcon("Main Menu Play Chevron", playFace, "icon-chevron-right", new Color(1f, 1f, 1f, 0.75f),
                 486f, 52f, 44f);
 
-        // KARAKTER, TEMAN & PENGATURAN: tiga tile berdampingan, ikon di kotak berwarna (lihat MainMenuTiles).
-        BuildMenuTile(MainMenuTiles.ProfileTile, card, MainMenuTiles.X(0), "PROFIL", "Pemain", "icon-user",
+        // KARAKTER, PROFIL, TEMAN & PENGATURAN: empat tile berdampingan, ikon di kotak berwarna (MainMenuTiles).
+        BuildMenuTile(MainMenuTiles.CharacterTile, card, MainMenuTiles.X(0), "KARAKTER", "Karakter",
+                      MainMenuTiles.CharacterIcon, MainMenuTiles.BlueTop, MainMenuTiles.BlueBottom);
+        BuildMenuTile(MainMenuTiles.ProfileTile, card, MainMenuTiles.X(1), "PROFIL", "Pemain", "icon-user",
                       PinkTopColor, PinkBottomColor);
-        BuildMenuTile(MainMenuTiles.FriendsTile, card, MainMenuTiles.X(1), "TEMAN", "Cari & undang", "icon-friends",
+        BuildMenuTile(MainMenuTiles.FriendsTile, card, MainMenuTiles.X(2), "TEMAN", "Cari & undang", "icon-friends",
                       MainMenuTiles.GreenTop, MainMenuTiles.GreenBottom);
         MainMenuTiles.AddBadge(card.Find(MainMenuTiles.FriendsTile + "/" + MainMenuTiles.FriendsTile + " Face/" +
                                          MainMenuTiles.FriendsTile + " Icon Box"));
-        BuildMenuTile("Main Menu Settings Button", card, MainMenuTiles.X(2), "PENGATURAN", "Kontrol & suara",
+        BuildMenuTile("Main Menu Settings Button", card, MainMenuTiles.X(3), "PENGATURAN", "Kontrol & suara",
                       "icon-settings", CyanTopColor, CyanBottomColor);
 
         // KELUAR GAME: merah kalem dengan ikon power. Isi diatur HorizontalLayoutGroup supaya selalu di tengah.
@@ -646,12 +651,15 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
                                       76f, 76f);
         AddGradientShape(iconBox.gameObject, iconTop, iconBottom, cornerScale: 1.1f).raycastTarget = false;
         AddIcon(name + " Icon", iconBox, icon, Color.white, 18f, 18f, 40f);
-        Place(CreateText(name + " Label", face, label, MainMenuTiles.LabelFontSize, FontStyle.Bold,
-                         TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, Color.white).rectTransform,
-              MainMenuTiles.TextPadding, 108f, MainMenuTiles.TextWidth, 36f);
-        Place(CreateText(name + " Subtitle", face, subtitle, 20, FontStyle.Normal, TextAnchor.MiddleCenter,
-                         Vector2.zero, Vector2.zero, TileSubColor).rectTransform,
-              MainMenuTiles.TextPadding, 144f, MainMenuTiles.TextWidth, 26f);
+        Text labelText = CreateText(name + " Label", face, label, MainMenuTiles.LabelFontSize, FontStyle.Bold,
+                                    TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, Color.white);
+        Place(labelText.rectTransform, MainMenuTiles.TextPadding, 108f, MainMenuTiles.TextWidth, 36f);
+        Text subtitleText = CreateText(name + " Subtitle", face, subtitle, MainMenuTiles.SubtitleFontSize,
+                                       FontStyle.Normal, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero,
+                                       TileSubColor);
+        Place(subtitleText.rectTransform, MainMenuTiles.TextPadding, 144f, MainMenuTiles.TextWidth, 26f);
+        MainMenuTiles.FitToWidth(labelText);
+        MainMenuTiles.FitToWidth(subtitleText);
     }
 
     /// <summary>
@@ -1397,21 +1405,33 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private void OpenProfile() {
         if (ProfileMenu.Instance == null) {
             Debug.LogWarning("[Profile] ProfileMenu tidak ada di scene. Jalankan Go Vista > Profile > " +
-                             "Pasang Profile di MainMultiplayerScene. Membuka menu karakter sebagai gantinya.");
-            OpenCharacterSelect();
+                             "Pasang Profile di MainMultiplayerScene.");
             return;
         }
         ProfileMenu.Instance.Open();
     }
 
-    private void OpenCharacterSelect() {
-        CharacterSelectUI characterSelect = FindAnyObjectByType<CharacterSelectUI>(FindObjectsInactive.Include);
-        if (characterSelect == null) {
-            Debug.LogWarning("[CharacterSelect] CharacterSelectCanvas tidak ada di scene. " +
-                             "Jalankan Go Vista > Setup Pilih Karakter.");
-            return;
-        }
-        characterSelect.Open();
+    /// KARAKTER: scene CharacterScene dimuat additive di atas lobby (Realtime/chat tetap hidup). Canvas
+    /// lobby disembunyikan setelah scene siap, lalu tampil lagi saat pemain kembali.
+    private void OpenCharacterScene() {
+        CharacterSceneLoader.Open(
+            opened: () => {
+                if (_lobbyCanvas != null) _lobbyCanvas.enabled = false;
+            },
+            closed: () => {
+                if (this == null) return;
+                if (_lobbyCanvas != null) _lobbyCanvas.enabled = true;
+                RefreshCharacterTile();
+            });
+    }
+
+    /// Subtitle tile KARAKTER = karakter yang sedang dipakai ("Default Cowok", "Karakter 1", ...).
+    private void RefreshCharacterTile() {
+        if (_mainMenu == null || !ProgressService.IsLoaded) return;
+        string name = MainMenuTiles.CharacterTile;
+        Transform subtitle = MainMenuTiles.FindDeep(_mainMenu.transform, name + " Subtitle");
+        Text text = subtitle != null ? subtitle.GetComponent<Text>() : null;
+        if (text != null) text.text = CustomCharacterStore.ActiveDisplayName;
     }
 
     // Menu utama > PENGATURAN. Isi dialog (sensitivitas, akun, simpan) diurus SettingsPanel; di sini hanya

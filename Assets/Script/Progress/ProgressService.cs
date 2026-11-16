@@ -186,6 +186,17 @@ public static class ProgressService {
         _ = SaveAsync(); // jarang terjadi, langsung simpan
     }
 
+    /// <summary>
+    /// Ganti daftar karakter custom + slot aktif sekaligus (dipanggil CustomCharacterStore, yang sudah
+    /// memvalidasi isinya). Langsung disimpan karena jarang terjadi.
+    /// </summary>
+    public static void SetCustomCharacters(List<CustomCharacterRecord> characters, int activeSlot) {
+        Current.customCharacters = characters ?? new List<CustomCharacterRecord>();
+        Current.activeCustomSlot = activeSlot;
+        MarkDirty();
+        _ = SaveAsync();
+    }
+
     // ================================================================ Nama pemain
 
     /// <summary>Simpan nama pemain (dirapikan dulu lewat PlayerNameRules). Mengembalikan nama yang disimpan.</summary>
@@ -210,6 +221,12 @@ public static class ProgressService {
         p.completedDialogues ??= new List<string>();
         p.dialogueAnswers ??= new List<DialogueAnswer>();
         p.characterId ??= "";
+        p.customCharacters ??= new List<CustomCharacterRecord>();
+        p.customCharacters.RemoveAll(c => c == null);
+        if (p.customCharacters.Count > CustomSlotRules.MaxCustomSlots)
+            p.customCharacters.RemoveRange(CustomSlotRules.MaxCustomSlots, p.customCharacters.Count - CustomSlotRules.MaxCustomSlots);
+        if (p.activeCustomSlot < CustomSlotRules.NoActiveSlot || p.activeCustomSlot >= p.customCharacters.Count)
+            p.activeCustomSlot = CustomSlotRules.NoActiveSlot;
         p.activeQuests ??= new List<QuestProgress>();
         p.activeQuests.RemoveAll(q => q == null || string.IsNullOrEmpty(q.questId));
         foreach (QuestProgress quest in p.activeQuests) quest.completedObjectives ??= new List<string>();

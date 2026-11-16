@@ -6,17 +6,19 @@ using UnityEngine.UI;
 ///  - tile KARAKTER menjadi PROFIL (Docs/Profil/01-main-menu.png),
 ///  - tile TEMAN ditambahkan (salinan tile PROFIL: gaya, lip, animasi tekan ikut; teks/ikon/warna diganti),
 ///  - header sapaan "Selamat datang, nama" dihapus dan isi kartu dinaikkan,
-///  - PROFIL · TEMAN · PENGATURAN ditata tiga kolom.
+///  - tile KARAKTER ditambahkan paling kiri (salinan tile PROFIL, ikon baju biru), membuka scene CharacterScene,
+///  - KARAKTER · PROFIL · TEMAN · PENGATURAN ditata empat kolom.
 /// Aman dijalankan berulang: bagian yang sudah beres dilewati, tata letak dirapikan ulang.
 public static class FriendsMainMenuPatcher {
     private const string LobbyPrefabPath = "Assets/Prefab/LobbyCanvas.prefab";
     private const string FriendsIconPath = "Assets/Resources/UI/Icons/icon-friends.png";
+    private const string CharacterIconPath = "Assets/Resources/UI/Icons/" + MainMenuTiles.CharacterIcon + ".png";
 
     private static readonly string[] HeaderObjects = {
         "Main Menu Avatar Ring", "Main Menu Avatar", "Main Menu Greeting", "Main Menu Name",
     };
 
-    [MenuItem("Go Vista/Profile/Rapikan Menu Utama (PROFIL · TEMAN · PENGATURAN)")]
+    [MenuItem("Go Vista/Profile/Rapikan Menu Utama (KARAKTER · PROFIL · TEMAN · PENGATURAN)")]
     public static bool PatchMainMenu() => EnsureFriendsTile();
 
     [MenuItem("Go Vista/Friends/Tambah Tile TEMAN di Menu Utama")]
@@ -35,12 +37,14 @@ public static class FriendsMainMenuPatcher {
                 return false;
             }
             Transform friends = FindDeep(root.transform, MainMenuTiles.FriendsTile) ?? CloneAsFriends(profile);
+            Transform character = FindDeep(root.transform, MainMenuTiles.CharacterTile) ?? CloneAsCharacter(profile);
             RemoveHeader(root.transform);
-            MainMenuTiles.Relayout((RectTransform)profile, 0);
-            MainMenuTiles.Relayout((RectTransform)friends, 1);
-            MainMenuTiles.Relayout((RectTransform)settings, 2);
+            MainMenuTiles.Relayout((RectTransform)character, 0);
+            MainMenuTiles.Relayout((RectTransform)profile, 1);
+            MainMenuTiles.Relayout((RectTransform)friends, 2);
+            MainMenuTiles.Relayout((RectTransform)settings, 3);
             PrefabUtility.SaveAsPrefabAsset(root, LobbyPrefabPath);
-            Debug.Log("[Friends] Menu utama siap di LobbyCanvas.prefab (PROFIL · TEMAN · PENGATURAN, tanpa sapaan).");
+            Debug.Log("[Friends] Menu utama siap di LobbyCanvas.prefab (KARAKTER · PROFIL · TEMAN · PENGATURAN).");
             return true;
         } finally {
             PrefabUtility.UnloadPrefabContents(root);
@@ -68,6 +72,32 @@ public static class FriendsMainMenuPatcher {
         MainMenuTiles.AddBadge(iconBox);
 
         // Listener KARAKTER (kalau ada yang tersimpan di prefab) jangan ikut tersalin.
+        Button button = clone.GetComponent<Button>();
+        if (button != null)
+            button.onClick = new Button.ButtonClickedEvent();
+        return clone.transform;
+    }
+
+    /// Tile KARAKTER baru (paling kiri) dari salinan tile PROFIL: teks, ikon baju, dan warna biru-ungu.
+    private static Transform CloneAsCharacter(Transform profile) {
+        GameObject clone = Object.Instantiate(profile.gameObject, profile.parent);
+        clone.transform.SetSiblingIndex(profile.GetSiblingIndex());
+        RenameTree(clone.transform, MainMenuTiles.ProfileTile, MainMenuTiles.CharacterTile);
+        clone.name = MainMenuTiles.CharacterTile;
+
+        string name = MainMenuTiles.CharacterTile;
+        Transform face = clone.transform.Find(name + " Face");
+        SetText(face, name + " Label", "KARAKTER");
+        SetText(face, name + " Subtitle", "Karakter"); // diisi karakter yang dipakai saat runtime
+
+        Transform iconBox = face != null ? face.Find(name + " Icon Box") : null;
+        UIVerticalGradient gradient = iconBox != null ? iconBox.GetComponent<UIVerticalGradient>() : null;
+        if (gradient != null)
+            gradient.SetColors(MainMenuTiles.BlueTop, MainMenuTiles.BlueBottom);
+        Image icon = iconBox != null ? iconBox.Find(name + " Icon")?.GetComponent<Image>() : null;
+        if (icon != null)
+            icon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(CharacterIconPath);
+
         Button button = clone.GetComponent<Button>();
         if (button != null)
             button.onClick = new Button.ButtonClickedEvent();
