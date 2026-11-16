@@ -199,12 +199,15 @@ public sealed class TrafficCar : MonoBehaviour
 
         float targetSpeed = maxSpeed;
 
-        float playerDistance = ScanForPlayer();
+        float playerDistance = ScanForPlayer(out PlayerCar blockingCar);
         if (playerDistance < float.PositiveInfinity)
         {
             targetSpeed = playerDistance <= stopDistance
                 ? 0f
                 : Mathf.Lerp(0f, maxSpeed, Mathf.InverseLerp(stopDistance, lookAhead, playerDistance));
+            // Mobil pemain yang membuat traffic berhenti dicatat; yang kosong terlalu lama di-respawn (CarSync).
+            // Traffic melambat bertahap mendekati stopDistance, jadi yang dicek kecepatan targetnya, bukan jaraknya.
+            if (blockingCar != null && targetSpeed < 0.5f) blockingCar.ReportBlockingTraffic();
         }
 
         targetSpeed = LimitForGap(targetSpeed, Mathf.Min(route.GapAhead(this), GapToCarOnPath()));
@@ -378,8 +381,11 @@ public sealed class TrafficCar : MonoBehaviour
         return transform.InverseTransformPoint(position).x >= 0f ? transform.right : -transform.right;
     }
 
-    private float ScanForPlayer()
+    /// Jarak (sepanjang arah jalan) ke pemain atau mobil pemain terdekat di depan. blockingCar diisi kalau yang
+    /// terdekat adalah mobil pemain.
+    private float ScanForPlayer(out PlayerCar blockingCar)
     {
+        blockingCar = null;
         float playerDistance = float.PositiveInfinity;
         if (lookAhead <= 0f) return playerDistance;
 
@@ -393,6 +399,22 @@ public sealed class TrafficCar : MonoBehaviour
             Collider hit = k_OverlapBuffer[i];
             if (hit == null || hit.transform.IsChildOf(transform)) continue;
 
+            // Mobil pemain: diukur ke titik terdekat badannya, karena pivotnya di tengah mobil yang panjang.
+            PlayerCar playerCar = hit.GetComponentInParent<PlayerCar>();
+            if (playerCar != null)
+            {
+                // bounds, bukan Collider.ClosestPoint: yang terakhir error untuk WheelCollider dan MeshCollider non-convex.
+                float carAlong = Vector3.Dot(hit.bounds.ClosestPoint(transform.position) - transform.position, transform.forward);
+                if (carAlong < -1.5f) continue;
+                float carCandidate = Mathf.Max(0f, carAlong);
+                if (carCandidate < playerDistance)
+                {
+                    playerDistance = carCandidate;
+                    blockingCar = playerCar;
+                }
+                continue;
+            }
+
             CharacterController controller = hit.GetComponentInParent<CharacterController>();
             if (controller == null) continue;
             if (controller.TryGetComponent(out PlayerController player) && player.IsFrozen) continue; // avatar sudah mati
@@ -402,7 +424,11 @@ public sealed class TrafficCar : MonoBehaviour
             if (along < -1.5f) continue;
 
             float candidate = Mathf.Max(0f, along);
-            if (candidate < playerDistance) playerDistance = candidate;
+            if (candidate < playerDistance)
+            {
+                playerDistance = candidate;
+                blockingCar = null;
+            }
         }
 
         return playerDistance;

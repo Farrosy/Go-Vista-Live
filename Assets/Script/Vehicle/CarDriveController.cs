@@ -52,6 +52,30 @@ public class CarDriveController : MonoBehaviour {
     private float currentSteer;
     private int driveWheelCount;
 
+    // Visual roda saat mobil digerakkan dari jaringan (Rigidbody kinematic, WheelCollider tidak jalan).
+    private bool simulating = true;
+    private float remoteSteer;
+    private float wheelSpin;
+    private Vector3 lastPosition;
+    private Vector3[] wheelRestPosition;
+    private Quaternion[] wheelRestRotation;
+
+    /// <summary>Sudut belok roda depan sekarang (derajat). Dikirim CarSync ke pemain lain.</summary>
+    public float SteerAngle => currentSteer;
+
+    /// <summary>
+    /// False = client lain yang menjalankan fisika mobil ini (CarSync): tidak ada torsi/rem, roda digerakkan visual saja.
+    /// </summary>
+    public void SetSimulating(bool value) {
+        if (simulating == value) return;
+        simulating = value;
+        lastPosition = transform.position;
+        if (!value) ResetWheelModels();
+    }
+
+    /// <summary>Sudut belok roda depan dari sopir di client lain (derajat).</summary>
+    public void SetRemoteSteer(float angle) => remoteSteer = angle;
+
     /// <summary>True selama ada pemain di kursi sopir. Tanpa pengemudi mobil direm penuh.</summary>
     public bool HasDriver { get; private set; }
 
@@ -78,9 +102,18 @@ public class CarDriveController : MonoBehaviour {
         driveWheelCount = 0;
         foreach (DriveWheel w in wheels)
             if (w.collider && w.drive) driveWheelCount++;
+        wheelRestPosition = new Vector3[wheels.Length];
+        wheelRestRotation = new Quaternion[wheels.Length];
+        for (int i = 0; i < wheels.Length; i++) {
+            if (!wheels[i].model) continue;
+            wheelRestPosition[i] = wheels[i].model.localPosition;
+            wheelRestRotation[i] = wheels[i].model.localRotation;
+        }
+        lastPosition = transform.position;
     }
 
     void FixedUpdate() {
+        if (!simulating) return;
         ForwardSpeed = Vector3.Dot(body.linearVelocity, transform.forward);
 
         float steerInput = 0f, drive = 0f, brake = 0f;
@@ -128,11 +161,43 @@ public class CarDriveController : MonoBehaviour {
     }
 
     void LateUpdate() {
+        if (!simulating) {
+            UpdateRemoteWheels();
+            return;
+        }
         // Visual roda mengikuti WheelCollider (putaran, belok, suspensi).
         foreach (DriveWheel w in wheels) {
             if (!w.collider || !w.model) continue;
             w.collider.GetWorldPose(out Vector3 position, out Quaternion rotation);
             w.model.SetPositionAndRotation(position, rotation);
+        }
+    }
+
+    /// Roda berputar sesuai jarak tempuh dan roda depan berbelok sesuai sudut dari sopir.
+    private void UpdateRemoteWheels() {
+        Vector3 moved = transform.position - lastPosition;
+        lastPosition = transform.position;
+        float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+        ForwardSpeed = Vector3.Dot(moved, transform.forward) / dt;
+        float radius = wheels.Length > 0 && wheels[0].collider ? wheels[0].collider.radius : 0.35f;
+        wheelSpin = (wheelSpin + Vector3.Dot(moved, transform.forward) / radius * Mathf.Rad2Deg) % 360f;
+
+        for (int i = 0; i < wheels.Length; i++) {
+            DriveWheel w = wheels[i];
+            if (!w.model) continue;
+            Quaternion steer = Quaternion.Euler(0f, w.steer ? remoteSteer : 0f, 0f);
+            w.model.localPosition = wheelRestPosition[i];
+            // Putar di sumbu kanan MOBIL (bukan sumbu model), karena roda kiri dan kanan bisa model yang dicerminkan.
+            w.model.localRotation = steer * Quaternion.AngleAxis(wheelSpin, Vector3.right) * wheelRestRotation[i];
+        }
+    }
+
+    private void ResetWheelModels() {
+        if (wheelRestPosition == null) return;
+        for (int i = 0; i < wheels.Length; i++) {
+            if (!wheels[i].model) continue;
+            wheels[i].model.localPosition = wheelRestPosition[i];
+            wheels[i].model.localRotation = wheelRestRotation[i];
         }
     }
 }

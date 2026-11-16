@@ -73,6 +73,8 @@ public sealed class TrafficNetwork : MonoBehaviour
     private float nextPublish;
 
     public IReadOnlyList<TrafficRoute> Routes => routes;
+    /// True di client yang menjalankan simulasi traffic (satu client per room).
+    public bool IsAuthority => isAuthority;
     public IReadOnlyList<TrafficCar> Cars => cars;
 
     /// Lalu lintas yang sedang berjalan. Null kalau scene jalan raya tidak dimuat.
