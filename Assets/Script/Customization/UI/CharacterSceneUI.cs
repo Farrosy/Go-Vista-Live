@@ -6,7 +6,7 @@ using UnityEngine.EventSystems;
 /// Pengendali scene KARAKTER (Assets/Scenes/Customization/CharacterScene.unity), dibuka dari tile KARAKTER
 /// di menu utama lewat CharacterSceneLoader (additive di atas lobby). Layar pertama "Pilih Karakter"
 /// (CustomizerPickView, mockup v2 layar 1): 4 template terkunci + 2 slot karakter custom milik akun
-/// (CustomCharacterStore, Cloud Save). Editor (UBAH) menyusul di Tahap 1c, di scene yang sama.
+/// (CustomCharacterStore, Cloud Save). UBAH / Buat membuka editor (CustomizerEditor) di scene yang sama.
 ///
 /// Scene berisi: root ini (+ Canvas full-screen) dan Preview Stage (kamera + lampu + meja putar).
 /// Tampilan dibangun lewat kode saat runtime; posisi kamera/lampu bisa diatur langsung di scene.
@@ -25,6 +25,9 @@ public class CharacterSceneUI : MonoBehaviour {
     private int previewKey = int.MinValue;
     private int pendingDelete = -1;
     private Coroutine toastRoutine;
+    private CustomizerEditor editor;
+    // Frame saat editor ditutup: tombol Back di frame yang sama jangan ikut menutup scene.
+    private int editorClosedFrame = -1;
 
     private bool IsOpen => ui != null && ui.Root.activeSelf;
 
@@ -38,6 +41,8 @@ public class CharacterSceneUI : MonoBehaviour {
         EnsureEventSystem();
         ui = CustomizerPickView.Build(canvas.transform, assets);
         WireButtons();
+        editor = gameObject.AddComponent<CustomizerEditor>();
+        editor.Init(CustomizerEditorView.Build(canvas.transform, assets), assets, stage);
         CharacterPreviewDrag drag = ui.Preview.gameObject.AddComponent<CharacterPreviewDrag>();
         drag.SetStage(stage);
         if (stage) stage.UseTransparentBackground();
@@ -87,7 +92,7 @@ public class CharacterSceneUI : MonoBehaviour {
         if (!IsOpen) return;
         if (stage) ui.Loading.SetActive(stage.IsBusy);
         // Tombol Back di Android: tutup dialog dulu, baru menu.
-        if (!Input.GetKeyDown(KeyCode.Escape)) return;
+        if (!Input.GetKeyDown(KeyCode.Escape) || Time.frameCount == editorClosedFrame) return;
         if (ui.ConfirmOverlay.activeSelf) ui.ConfirmOverlay.SetActive(false);
         else Back();
     }
@@ -214,13 +219,27 @@ public class CharacterSceneUI : MonoBehaviour {
             ShowToast("Tidak bisa membuat karakter baru");
             return;
         }
-        ShowToast(CustomSlotRules.SlotName(slot) + " dibuat");
         Select(SelectionKind.Slot, slot);
+        EditSlot(slot);
     }
 
+    /// UBAH: buka editor untuk slot ini. Kalau preview sudah menampilkan slot ini, tidak dirakit ulang.
     private void EditSlot(int slot) {
-        Select(SelectionKind.Slot, slot);
-        ShowToast("Editor karakter menyusul di langkah berikutnya");
+        CustomCharacterRecord record = CustomCharacterStore.Get(slot);
+        if (record == null) return;
+        bool previewReady = selectedKind == SelectionKind.Slot && selectedIndex == slot && previewKey == 100 + slot;
+        ui.Root.SetActive(false);
+        editor.Open(record, slot, previewReady, OnEditorClosed);
+    }
+
+    /// Kembali dari editor ke Pilih Karakter: preview dirakit ulang dari data tersimpan (perubahan yang
+    /// dibuang tidak boleh tetap terlihat).
+    private void OnEditorClosed() {
+        editorClosedFrame = Time.frameCount;
+        ui.Root.SetActive(true);
+        if (stage) ui.Preview.texture = stage.Texture;
+        previewKey = int.MinValue;
+        Refresh();
     }
 
     private void AskDelete(int slot) {

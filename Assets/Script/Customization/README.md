@@ -39,9 +39,15 @@ Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 | 0 / 0b | Scene ukur bake runtime + optimasi (pemanasan, antrean, tekstur 512/1024, buang outfit) | Selesai |
 | 1a | Data, aturan, validator, Cloud Save, jembatan BoZo | Selesai |
 | 1b | Layar Pilih Karakter + preview live | Selesai |
-| 1c | Editor outfit + semua bagian warna | Berikutnya |
-| 1d | Wajah, kulit, stiker, dialog | |
+| 1c | Editor outfit + semua bagian warna (HSV picker, URUNGKAN, ACAK, SIMPAN, Samakan dengan, dialog Buang perubahan) | Selesai |
+| 1d | Wajah, kulit, stiker + motif (pattern), kamera Wajah | Berikutnya |
 | 3 | Sinkronisasi ke room: bake avatar pemain lain (opsi A) | |
+
+Editor 1c: `CustomizerEditor` (pengendali) + `CustomizerEditorView` (tata letak) + `HsvColorPicker`. Logika murni
+ada di Core dan dites EditMode: `CustomizationSession` (record kerja, URUNGKAN maks 50 langkah, status "Belum
+disimpan"), `RecordEdits` (ganti/lepas outfit, warna per bagian; selalu record baru), `EditorCategories` (rail +
+sub-tab → tipe outfit BoZo). Ganti baju = instance outfit BoZo di bawah avatar (BoZo mengganti slot sendiri);
+ganti warna = `Outfit.SetColor` (tanpa merge); URUNGKAN/ACAK = avatar dirakit ulang dari record.
 
 Sampai Tahap 3, avatar di world tetap memakai **template asal** slot yang aktif (`characterId`).
 
