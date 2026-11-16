@@ -19,6 +19,8 @@ public sealed class MinimapBlip : MonoBehaviour {
     [SerializeField] private bool keepUpright = true;
     [Tooltip("Kalau di luar jangkauan radar, tampilkan ikon di tepi radar ke arah objek ini.")]
     [SerializeField] private bool clampToEdge;
+    [Tooltip("Nama di daftar \"Tempat Penting\" peta penuh. Kosong = tidak masuk daftar. Hanya huruf ASCII (atlas font HUD statis).")]
+    [SerializeField] private string mapLabel;
 
     private MinimapItem _item;
     private MinimapRenderer _highlightedOn;
@@ -26,6 +28,7 @@ public sealed class MinimapBlip : MonoBehaviour {
     public MinimapItem Item => _item != null ? _item : _item = GetComponent<MinimapItem>();
     public float PixelSize => pixelSize;
     public bool KeepUpright => keepUpright;
+    public string MapLabel => mapLabel;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() => _all.Clear();

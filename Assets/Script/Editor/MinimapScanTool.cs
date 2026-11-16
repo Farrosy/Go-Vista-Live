@@ -43,8 +43,9 @@ public static class MinimapScanTool {
         EditorUtility.SetDirty(scanner);
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
-        if (opened) EditorSceneManager.CloseScene(scene, true);
         Debug.Log($"[Minimap] Peta kota selesai di-scan: {AssetDatabase.GetAssetPath(scanner.textureResultOfScan)}");
+        MinimapShoreBaker.Bake(scanner); // ombak peta penuh mengikuti garis pantai hasil scan baru
+        if (opened) EditorSceneManager.CloseScene(scene, true);
     }
 
     private static MinimapScanner EnsureScanner(Scene scene) {
@@ -136,6 +137,7 @@ public static class MinimapScanTool {
             serializedBlip.FindProperty("pixelSize").floatValue = LandmarkPixels;
             serializedBlip.FindProperty("keepUpright").boolValue = true;
             serializedBlip.FindProperty("clampToEdge").boolValue = false;
+            serializedBlip.FindProperty("mapLabel").stringValue = tag; // daftar "Tempat Penting" di peta penuh
             serializedBlip.ApplyModifiedPropertiesWithoutUndo();
 
             MinimapItem item = blip.Item;
