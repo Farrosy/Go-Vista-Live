@@ -38,10 +38,26 @@ public static class OutfitCatalog {
 
     public static string PathOf(string outfitType, Outfit outfit) => outfitType + "/" + outfit.name;
 
-    /// <summary>Tipe outfit dari path "Tipe/Nama"; kosong kalau formatnya salah.</summary>
-    public static string TypeOf(string path) {
-        if (string.IsNullOrEmpty(path)) return "";
-        int slash = path.IndexOf('/');
-        return slash <= 0 ? "" : path.Substring(0, slash);
+    /// <returns>Prefab outfit di path Resources ini, atau null.</returns>
+    public static Outfit Load(string path) => string.IsNullOrEmpty(path) ? null : Resources.Load<Outfit>(path);
+
+    /// <summary>Record outfit baru dengan warna bawaan outfit (defaultColors BoZo) untuk semua bagian.</summary>
+    public static OutfitRecord DefaultRecord(string outfitType, Outfit outfit) {
+        var record = new OutfitRecord { path = PathOf(outfitType, outfit) };
+        int channels = ChannelCount(outfit);
+        for (int i = 0; i < channels; i++) {
+            Color color = outfit.defaultColors != null && i < outfit.defaultColors.Length ? outfit.defaultColors[i] : Color.white;
+            record.colors.Add(CharacterRecordConverter.ToHex(color));
+        }
+        return record;
     }
+
+    /// <summary>Jumlah bagian warna yang bisa diubah (ColorChannels BoZo, minimal 1).</summary>
+    public static int ChannelCount(Outfit outfit) {
+        int count = outfit != null && outfit.ColorChannels != null ? outfit.ColorChannels.Length : 0;
+        return Mathf.Clamp(count, 1, CustomizationRules.MaxColorChannels);
+    }
+
+    /// <summary>Tipe outfit dari path "Tipe/Nama"; kosong kalau formatnya salah.</summary>
+    public static string TypeOf(string path) => RecordEdits.TypeOf(path);
 }
