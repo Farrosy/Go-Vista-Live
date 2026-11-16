@@ -5,7 +5,8 @@ using UnityEngine.UI;
 
 /// Menu PROFIL (Docs/Profil/02..05, 07). Pasang lewat "Go Vista > Profile > Pasang Profile di MainMultiplayerScene".
 ///  - Dibuka dari tile PROFIL di menu utama (LobyUISceneController.OpenProfile). Subtitle tile = nama pemain.
-///  - Kiri: preview 3D karakter (panggung milik CharacterSelectUI) + GANTI KARAKTER.
+///  - Kiri: preview 3D karakter yang sedang dipakai (panggung ProfilePreviewStage di scene ini). Ganti karakter
+///    lewat tile KARAKTER di menu utama (scene CharacterScene), bukan dari sini.
 ///  - Kanan: NAMA PEMAIN (lihat → UBAH NAMA → edit → SIMPAN) dan AKUN (username, Terdaftar/Tamu, KELUAR AKUN).
 ///  - Guest: nama Tamu_XXXX tanpa tag/UBAH NAMA/SALIN.
 public sealed class ProfileMenu : MonoBehaviour {
@@ -28,7 +29,7 @@ public sealed class ProfileMenu : MonoBehaviour {
     private float _copiedUntil;
     private Text _tileSubtitle;
     private bool _tileBound;
-    private CharacterSelectUI _characterSelect;
+    private CharacterPreviewStage _stage;
     private Sprite _checkIcon;
 
     public bool IsOpen => _ui.Canvas != null && _ui.Canvas.gameObject.activeSelf;
@@ -49,7 +50,6 @@ public sealed class ProfileMenu : MonoBehaviour {
 
     private void WireUi() {
         _ui.CloseButton.onClick.AddListener(Close);
-        _ui.ChangeCharacterButton.onClick.AddListener(OpenCharacterSelect);
         _ui.EditButton.onClick.AddListener(BeginEdit);
         _ui.CopyButton.onClick.AddListener(CopyFriendName);
         _ui.CancelButton.onClick.AddListener(CancelEdit);
@@ -166,7 +166,7 @@ public sealed class ProfileMenu : MonoBehaviour {
         LayoutNameCard();
 
         CharacterDatabase.Entry character = CharacterSelection.Current;
-        SetPill(_ui.CharacterPill, _ui.CharacterPillText, character != null ? character.displayName : "-");
+        SetPill(_ui.CharacterPill, _ui.CharacterPillText, character != null ? CustomCharacterStore.ActiveDisplayName : "-");
         RefreshAccount(guest);
     }
 
@@ -314,46 +314,39 @@ public sealed class ProfileMenu : MonoBehaviour {
 
     // ---------------------------------------------------------------- Karakter
 
-    private CharacterSelectUI CharacterSelect {
+    /// Panggung preview milik scene ini (prefab ProfilePreviewStage), bukan milik scene KARAKTER.
+    private CharacterPreviewStage Stage {
         get {
-            if (_characterSelect == null)
-                _characterSelect = FindAnyObjectByType<CharacterSelectUI>(FindObjectsInactive.Include);
-            return _characterSelect;
+            if (_stage != null) return _stage;
+            foreach (GameObject root in gameObject.scene.GetRootGameObjects()) {
+                _stage = root.GetComponentInChildren<CharacterPreviewStage>(true);
+                if (_stage != null) break;
+            }
+            return _stage;
         }
     }
 
     private void ShowPreview() {
-        CharacterPreviewStage stage = CharacterSelect != null ? CharacterSelect.Stage : null;
+        CharacterPreviewStage stage = Stage;
         _ui.Preview.enabled = stage != null;
-        if (stage == null) return;
+        if (stage == null) {
+            Debug.LogWarning("[Profile] ProfilePreviewStage tidak ada di scene. Jalankan Go Vista > Setup Pilih Karakter.");
+            return;
+        }
         stage.gameObject.SetActive(true);
+        stage.UseTransparentBackground();
         _ui.Preview.texture = stage.Texture;
-        stage.Show(CharacterSelection.Current);
+        stage.ShowActive();
         CharacterPreviewDrag drag = _ui.Preview.GetComponent<CharacterPreviewDrag>();
         if (drag == null) drag = _ui.Preview.gameObject.AddComponent<CharacterPreviewDrag>();
         drag.SetStage(stage);
     }
 
     private void HidePreview() {
-        CharacterPreviewStage stage = CharacterSelect != null ? CharacterSelect.Stage : null;
-        if (stage == null || CharacterSelect.IsOpen) return;
+        CharacterPreviewStage stage = Stage;
+        if (stage == null) return;
         stage.Clear();
         stage.gameObject.SetActive(false);
-    }
-
-    /// GANTI KARAKTER: menu karakter dibuka di atas (PROFIL disembunyikan), lalu kembali ke PROFIL.
-    private void OpenCharacterSelect() {
-        if (CharacterSelect == null) {
-            Debug.LogWarning("[Profile] CharacterSelectCanvas tidak ada di scene.");
-            return;
-        }
-        _ui.Canvas.gameObject.SetActive(false);
-        CharacterSelect.Open(() => {
-            if (this == null) return;
-            _ui.Canvas.gameObject.SetActive(true);
-            ShowPreview();
-            Refresh();
-        });
     }
 
     // ---------------------------------------------------------------- Keluar akun

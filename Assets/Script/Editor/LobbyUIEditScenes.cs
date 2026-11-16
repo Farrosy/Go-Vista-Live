@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 ///  - LobbyModalScene.unity  -> Assets/Prefab/LobbyModalCanvas.prefab (lihat LobbyModalBuilder)
 ///
 /// Kedua scene berisi INSTANCE prefab. Edit canvas di scene itu, lalu Ctrl+S: perubahan otomatis
-/// di-Apply ke prefab, sehingga MainMultiplayerScene & LobbyReturnScene ikut berubah. Bisa juga edit
+/// di-Apply ke prefab, sehingga MainMultiplayerScene ikut berubah. Bisa juga edit
 /// langsung di Prefab Mode (klik dua kali prefab-nya).
 ///
 /// Jangan edit canvas ini langsung di MainMultiplayerScene: override di sana menutupi perubahan prefab.

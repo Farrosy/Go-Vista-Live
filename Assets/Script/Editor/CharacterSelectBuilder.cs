@@ -4,17 +4,16 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 /// <summary>
-/// Menyiapkan fitur pilih karakter, SEKALI saja (yang sudah ada tidak ditimpa):
+/// Menyiapkan data karakter + panggung preview PROFIL, SEKALI saja (yang sudah ada tidak ditimpa):
 ///  1. Assets/Resources/Player Female.prefab   : salinan Player.prefab dengan model FemaleChibi.
-///  2. Assets/Resources/CharacterDatabase.asset : daftar karakter (Laki-laki, Perempuan).
-///  3. Assets/Prefab/CharacterSelectCanvas.prefab : Canvas + panggung preview 3D. Tampilan menu GANTI KARAKTER
-///     dibangun lewat kode saat runtime (CharacterSelectView, Docs/Profil/06a). UI lama di prefab (termasuk kolom
-///     NAMA PEMAIN, yang sekarang ada di menu PROFIL) dihapus otomatis.
-///  4. Instance CharacterSelectCanvas di semua scene lobby (LobbyScenePaths): MainMultiplayerScene dan
-///     LobbyReturnScene (scene lobby setelah keluar room). Tanpa ini tombol KARAKTER tidak membuka apa-apa.
+///  2. Assets/Resources/CharacterDatabase.asset : daftar karakter.
+///  3. Assets/Prefab/ProfilePreviewStage.prefab : panggung preview 3D (kamera + lampu + meja putar) untuk
+///     kolom kiri menu PROFIL. Prefab lama CharacterSelectCanvas.prefab dimigrasi otomatis: UI karakter
+///     sudah pindah ke scene sendiri (CharacterScene, lihat CharacterSceneBuilder), jadi Canvas dan
+///     komponen pengendalinya dibuang dan file diganti nama (GUID tetap, instance di scene ikut).
+///  4. Instance ProfilePreviewStage di semua scene lobby (LobbyScenePaths).
 ///
 /// Setelah dibuat, semuanya aset biasa: edit bebas di Inspector / Prefab Mode. Builder hanya membuat
 /// yang belum ada. Menu "Go Vista > Setup Pilih Karakter" menjalankan ulang pengecekan yang sama.
@@ -26,23 +25,23 @@ public static class CharacterSelectBuilder {
     private const string FemaleModelPath = "Assets/Characters/Animation/FemaleChibiAnimation/idle_loop_unity_fit (1).fbx";
     private const string FemaleControllerPath = "Assets/Characters/Animation/AnimationController/FemaleAnimationController.controller";
     private const string DatabasePath = "Assets/Resources/CharacterDatabase.asset";
-    private const string CanvasPrefabPath = "Assets/Prefab/CharacterSelectCanvas.prefab";
-    // Semua scene yang punya menu utama (tombol KARAKTER). LobbyReturnScene dimuat setelah keluar room.
+    private const string StagePrefabPath = "Assets/Prefab/ProfilePreviewStage.prefab";
+    private const string LegacyCanvasPrefabPath = "Assets/Prefab/CharacterSelectCanvas.prefab";
+    private const string StageRootName = "ProfilePreviewStage";
+    // Semua scene yang punya menu PROFIL (keluar room memuat ulang MainMultiplayerScene).
     private static readonly string[] LobbyScenePaths = {
         "Assets/Scenes/MainMultiplayerScene.unity",
-        "Assets/Scenes/Multiplayer/LobbyReturnScene.unity",
     };
 
-    // Sama dengan setup di DevScene/femaleCharacterControl.unity.
+    // Setup model chibi perempuan lama (dulu dari DevScene/femaleCharacterControl.unity, sudah dihapus).
     private static readonly Vector3 FemaleModelPosition = new Vector3(0f, -0.5906249f, 0f);
     private const float FemaleModelScale = 140.9f;
 
-    // Di atas LobbyCanvas (50) & RoomWaitingCanvas (51), di bawah LoginCanvas (100).
-    private const int CanvasSortingOrder = 60;
     // Panggung preview diletakkan jauh dari dunia supaya kamera preview hanya melihat karakter.
+    // CharacterScene memakai posisi lain (CharacterSceneBuilder) supaya dua panggung tidak saling terlihat.
     private static readonly Vector3 StagePosition = new Vector3(0f, -1000f, 0f);
 
-    // Kamera preview transparan: gradasi kartu preview di menu (CharacterSelectView/ProfileMenu) terlihat di belakang karakter.
+    // Kamera preview transparan: gradasi kartu/latar menu terlihat di belakang karakter.
     private static readonly Color StageColor = new Color(0f, 0f, 0f, 0f);
 
     static CharacterSelectBuilder() {
@@ -62,18 +61,18 @@ public static class CharacterSelectBuilder {
     }
 
     private static bool IsSetupComplete() {
-        return File.Exists(FemaleAvatarPath) && File.Exists(DatabasePath) && File.Exists(CanvasPrefabPath) &&
-               !PrefabHasLegacyUi() && AllScenesHaveCanvas();
+        return File.Exists(FemaleAvatarPath) && File.Exists(DatabasePath) && File.Exists(StagePrefabPath) &&
+               !File.Exists(LegacyCanvasPrefabPath) && AllScenesHaveStage();
     }
 
     private static string Setup() {
         var log = new List<string>();
         GameObject female = EnsureFemaleAvatar(log);
         EnsureDatabase(female, log);
-        GameObject canvasPrefab = EnsureCanvasPrefab(log);
-        if (canvasPrefab != null)
+        GameObject stagePrefab = EnsureStagePrefab(log);
+        if (stagePrefab != null)
             foreach (string scenePath in LobbyScenePaths)
-                log.Add(Path.GetFileNameWithoutExtension(scenePath) + ": " + EnsureCanvasInScene(canvasPrefab, scenePath));
+                log.Add(Path.GetFileNameWithoutExtension(scenePath) + ": " + EnsureStageInScene(stagePrefab, scenePath));
         string summary = string.Join("\n", log);
         Debug.Log("[CharacterSelect] Setup selesai.\n" + summary);
         return summary;
@@ -150,86 +149,54 @@ public static class CharacterSelectBuilder {
         log.Add($"CharacterDatabase.asset: dibuat ({list.Count} karakter)");
     }
 
-    // ------------------------------------------------------------ 3. Prefab canvas
+    // ------------------------------------------------------------ 3. Prefab panggung PROFIL
 
-    private static GameObject EnsureCanvasPrefab(List<string> log) {
-        var existing = AssetDatabase.LoadAssetAtPath<GameObject>(CanvasPrefabPath);
-        if (existing != null) {
-            log.Add("CharacterSelectCanvas.prefab: " + RemoveLegacyUiFromPrefab());
-            return existing;
-        }
-        GameObject temp = BuildCanvas();
-        GameObject prefab = PrefabUtility.SaveAsPrefabAsset(temp, CanvasPrefabPath);
-        Object.DestroyImmediate(temp);
-        log.Add("CharacterSelectCanvas.prefab: dibuat");
+    private static GameObject EnsureStagePrefab(List<string> log) {
+        log.Add("ProfilePreviewStage.prefab: " + MigrateLegacyPrefab());
+        var existing = AssetDatabase.LoadAssetAtPath<GameObject>(StagePrefabPath);
+        if (existing != null) return existing;
+
+        var root = new GameObject(StageRootName);
+        GameObject stageGo = BuildStage(root.transform, StagePosition, new Vector2Int(1024, 1024), out _);
+        stageGo.SetActive(false); // diaktifkan ProfileMenu saat PROFIL dibuka
+        GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, StagePrefabPath);
+        Object.DestroyImmediate(root);
+        log.Add("ProfilePreviewStage.prefab: dibuat");
         return prefab;
     }
 
-    private static GameObject BuildCanvas() {
-        // Root biasa (bukan canvas) supaya Preview Stage tidak ikut digeser/di-scale oleh Canvas.
-        var prefabRoot = new GameObject("CharacterSelectCanvas", typeof(CharacterSelectUI));
-        var canvasGo = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas),
-                                      typeof(CanvasScaler), typeof(GraphicRaycaster));
-        canvasGo.transform.SetParent(prefabRoot.transform, false);
-        canvasGo.layer = LayerMask.NameToLayer("UI");
-        var canvas = canvasGo.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = CanvasSortingOrder;
-        var scaler = canvasGo.GetComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.matchWidthOrHeight = 0.5f;
-        // Isi menu dibangun saat runtime oleh CharacterSelectUI (CharacterSelectView).
-        // Panggung preview 3D, jauh di bawah dunia.
-        GameObject stageGo = BuildStage(prefabRoot.transform, out CharacterPreviewStage stage);
+    /// CharacterSelectCanvas.prefab (menu karakter versi overlay) → ProfilePreviewStage.prefab: buang Canvas
+    /// dan pengendali UI (sekarang di CharacterScene), sisakan Preview Stage. GUID tetap, jadi instance di
+    /// MainMultiplayerScene otomatis ikut.
+    internal static string MigrateLegacyPrefab() {
+        if (!File.Exists(LegacyCanvasPrefabPath))
+            return File.Exists(StagePrefabPath) ? "sudah ada" : "belum ada";
+        if (File.Exists(StagePrefabPath))
+            return "GAGAL: " + LegacyCanvasPrefabPath + " dan " + StagePrefabPath + " dua-duanya ada, hapus salah satu";
 
-        var so = new SerializedObject(prefabRoot.GetComponent<CharacterSelectUI>());
-        so.FindProperty("stage").objectReferenceValue = stage;
-        so.ApplyModifiedPropertiesWithoutUndo();
-
-        stageGo.SetActive(false);
-        return prefabRoot;
-    }
-
-    // ------------------------------------------------------------ 3b. Bersihkan UI lama
-
-    private const string LegacyRootName = "Character Select Root";
-
-    private static bool PrefabHasLegacyUi() {
-        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CanvasPrefabPath);
-        return prefab != null && FindDeep(prefab.transform, LegacyRootName) != null;
-    }
-
-    /// Hapus UI menu KARAKTER versi lama (Text legacy + kolom NAMA PEMAIN) dari prefab yang sudah ada.
-    /// Canvas, panggung preview, dan komponen CharacterSelectUI tetap.
-    internal static string RemoveLegacyUiFromPrefab() {
-        if (!PrefabHasLegacyUi())
-            return "sudah memakai tampilan baru";
-        GameObject root = PrefabUtility.LoadPrefabContents(CanvasPrefabPath);
+        GameObject root = PrefabUtility.LoadPrefabContents(LegacyCanvasPrefabPath);
         try {
-            Transform legacy = FindDeep(root.transform, LegacyRootName);
-            if (legacy != null)
-                Object.DestroyImmediate(legacy.gameObject);
-            PrefabUtility.SaveAsPrefabAsset(root, CanvasPrefabPath);
-            return "UI lama dihapus (tampilan baru dibangun saat runtime)";
+            foreach (MonoBehaviour behaviour in root.GetComponents<MonoBehaviour>()) {
+                if (behaviour is CharacterSceneUI) Object.DestroyImmediate(behaviour);
+            }
+            GameObjectUtility.RemoveMonoBehavioursWithMissingScript(root);
+            Transform canvas = root.transform.Find("Canvas");
+            if (canvas != null) Object.DestroyImmediate(canvas.gameObject);
+            root.name = StageRootName;
+            PrefabUtility.SaveAsPrefabAsset(root, LegacyCanvasPrefabPath);
         } finally {
             PrefabUtility.UnloadPrefabContents(root);
         }
+        string error = AssetDatabase.MoveAsset(LegacyCanvasPrefabPath, StagePrefabPath);
+        return string.IsNullOrEmpty(error) ? "dimigrasi dari CharacterSelectCanvas.prefab" : "GAGAL ganti nama: " + error;
     }
 
-    private static Transform FindDeep(Transform parent, string name) {
-        foreach (Transform child in parent) {
-            if (child.name == name) return child;
-            Transform found = FindDeep(child, name);
-            if (found != null) return found;
-        }
-        return null;
-    }
-
-    private static GameObject BuildStage(Transform parent, out CharacterPreviewStage stage) {
+    /// Panggung preview (kamera + lampu + meja putar) di <paramref name="position"/>. Dipakai juga CharacterSceneBuilder.
+    internal static GameObject BuildStage(Transform parent, Vector3 position, Vector2Int textureSize,
+                                          out CharacterPreviewStage stage) {
         var stageGo = new GameObject("Preview Stage", typeof(CharacterPreviewStage));
         stageGo.transform.SetParent(parent, false);
-        stageGo.transform.localPosition = StagePosition;
+        stageGo.transform.localPosition = position;
 
         var turntable = new GameObject("Turntable").transform;
         turntable.SetParent(stageGo.transform, false);
@@ -248,7 +215,7 @@ public static class CharacterSelectBuilder {
         cam.farClipPlane = 20f;
         cam.depth = -10f;
 
-        // Lampu khusus preview (MainMultiplayerScene tidak punya lampu). Hanya aktif saat menu terbuka.
+        // Lampu khusus preview (MainMultiplayerScene tidak punya lampu). Hanya aktif saat panggung aktif.
         var lightGo = new GameObject("Key Light", typeof(Light));
         lightGo.transform.SetParent(stageGo.transform, false);
         lightGo.transform.localRotation = Quaternion.Euler(35f, 200f, 0f);
@@ -257,33 +224,55 @@ public static class CharacterSelectBuilder {
         light.intensity = 1.2f;
         light.shadows = LightShadows.None;
 
+        EnsureFloor(stageGo.transform);
+
         stage = stageGo.GetComponent<CharacterPreviewStage>();
         var so = new SerializedObject(stage);
         so.FindProperty("previewCamera").objectReferenceValue = cam;
         so.FindProperty("turntable").objectReferenceValue = turntable;
+        so.FindProperty("textureSize").vector2IntValue = textureSize;
         so.ApplyModifiedPropertiesWithoutUndo();
         return stageGo;
     }
 
+    private const string FloorMaterialPath = "Assets/Prefab/Materials/CharacterPreviewFloor.mat";
+
+    /// Alas 3D tepat di bawah kaki (kaki karakter di y -0.08, atas alas di y -0.08). Karena ikut dirender
+    /// kamera panggung, karakter selalu menempel di alas, apa pun ukuran layarnya.
+    internal static bool EnsureFloor(Transform stage) {
+        if (stage.Find("Floor") != null) return false;
+        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        floor.name = "Floor";
+        Object.DestroyImmediate(floor.GetComponent<Collider>());
+        floor.transform.SetParent(stage, false);
+        floor.transform.localPosition = new Vector3(0f, -0.1f, 0f);
+        floor.transform.localScale = new Vector3(1.3f, 0.02f, 1.3f);
+        var renderer = floor.GetComponent<MeshRenderer>();
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var material = AssetDatabase.LoadAssetAtPath<Material>(FloorMaterialPath);
+        if (material != null) renderer.sharedMaterial = material;
+        return true;
+    }
+
     // ------------------------------------------------------------ 4. Instance di scene lobby
 
-    private static bool AllScenesHaveCanvas() {
+    private static bool AllScenesHaveStage() {
         foreach (string scenePath in LobbyScenePaths) {
-            if (File.Exists(scenePath) && !SceneHasCanvas(scenePath))
+            if (File.Exists(scenePath) && !SceneHasStage(scenePath))
                 return false;
         }
         return true;
     }
 
-    private static bool SceneHasCanvas(string scenePath) {
-        string guid = AssetDatabase.AssetPathToGUID(CanvasPrefabPath);
+    private static bool SceneHasStage(string scenePath) {
+        string guid = AssetDatabase.AssetPathToGUID(StagePrefabPath);
         if (string.IsNullOrEmpty(guid)) return false;
         Scene scene = SceneManager.GetSceneByPath(scenePath);
-        if (scene.IsValid() && scene.isLoaded) return FindCanvasIn(scene) != null;
+        if (scene.IsValid() && scene.isLoaded) return FindStageIn(scene) != null;
         return File.Exists(scenePath) && File.ReadAllText(scenePath).Contains(guid);
     }
 
-    private static string EnsureCanvasInScene(GameObject prefab, string scenePath) {
+    private static string EnsureStageInScene(GameObject prefab, string scenePath) {
         if (!File.Exists(scenePath)) return "tidak ditemukan, dilewati";
 
         Scene scene = SceneManager.GetSceneByPath(scenePath);
@@ -298,28 +287,27 @@ public static class CharacterSelectBuilder {
             }
         }
 
-        if (FindCanvasIn(scene) != null) {
+        if (FindStageIn(scene) != null) {
             if (!wasOpen) EditorSceneManager.CloseScene(scene, true);
-            return "CharacterSelectCanvas sudah ada";
+            return "ProfilePreviewStage sudah ada";
         }
 
         PrefabUtility.InstantiatePrefab(prefab, scene);
         if (wasOpen) {
             // Scene sedang dibuka user: jangan auto-save (bisa ikut menyimpan perubahan lain milik user).
             EditorSceneManager.MarkSceneDirty(scene);
-            return "CharacterSelectCanvas ditambahkan, silakan Ctrl+S";
+            return "ProfilePreviewStage ditambahkan, silakan Ctrl+S";
         }
         EditorSceneManager.SaveScene(scene, scenePath);
         EditorSceneManager.CloseScene(scene, true);
-        return "CharacterSelectCanvas ditambahkan & disimpan";
+        return "ProfilePreviewStage ditambahkan & disimpan";
     }
 
-    private static CharacterSelectUI FindCanvasIn(Scene scene) {
+    private static CharacterPreviewStage FindStageIn(Scene scene) {
         foreach (GameObject root in scene.GetRootGameObjects()) {
-            var ui = root.GetComponentInChildren<CharacterSelectUI>(true);
-            if (ui != null) return ui;
+            var stage = root.GetComponentInChildren<CharacterPreviewStage>(true);
+            if (stage != null) return stage;
         }
         return null;
     }
-
 }

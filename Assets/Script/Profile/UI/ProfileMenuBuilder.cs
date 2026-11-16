@@ -11,7 +11,6 @@ public sealed class ProfileMenuRefs {
     public RawImage Preview;
     public RectTransform CharacterPill;
     public TextMeshProUGUI CharacterPillText;
-    public Button ChangeCharacterButton;
 
     // Kanan: nama (lihat / edit)
     public LayoutElement NameCard;
@@ -82,7 +81,7 @@ public static class ProfileTheme {
 /// Membangun canvas PROFIL lewat kode (Docs/Profil/02..05, 07). Tata letak kolom kanan memakai
 /// VerticalLayoutGroup, jadi kartu NAMA bisa memanjang (mode edit / pesan error) tanpa menimpa kartu AKUN.
 public static class ProfileMenuBuilder {
-    public const int CanvasSortingOrder = 59; // di bawah CharacterSelectCanvas (60) & menu TEMAN (60)
+    public const int CanvasSortingOrder = 59; // di bawah menu TEMAN (60)
 
     public static void Build(Transform owner, ChatUiAssets a, ProfileMenuRefs refs) {
         refs.Canvas = CreateCanvas(owner);
@@ -158,8 +157,10 @@ public static class ProfileMenuBuilder {
         card.gameObject.AddComponent<UIVerticalGradient>().SetColors(ProfileTheme.PreviewTop, ProfileTheme.PreviewBottom);
         FriendsUiKit.AddBorder(card, FriendsTheme.CardBorder, 1.6f);
 
+        // Kotak (rasio RenderTexture panggung profil 1:1). Ganti karakter sekarang lewat tile KARAKTER.
+        const float previewSize = 440f;
         RectTransform previewRect = ChatUiKit.CreateRect("Preview", card);
-        ChatUiKit.Place(previewRect, 40f, 16f, ProfileTheme.LeftWidth - 80f, 350f);
+        ChatUiKit.Place(previewRect, (ProfileTheme.LeftWidth - previewSize) * 0.5f, 22f, previewSize, previewSize);
         refs.Preview = previewRect.gameObject.AddComponent<RawImage>();
         refs.Preview.color = Color.white;
 
@@ -168,11 +169,6 @@ public static class ProfileMenuBuilder {
         refs.CharacterPill.anchorMin = refs.CharacterPill.anchorMax = refs.CharacterPill.pivot = new Vector2(0f, 1f);
         refs.CharacterPill.anchoredPosition = new Vector2(20f, -20f);
         refs.CharacterPillText = refs.CharacterPill.GetComponentInChildren<TextMeshProUGUI>();
-
-        refs.ChangeCharacterButton = FriendsUiKit.CreateSolidButton("Change Character Button", card, a, "GANTI KARAKTER",
-                                                                    ProfileTheme.PinkTop, ProfileTheme.PinkBottom,
-                                                                    ProfileTheme.PinkLip, LoadIcon("icon-swap"), 32);
-        ChatUiKit.Place((RectTransform)refs.ChangeCharacterButton.transform, 24f, 370f, ProfileTheme.LeftWidth - 48f, 90f);
     }
 
     // ---------------------------------------------------------------- Kanan: nama & akun

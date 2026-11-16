@@ -10,8 +10,8 @@ using UnityEngine.UI;
 /// Membuat modal lobby (loading + alert) mengikuti alur "1 scene edit = 1 prefab":
 ///  1. Assets/Prefab/LobbyModalCanvas.prefab            (isi dibangun dari kode di bawah)
 ///  2. Assets/Scenes/Multiplayer/LobbyModalScene.unity  (scene edit berisi instance prefab, overlay terlihat)
-///  3. Instance prefab dipasang di MainMultiplayerScene dan LobbyReturnScene, lalu disambungkan ke
-///     field "modal" milik LobyUISceneController di scene itu.
+///  3. Instance prefab dipasang di MainMultiplayerScene, lalu disambungkan ke field "modal" milik
+///     LobyUISceneController di scene itu.
 /// Setelah dibuat, edit tampilannya di LobbyModalScene lalu Ctrl+S (otomatis di-Apply ke prefab).
 /// </summary>
 public static class LobbyModalBuilder {
@@ -23,7 +23,6 @@ public static class LobbyModalBuilder {
 
     private static readonly string[] HostScenePaths = {
         "Assets/Scenes/MainMultiplayerScene.unity",
-        "Assets/Scenes/Multiplayer/LobbyReturnScene.unity",
     };
 
     private static readonly Vector2 PanelSize = new Vector2(760f, 420f);
