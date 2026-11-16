@@ -5,6 +5,9 @@ using UnityEngine;
 /// dengan margin yang sama, apa pun rasio layar HP-nya (16:9, 20:9, tablet 4:3, ada notch atau tidak).
 /// Ukuran desain panel tidak diubah, jadi jarak dan padding di dalamnya tetap seimbang.
 /// Panel harus memakai anchor dan pivot di tengah.
+///
+/// Scale ditandai "driven" (DrivenRectTransformTracker): di edit mode tetap ikut ukuran Game view, tapi tidak
+/// membuat scene dirty dan tidak tersimpan sebagai override prefab.
 /// </summary>
 [ExecuteAlways]
 [RequireComponent(typeof(RectTransform))]
@@ -16,6 +19,7 @@ public sealed class ResponsivePanel : MonoBehaviour {
 
     private Vector2 _lastAvailable;
     private Vector2 _lastSize;
+    private DrivenRectTransformTracker _tracker;
 
     public void Configure(float edgeMargin, float maximumScale) {
         margin = edgeMargin;
@@ -25,6 +29,10 @@ public sealed class ResponsivePanel : MonoBehaviour {
 
     private void OnEnable() {
         Apply(true);
+    }
+
+    private void OnDisable() {
+        _tracker.Clear();
     }
 
     // Dicek tiap frame karena ukuran parent (rotasi layar, safe area) dan ukuran panel
@@ -49,6 +57,8 @@ public sealed class ResponsivePanel : MonoBehaviour {
             return;
 
         float scale = Mathf.Min(maxScale, available.x / size.x, available.y / size.y);
+        _tracker.Clear();
+        _tracker.Add(this, rect, DrivenTransformProperties.Scale);
         rect.localScale = new Vector3(scale, scale, 1f);
     }
 }

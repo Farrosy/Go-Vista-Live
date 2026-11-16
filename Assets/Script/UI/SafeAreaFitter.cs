@@ -4,15 +4,24 @@ using UnityEngine;
 /// Membuat RectTransform ini mengikuti Screen.safeArea: area layar yang tidak tertutup notch,
 /// kamera depan, atau sudut layar yang membulat. Taruh UI (panel, tombol pojok) di dalamnya.
 /// Cek hasilnya lewat Window > General > Device Simulator.
+///
+/// Properti yang diatur (anchor, posisi, ukuran) ditandai "driven" lewat DrivenRectTransformTracker, seperti
+/// LayoutGroup bawaan Unity: di edit mode tetap ikut ukuran Game view, tapi tidak membuat scene dirty dan
+/// tidak tersimpan sebagai override prefab.
 /// </summary>
 [ExecuteAlways]
 [RequireComponent(typeof(RectTransform))]
 public sealed class SafeAreaFitter : MonoBehaviour {
     private Rect _appliedSafeArea;
     private Vector2Int _appliedScreenSize;
+    private DrivenRectTransformTracker _tracker;
 
     private void OnEnable() {
         Apply(true);
+    }
+
+    private void OnDisable() {
+        _tracker.Clear();
     }
 
     private void LateUpdate() {
@@ -30,6 +39,9 @@ public sealed class SafeAreaFitter : MonoBehaviour {
             return;
 
         var rect = (RectTransform)transform;
+        _tracker.Clear();
+        _tracker.Add(this, rect, DrivenTransformProperties.AnchorMin | DrivenTransformProperties.AnchorMax |
+                                 DrivenTransformProperties.AnchoredPosition | DrivenTransformProperties.SizeDelta);
         Vector2 min = safeArea.position;
         Vector2 max = safeArea.position + safeArea.size;
         rect.anchorMin = new Vector2(min.x / screenSize.x, min.y / screenSize.y);
