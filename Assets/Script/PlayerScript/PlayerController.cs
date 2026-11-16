@@ -79,6 +79,8 @@ public class PlayerController : MonoBehaviour
 
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
+    /// Hash parameter IsGrounded (dibaca panggung preview karakter untuk menjaga pose idle).
+    public static int IsGroundedParam => IsGroundedHash;
     private static readonly int JumpHash = Animator.StringToHash("Jump");
     private static readonly int KnockdownHash = Animator.StringToHash("Knockdown");
     private static readonly int IsDeadHash = Animator.StringToHash("IsDead");
