@@ -14,7 +14,9 @@ public static class RandomCharacterFactory {
         "1DefaultMale", "1DefaultFemale", "0_DefaultAnimeMale", "0_DefaultAnimeFemale"
     };
 
-    private static readonly string[] RandomizedTypes = { "Top", "Bottom", "Feet", "HairFront", "HairBack" };
+    private static readonly string[] RandomizedTypes = { "Top", "Bottom", "Feet", "Socks", "HairFront", "HairBack" };
+    /// Template 1Default* tidak punya sepatu/kaus kaki; di tes ini slotnya ditambahkan supaya beban bake realistis.
+    private static readonly string[] EnsuredTypes = { "Feet", "Socks" };
     private const string AnimeTag = "Anime";
     private const string StylizedTag = "Stylized";
     private const string DecalName = "Decal_GoVistaG";
@@ -30,7 +32,18 @@ public static class RandomCharacterFactory {
 
     /// <returns>null kalau template tidak ditemukan di Resources.</returns>
     public static CharacterData Create(System.Random rng, bool withDecalAndPattern) {
-        string templateId = TemplateIds[rng.Next(TemplateIds.Length)];
+        return CreateFromTemplate(TemplateIds[rng.Next(TemplateIds.Length)], rng, withDecalAndPattern);
+    }
+
+    /// Memuat katalog semua tipe yang diacak sekaligus (Resources.LoadAll, sinkron). Dipanggil saat
+    /// pemanasan supaya beban ini tidak jatuh ke bake pertama.
+    public static void WarmCatalog() {
+        foreach (string type in RandomizedTypes) {
+            ChoicesFor(type, anime: false);
+        }
+    }
+
+    public static CharacterData CreateFromTemplate(string templateId, System.Random rng, bool withDecalAndPattern) {
         var template = Resources.Load<CharacterObject>(templateId);
         if (template == null) {
             Debug.LogError($"[BakeTest] Template '{templateId}' tidak ditemukan di Resources.");
@@ -41,6 +54,11 @@ public static class RandomCharacterFactory {
         var outfits = template.data.outfitDatas
             .Select(source => Randomize(source, rng, anime, withDecalAndPattern))
             .ToList();
+        foreach (string type in EnsuredTypes) {
+            if (outfits.Any(o => TypeOf(o.outfit) == type)) continue;
+            OutfitData added = Randomize(new OutfitData { outfit = type + "/" }, rng, anime, withDecalAndPattern);
+            if (added.outfit != type + "/") outfits.Add(added);
+        }
 
         return new CharacterData(template.data) {
             characterName = templateId + "_Random",
