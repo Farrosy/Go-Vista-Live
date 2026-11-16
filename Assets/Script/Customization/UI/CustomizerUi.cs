@@ -46,6 +46,42 @@ public static class CustomizerUi {
         return panel;
     }
 
+    /// Panel navy menempel di kanan layar, tinggi mengikuti layar (atas/bawah tetap). Isi diletakkan dari atas.
+    public static RectTransform CreateSidePanel(Transform parent, ChatUiAssets a, float right, float top, float width,
+                                                float bottom) {
+        RectTransform panel = ChatUiKit.CreateRect("Panel", parent);
+        panel.anchorMin = new Vector2(1f, 0f);
+        panel.anchorMax = new Vector2(1f, 1f);
+        panel.pivot = new Vector2(1f, 1f);
+        panel.offsetMin = new Vector2(-right - width, bottom);
+        panel.offsetMax = new Vector2(-right, -top);
+        ChatUiKit.AddShape(panel.gameObject, a.rounded, FriendsTheme.Panel, 1.8f);
+        FriendsUiKit.AddBorder(panel, FriendsTheme.CardBorder, 1.8f);
+        RectTransform accent = ChatUiKit.CreateRect("Accent", panel);
+        ChatUiKit.Place(accent, AccentInset, 0f, width - AccentInset * 2f, AccentHeight);
+        accent.gameObject.AddComponent<Image>().color = Color.white;
+        accent.gameObject.AddComponent<UIHorizontalAccent>();
+        return panel;
+    }
+
+    /// Latar layar penuh scene karakter: gradasi ungu gelap (sama dengan kartu preview) + cahaya lembut.
+    public static RectTransform CreateStageBackground(Transform parent, ChatUiAssets a) {
+        RectTransform background = ChatUiKit.Stretch(ChatUiKit.CreateRect("Stage Background", parent), 0f, 0f, 0f, 0f);
+        background.gameObject.AddComponent<Image>().color = Color.white; // menahan klik ke lobby di belakang
+        background.gameObject.AddComponent<UIVerticalGradient>().SetColors(ProfileTheme.PreviewTop, ProfileTheme.PreviewBottom);
+        return background;
+    }
+
+    /// Tombol kembali kotak (ikon panah kiri = chevron diputar 180°).
+    public static Button CreateBackButton(Transform parent, ChatUiAssets a, float x, float y, float size) {
+        Button back = FriendsUiKit.CreateOutlineButton("Back Button", parent, a, "", Color.white, FriendsTheme.NeutralFill,
+                                                       a.chevron, 28);
+        ChatUiKit.Place((RectTransform)back.transform, x, y, size, size);
+        Transform icon = back.transform.Find("Content/Icon");
+        if (icon != null) icon.localRotation = Quaternion.Euler(0f, 0f, 180f);
+        return back;
+    }
+
     /// Kartu bergradasi ungu gelap (sama dengan kartu preview karakter di Profil).
     public static RectTransform CreatePreviewCard(Transform parent, ChatUiAssets a, float x, float y, float width, float height) {
         RectTransform card = ChatUiKit.CreateRect("Card", parent);

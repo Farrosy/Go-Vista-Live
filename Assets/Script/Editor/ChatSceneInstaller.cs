@@ -79,8 +79,7 @@ public static class ChatSceneInstaller {
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
         FriendsMainMenuPatcher.PatchMainMenu();
-        Debug.Log("[Profile] CharacterSelectCanvas.prefab: " + CharacterSelectBuilder.RemoveLegacyUiFromPrefab());
-        AssignCharacterSelectAssets();
+        Debug.Log("[Profile] ProfilePreviewStage.prefab: " + CharacterSelectBuilder.MigrateLegacyPrefab());
         // Fase C: info akun & keluar akun pindah ke PROFIL; panel lobby & pengaturan memakai desain 08a/08b.
         Debug.Log("[Profile] SettingsPanel.prefab: " + SettingsPanelRedesign.RemoveAccountRow());
         LobyUISceneController.RebuildLobbyPanelInPrefab();
@@ -102,25 +101,6 @@ public static class ChatSceneInstaller {
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("[Profile] Profile UI terpasang di MainMultiplayerScene.", menu);
-    }
-
-    /// Font & ikon untuk menu GANTI KARAKTER, diisi langsung di CharacterSelectCanvas.prefab (dipakai 2 scene lobby).
-    private static void AssignCharacterSelectAssets() {
-        const string prefabPath = "Assets/Prefab/CharacterSelectCanvas.prefab";
-        if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
-            return;
-        GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
-        try {
-            CharacterSelectUI ui = root.GetComponent<CharacterSelectUI>();
-            if (ui == null)
-                return;
-            var so = new SerializedObject(ui);
-            AssignUiAssets(so);
-            so.ApplyModifiedPropertiesWithoutUndo();
-            PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
-        } finally {
-            PrefabUtility.UnloadPrefabContents(root);
-        }
     }
 
     [MenuItem("Go Vista/Chat/Setup Semua (Emoji + Scene)")]
@@ -188,7 +168,7 @@ public static class ChatSceneInstaller {
     }
 
     /// Isi field "assets" (ChatUiAssets) milik ChatPanel / FriendsMenu.
-    private static void AssignUiAssets(SerializedObject so) {
+    internal static void AssignUiAssets(SerializedObject so) {
         SetAsset(so, "assets.font", AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath), FontPath);
         SetAsset(so, "assets.chatIcon", LoadSprite(ChatIconPath), ChatIconPath);
         SetAsset(so, "assets.sendButton", LoadSprite(SendPath), SendPath);

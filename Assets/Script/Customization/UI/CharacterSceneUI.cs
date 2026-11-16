@@ -1,19 +1,19 @@
-using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 /// <summary>
-/// Menu GANTI KARAKTER, dibuka dari tombol GANTI KARAKTER di menu PROFIL. Sejak customizer (Tahap 1b),
-/// layar pertamanya adalah "Pilih Karakter" (CustomizerPickView): 4 template terkunci + 2 slot karakter
-/// custom milik akun (CustomCharacterStore, Cloud Save). Editor (UBAH) menyusul di Tahap 1c.
+/// Pengendali scene KARAKTER (Assets/Scenes/Customization/CharacterScene.unity), dibuka dari tile KARAKTER
+/// di menu utama lewat CharacterSceneLoader (additive di atas lobby). Layar pertama "Pilih Karakter"
+/// (CustomizerPickView, mockup v2 layar 1): 4 template terkunci + 2 slot karakter custom milik akun
+/// (CustomCharacterStore, Cloud Save). Editor (UBAH) menyusul di Tahap 1c, di scene yang sama.
 ///
-/// Pasang di root prefab Assets/Prefab/CharacterSelectCanvas.prefab. Prefab hanya berisi Canvas dan panggung
-/// preview 3D (Preview Stage); tampilan dibangun lewat kode. API Open/Close/Stage tetap sama, jadi
-/// ProfileMenu tidak perlu diubah.
+/// Scene berisi: root ini (+ Canvas full-screen) dan Preview Stage (kamera + lampu + meja putar).
+/// Tampilan dibangun lewat kode saat runtime; posisi kamera/lampu bisa diatur langsung di scene.
 /// </summary>
-public class CharacterSelectUI : MonoBehaviour {
+public class CharacterSceneUI : MonoBehaviour {
     [SerializeField] private CharacterPreviewStage stage;
-    [Tooltip("Font & ikon. Diisi otomatis oleh Go Vista > Profile > Pasang Profile; kosong = dimuat dari Resources.")]
+    [Tooltip("Font & ikon. Diisi otomatis oleh Go Vista > Customization > Buat CharacterScene; kosong = dari Resources.")]
     [SerializeField] private ChatUiAssets assets = new ChatUiAssets();
     [SerializeField] private float toastSeconds = 2.2f;
 
@@ -24,33 +24,37 @@ public class CharacterSelectUI : MonoBehaviour {
     private int selectedIndex;
     private int previewKey = int.MinValue;
     private int pendingDelete = -1;
-    private Action onClosed;
     private Coroutine toastRoutine;
 
-    public bool IsOpen => ui != null && ui.Root.activeSelf;
-
-    /// Panggung preview 3D yang sama dipakai menu PROFIL (kiri), supaya tidak ada dua kamera preview.
-    public CharacterPreviewStage Stage => stage;
+    private bool IsOpen => ui != null && ui.Root.activeSelf;
 
     void Awake() {
         assets.ResolveFallbacks();
         Canvas canvas = GetComponentInChildren<Canvas>(true);
         if (canvas == null) {
-            Debug.LogError("[CharacterSelect] Canvas tidak ditemukan di CharacterSelectCanvas.prefab.", this);
+            Debug.LogError("[CharacterScene] Canvas tidak ditemukan di CharacterScene.", this);
             return;
         }
+        EnsureEventSystem();
         ui = CustomizerPickView.Build(canvas.transform, assets);
         WireButtons();
         CharacterPreviewDrag drag = ui.Preview.gameObject.AddComponent<CharacterPreviewDrag>();
         drag.SetStage(stage);
-        if (stage) {
-            stage.UseTransparentBackground();
-            stage.gameObject.SetActive(false);
-        }
+        if (stage) stage.UseTransparentBackground();
+    }
+
+    void Start() => Show();
+
+    /// Scene ini tidak membawa EventSystem (lobby sudah punya). Saat scene dibuka sendiri untuk dites
+    /// di editor, buat sementara supaya tombol tetap bisa ditekan.
+    private void EnsureEventSystem() {
+        if (EventSystem.current != null || FindAnyObjectByType<EventSystem>() != null) return;
+        var system = new GameObject("EventSystem (CharacterScene)", typeof(EventSystem), typeof(StandaloneInputModule));
+        system.transform.SetParent(transform, false);
     }
 
     private void WireButtons() {
-        ui.CloseButton.onClick.AddListener(Close);
+        ui.CloseButton.onClick.AddListener(Back);
         ui.UseButton.onClick.AddListener(UseSelected);
         ui.ConfirmCancel.onClick.AddListener(() => ui.ConfirmOverlay.SetActive(false));
         ui.ConfirmDelete.onClick.AddListener(ConfirmDelete);
@@ -85,37 +89,23 @@ public class CharacterSelectUI : MonoBehaviour {
         // Tombol Back di Android: tutup dialog dulu, baru menu.
         if (!Input.GetKeyDown(KeyCode.Escape)) return;
         if (ui.ConfirmOverlay.activeSelf) ui.ConfirmOverlay.SetActive(false);
-        else Close();
+        else Back();
     }
 
-    /// <param name="closed">Dipanggil setelah menu ditutup (× / tombol Back).</param>
-    public void Open(Action closed = null) {
-        if (ui == null || !CharacterDatabase.Instance) {
-            Debug.LogWarning("[CharacterSelect] CharacterDatabase tidak ada di Assets/Resources.");
-            closed?.Invoke();
+    private void Show() {
+        if (ui == null) return;
+        if (!CharacterDatabase.Instance) {
+            Debug.LogWarning("[CharacterScene] CharacterDatabase tidak ada di Assets/Resources.");
             return;
         }
-        onClosed = closed;
         ui.Root.SetActive(true);
         ui.ConfirmOverlay.SetActive(false);
-        if (stage) {
-            stage.gameObject.SetActive(true);
-            ui.Preview.texture = stage.Texture;
-        }
+        if (stage) ui.Preview.texture = stage.Texture;
         SelectActive();
     }
 
-    public void Close() {
-        if (ui != null) ui.Root.SetActive(false);
-        if (stage) {
-            stage.Clear();
-            stage.gameObject.SetActive(false);
-        }
-        previewKey = int.MinValue;
-        Action closed = onClosed;
-        onClosed = null;
-        closed?.Invoke();
-    }
+    /// KEMBALI / Back Android: unload scene ini, lobby menampilkan lagi menu utama.
+    private void Back() => CharacterSceneLoader.Close();
 
     // ---------------------------------------------------------------- Pilihan
 

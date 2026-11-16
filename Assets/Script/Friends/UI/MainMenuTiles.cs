@@ -1,21 +1,25 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/// Tata letak tiga tile di kartu menu utama: KARAKTER · TEMAN · PENGATURAN
-/// (Docs/Friends/preview-main-menu-teman.png). Dipakai LobyUISceneController.BuildMainMenu (layout default)
-/// dan installer editor yang menambahkan tile TEMAN ke LobbyCanvas.prefab yang sudah ada.
+/// Tata letak empat tile di kartu menu utama: KARAKTER · PROFIL · TEMAN · PENGATURAN.
+/// Dipakai LobyUISceneController.BuildMainMenu (layout default) dan installer editor
+/// (FriendsMainMenuPatcher) yang menambahkan tile ke LobbyCanvas.prefab yang sudah ada.
 public static class MainMenuTiles {
     public const string FriendsTile = "Main Menu Friends Button";
-    /// Tile PROFIL (kiri). Dulu "KARAKTER"; nama lama dipakai installer untuk mencari tile yang akan diganti.
     public const string ProfileTile = "Main Menu Profile Button";
+    /// Tile KARAKTER (paling kiri): membuka scene CharacterScene. Dulu nama ini dipakai tile yang sekarang PROFIL.
     public const string CharacterTile = "Main Menu Character Button";
+    public const string CharacterIcon = "icon-shirt";
+    public const int TileCount = 4;
     public const string SettingsTile = "Main Menu Settings Button";
 
     private const float RowLeft = 40f;
     private const float RowWidth = 560f;
-    private const float Gap = 16f;
-    public const float Width = (RowWidth - Gap * 2f) / 3f; // ≈ 176
-    public const int LabelFontSize = 24;
+    private const float Gap = 12f;
+    public const float Width = (RowWidth - Gap * (TileCount - 1)) / TileCount; // = 131
+    public const int LabelFontSize = 21;
+    public const int SubtitleFontSize = 17;
+    private const int MinFontSize = 12;
 
     // Kartu tanpa header sapaan (Docs/Profil/01-main-menu.png): isi naik 112 px, kartu lebih pendek.
     public const float HeaderRemoved = 112f;
@@ -24,11 +28,13 @@ public static class MainMenuTiles {
     public const float TileY = 330f - HeaderRemoved;
     public const float QuitY = 540f - HeaderRemoved;
     /// Jarak teks dari tepi kiri/kanan tile, supaya label panjang ("PENGATURAN") tidak menempel ke tepi tombol.
-    public const float TextPadding = 14f;
+    public const float TextPadding = 8f;
     public const float TextWidth = Width - TextPadding * 2f;
 
     public static readonly Color GreenTop = new Color32(0x34, 0xD3, 0x99, 0xFF);
     public static readonly Color GreenBottom = new Color32(0x05, 0x96, 0x69, 0xFF);
+    public static readonly Color BlueTop = new Color32(0x4F, 0x8C, 0xFF, 0xFF);
+    public static readonly Color BlueBottom = new Color32(0x7B, 0x4D, 0xFF, 0xFF);
     private static readonly Color BadgeColor = new Color32(0xEF, 0x44, 0x5A, 0xFF);
 
     /// Posisi x tile ke-index (0 = kiri).
@@ -89,7 +95,30 @@ public static class MainMenuTiles {
         rect.anchoredPosition = new Vector2(TextPadding, rect.anchoredPosition.y);
         rect.sizeDelta = new Vector2(TextWidth, rect.sizeDelta.y);
         Text text = rect.GetComponent<Text>();
-        if (text != null && fontSize > 0)
+        if (text == null)
+            return;
+        if (fontSize > 0)
             text.fontSize = fontSize;
+        FitToWidth(text);
+    }
+
+    /// Teks tile mengecil sendiri kalau tidak muat (mis. "PENGATURAN", nama pemain panjang), tidak terpotong.
+    public static void FitToWidth(Text text) {
+        if (text == null)
+            return;
+        text.resizeTextForBestFit = true;
+        text.resizeTextMaxSize = text.fontSize;
+        text.resizeTextMinSize = Mathf.Min(MinFontSize, text.fontSize);
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
+    }
+
+    public static Transform FindDeep(Transform parent, string name) {
+        foreach (Transform child in parent) {
+            if (child.name == name) return child;
+            Transform found = FindDeep(child, name);
+            if (found != null) return found;
+        }
+        return null;
     }
 }

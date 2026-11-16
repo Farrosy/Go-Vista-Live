@@ -2,9 +2,10 @@ using Bozo.ModularCharacters;
 using UnityEngine;
 
 /// <summary>
-/// "Panggung" preview karakter di menu KARAKTER: kamera + lampu + meja putar, diletakkan jauh dari
-/// dunia (prefab CharacterSelectCanvas, objek Preview Stage). Kamera merender ke RenderTexture yang
-/// ditampilkan RawImage di canvas. Atur posisi kamera/lampu langsung di prefab kalau framing kurang pas.
+/// "Panggung" preview karakter: kamera + lampu + meja putar, diletakkan jauh dari dunia. Dipakai di dua
+/// tempat: scene KARAKTER (CharacterScene, objek Preview Stage) dan menu PROFIL (prefab ProfilePreviewStage
+/// di scene lobby). Kamera merender ke RenderTexture yang ditampilkan RawImage di canvas. Atur posisi
+/// kamera/lampu langsung di scene/prefab kalau framing kurang pas.
 /// </summary>
 public class CharacterPreviewStage : MonoBehaviour {
     [SerializeField] private Camera previewCamera;
@@ -98,6 +99,18 @@ public class CharacterPreviewStage : MonoBehaviour {
         UseTemplateAnimator(avatar.GetComponentInChildren<Animator>(), source);
         _ = BMAC_SaveSystem.LoadCharacter(avatar, data, false, avatar.async);
         turntable.localRotation = Quaternion.identity;
+    }
+
+    /// <summary>Tampilkan karakter yang sedang dipakai: slot custom aktif (dirakit live) atau template.</summary>
+    public void ShowActive() {
+        CustomCharacterRecord record = CustomCharacterStore.Get(CustomCharacterStore.ActiveSlot);
+        CustomizerSettings settings = CustomizerSettings.Instance;
+        if (record == null || !settings || !CharacterDatabase.Instance) {
+            Show(CharacterSelection.Current);
+            return;
+        }
+        ShowLive(settings.characterBase, CharacterRecordConverter.ToCharacterData(record),
+                 CharacterDatabase.Instance.Get(record.templateId));
     }
 
     /// Idle bernapas dari controller pemain (HumanoidPlayerController), bukan controller creator BoZo.

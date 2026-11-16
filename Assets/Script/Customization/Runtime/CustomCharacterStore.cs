@@ -13,6 +13,17 @@ public static class CustomCharacterStore {
     public static int ActiveSlot => ProgressService.Current.activeCustomSlot;
     public static bool CanCreate => CustomSlotRules.CanCreate(Count);
 
+    /// <summary>Nama karakter yang sedang dipakai: "Karakter N" (slot custom) atau label template.</summary>
+    public static string ActiveDisplayName {
+        get {
+            if (Get(ActiveSlot) != null) return CustomSlotRules.SlotName(ActiveSlot);
+            string id = CharacterSelection.Current?.id ?? "";
+            return CharacterTemplates.TryGet(id, out CharacterTemplate template)
+                ? template.Label
+                : CharacterSelection.Current?.displayName ?? "-";
+        }
+    }
+
     /// <returns>Record bersih, atau null kalau slot tidak ada / templatenya tidak dikenal.</returns>
     public static CustomCharacterRecord Get(int slot) {
         List<CustomCharacterRecord> all = ProgressService.Current.customCharacters;

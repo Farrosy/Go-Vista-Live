@@ -1,7 +1,17 @@
 # Customizer Karakter
 
 Pemain bisa membuat maksimal **2 karakter custom** dari 4 template BoZo (Default/Anime × cowok/cewek).
-Customization hanya bisa dilakukan di lobby lewat Profil → GANTI KARAKTER, tidak di dalam room atau world.
+Customization hanya bisa dilakukan di lobby lewat tile **KARAKTER** di menu utama, tidak di dalam room atau world.
+
+Tile KARAKTER membuka scene sendiri, `Assets/Scenes/Customization/CharacterScene.unity`. Scene ini dimuat
+**additive** lewat `CharacterSceneLoader`, karena MainMultiplayerScene membawa Normcore Realtime dan chat yang
+tidak boleh ter-unload. Tampilannya full-screen (bukan kartu overlay), dan isinya Pilih Karakter + editor (1c/1d).
+Scene ini dibuat dengan menu *Go Vista > Customization > Buat CharacterScene*. Setelah itu scene jadi aset
+biasa, jadi framing kamera dan lampu "Preview Stage" bisa diatur langsung di scene. Scene ini tidak punya
+EventSystem; kalau dibuka sendiri di editor, `CharacterSceneUI` membuat EventSystem sementara.
+
+Menu PROFIL hanya menampilkan karakter yang dipakai (tanpa tombol ganti), memakai panggungnya sendiri
+(`Assets/Prefab/ProfilePreviewStage.prefab`, hasil migrasi dari CharacterSelectCanvas.prefab).
 Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 
 ## Struktur folder
