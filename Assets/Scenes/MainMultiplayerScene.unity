@@ -626,6 +626,9 @@ MonoBehaviour:
   collisionBuffer: 0.1
   minDistance: 0.3
   returnSpeed: 6
+  vehicleRecenterDelay: 1.2
+  vehicleRecenterSpeed: 2.5
+  vehiclePitch: 12
 --- !u!1 &590405443
 GameObject:
   m_ObjectHideFlags: 0
@@ -3695,11 +3698,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1572251454725920051, guid: 4b237f9f03c7e563cae91e5fc143b657, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.97360504
+      value: 0.74803764
       objectReference: {fileID: 0}
     - target: {fileID: 1572251454725920051, guid: 4b237f9f03c7e563cae91e5fc143b657, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.97360504
+      value: 0.74803764
       objectReference: {fileID: 0}
     - target: {fileID: 3376136127290627386, guid: 4b237f9f03c7e563cae91e5fc143b657, type: 3}
       propertyPath: m_LocalScale.x
