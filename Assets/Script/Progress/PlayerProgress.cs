@@ -27,6 +27,13 @@ public class PlayerProgress {
     public string characterId = "";
     /// <summary>Nama pemain yang tampil di daftar pemain (lihat PlayerNameRules). Kosong = "Player N".</summary>
     public string playerName = "";
+    /// <summary>
+    /// Karakter custom buatan pemain (maks CustomSlotRules.MaxCustomSlots), hanya milik akun ini.
+    /// Selalu baca lewat CustomCharacterStore (sudah divalidasi), jangan langsung.
+    /// </summary>
+    public List<CustomCharacterRecord> customCharacters = new List<CustomCharacterRecord>();
+    /// <summary>Slot custom yang dipakai; -1 = memakai template di characterId.</summary>
+    public int activeCustomSlot = CustomSlotRules.NoActiveSlot;
 
     // ---------------------------------------------------------------- Quest (lihat QuestService)
     /// <summary>Quest yang sedang berjalan, urut dari yang paling lama diterima.</summary>
