@@ -11,7 +11,7 @@ using UnityEngine.UI;
 ///  1. Assets/Resources/Player Female.prefab   : salinan Player.prefab dengan model FemaleChibi.
 ///  2. Assets/Resources/CharacterDatabase.asset : daftar karakter (Laki-laki, Perempuan).
 ///  3. Assets/Prefab/CharacterSelectCanvas.prefab : Canvas + panggung preview 3D. Tampilan menu GANTI KARAKTER
-///     dibangun lewat kode saat runtime (CharacterSelectView, Docs/Profil/06a). UI lama di prefab (termasuk kolom
+///     dibangun lewat kode saat runtime (CustomizerPickView, layar Pilih Karakter customizer). UI lama di prefab (termasuk kolom
 ///     NAMA PEMAIN, yang sekarang ada di menu PROFIL) dihapus otomatis.
 ///  4. Instance CharacterSelectCanvas di semua scene lobby (LobbyScenePaths): MainMultiplayerScene dan
 ///     LobbyReturnScene (scene lobby setelah keluar room). Tanpa ini tombol KARAKTER tidak membuka apa-apa.
@@ -42,7 +42,7 @@ public static class CharacterSelectBuilder {
     // Panggung preview diletakkan jauh dari dunia supaya kamera preview hanya melihat karakter.
     private static readonly Vector3 StagePosition = new Vector3(0f, -1000f, 0f);
 
-    // Kamera preview transparan: gradasi kartu preview di menu (CharacterSelectView/ProfileMenu) terlihat di belakang karakter.
+    // Kamera preview transparan: gradasi kartu preview di menu (CustomizerPickView/ProfileMenu) terlihat di belakang karakter.
     private static readonly Color StageColor = new Color(0f, 0f, 0f, 0f);
 
     static CharacterSelectBuilder() {
@@ -179,7 +179,7 @@ public static class CharacterSelectBuilder {
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 0.5f;
-        // Isi menu dibangun saat runtime oleh CharacterSelectUI (CharacterSelectView).
+        // Isi menu dibangun saat runtime oleh CharacterSelectUI (CustomizerPickView).
         // Panggung preview 3D, jauh di bawah dunia.
         GameObject stageGo = BuildStage(prefabRoot.transform, out CharacterPreviewStage stage);
 

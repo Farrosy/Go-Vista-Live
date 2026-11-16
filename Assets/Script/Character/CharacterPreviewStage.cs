@@ -1,3 +1,4 @@
+using Bozo.ModularCharacters;
 using UnityEngine;
 
 /// <summary>
@@ -17,7 +18,15 @@ public class CharacterPreviewStage : MonoBehaviour {
 
     private RenderTexture texture;
     private GameObject model;
+    private OutfitSystem liveAvatar;
+    private bool liveWasBusy;
     private float lastDragTime = -999f;
+
+    /// <summary>Karakter live (custom) sedang dirakit/digabung BoZo: tampilkan indikator "Memuat…".</summary>
+    public bool IsBusy => liveAvatar && (liveAvatar.isloading || liveAvatar.isMerging || liveAvatar.isUpdatingTexture);
+
+    /// <summary>Karakter live yang sedang tampil (untuk diedit di customizer), atau null.</summary>
+    public OutfitSystem LiveAvatar => liveAvatar;
 
     public RenderTexture Texture {
         get {
@@ -59,9 +68,52 @@ public class CharacterPreviewStage : MonoBehaviour {
         turntable.localRotation = Quaternion.identity;
     }
 
+    /// <summary>
+    /// Merakit karakter custom dari data BoZo di meja putar (OutfitSystem + bake runtime). Animator memakai
+    /// controller dan skala model <paramref name="template"/>, jadi idle dan tingginya sama dengan saat main.
+    /// </summary>
+    public void ShowLive(OutfitSystem characterBase, CharacterData data, CharacterDatabase.Entry template) {
+        Clear();
+        if (!characterBase || data == null) return;
+
+        // Dibuat di bawah parent nonaktif supaya Awake BoZo tidak memuat karakter bawaan prefab.
+        var holder = new GameObject("__PreviewHolder");
+        holder.SetActive(false);
+        OutfitSystem avatar = Instantiate(characterBase, holder.transform);
+        avatar.name = "Preview Custom";
+        avatar.characterData = null;
+        avatar.loadMode = OutfitSystem.LoadMode.Manual;
+        foreach (Camera cam in avatar.GetComponentsInChildren<Camera>(true)) cam.enabled = false;
+        foreach (AudioListener listener in avatar.GetComponentsInChildren<AudioListener>(true)) listener.enabled = false;
+        avatar.transform.SetParent(turntable, false);
+        avatar.transform.localPosition = Vector3.zero;
+        avatar.transform.localRotation = Quaternion.identity;
+        GameObject source = template?.PreviewSource;
+        if (source) avatar.transform.localScale = source.transform.localScale;
+        Destroy(holder);
+
+        model = avatar.gameObject;
+        liveAvatar = avatar;
+        liveWasBusy = true;
+        UseTemplateAnimator(avatar.GetComponentInChildren<Animator>(), source);
+        _ = BMAC_SaveSystem.LoadCharacter(avatar, data, false, avatar.async);
+        turntable.localRotation = Quaternion.identity;
+    }
+
+    /// Idle bernapas dari controller pemain (HumanoidPlayerController), bukan controller creator BoZo.
+    private static void UseTemplateAnimator(Animator animator, GameObject templateModel) {
+        if (!animator) return;
+        Animator templateAnimator = templateModel ? templateModel.GetComponentInChildren<Animator>(true) : null;
+        if (templateAnimator && templateAnimator.runtimeAnimatorController)
+            animator.runtimeAnimatorController = templateAnimator.runtimeAnimatorController;
+        animator.applyRootMotion = false;
+        PlayerController.ApplyAnimator(animator, 0f, true, 0f);
+    }
+
     public void Clear() {
         if (model) Destroy(model);
         model = null;
+        liveAvatar = null;
     }
 
     /// Dipanggil CharacterPreviewDrag saat layar preview digeser.
@@ -71,8 +123,18 @@ public class CharacterPreviewStage : MonoBehaviour {
     }
 
     void Update() {
+        RestoreIdleAfterMerge();
         if (model && autoRotateSpeed != 0f && Time.unscaledTime - lastDragTime > resumeAutoRotateDelay)
             turntable.Rotate(0f, autoRotateSpeed * Time.unscaledDeltaTime, 0f, Space.Self);
+    }
+
+    /// BoZo memanggil animator.Rebind() setiap selesai merge, sehingga parameter kembali ke default
+    /// (IsGrounded = false → pose melayang). Pasang lagi parameter idle begitu BoZo selesai.
+    private void RestoreIdleAfterMerge() {
+        if (!liveAvatar) return;
+        bool busy = IsBusy;
+        if (liveWasBusy && !busy) PlayerController.ApplyAnimator(liveAvatar.GetComponentInChildren<Animator>(), 0f, true, 0f);
+        liveWasBusy = busy;
     }
 
     void OnDestroy() {

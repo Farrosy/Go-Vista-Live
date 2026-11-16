@@ -28,8 +28,8 @@ Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 |---|---|---|
 | 0 / 0b | Scene ukur bake runtime + optimasi (pemanasan, antrean, tekstur 512/1024, buang outfit) | Selesai |
 | 1a | Data, aturan, validator, Cloud Save, jembatan BoZo | Selesai |
-| 1b | Layar Pilih Karakter + preview live | Berikutnya |
-| 1c | Editor outfit + semua bagian warna | |
+| 1b | Layar Pilih Karakter + preview live | Selesai |
+| 1c | Editor outfit + semua bagian warna | Berikutnya |
 | 1d | Wajah, kulit, stiker, dialog | |
 | 3 | Sinkronisasi ke room: bake avatar pemain lain (opsi A) | |
 
