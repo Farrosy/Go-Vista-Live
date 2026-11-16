@@ -20,7 +20,9 @@ public class CharacterPreviewStage : MonoBehaviour {
     private RenderTexture texture;
     private GameObject model;
     private OutfitSystem liveAvatar;
-    private bool liveWasBusy;
+    private Animator liveAnimator;
+    // State idle di HumanoidPlayerController. InAir/Land = pose melayang lalu mendarat yang harus dihindari.
+    private static readonly int LocomotionState = Animator.StringToHash("Locomotion");
     private float lastDragTime = -999f;
 
     /// <summary>Karakter live (custom) sedang dirakit/digabung BoZo: tampilkan indikator "Memuat…".</summary>
@@ -95,8 +97,12 @@ public class CharacterPreviewStage : MonoBehaviour {
 
         model = avatar.gameObject;
         liveAvatar = avatar;
-        liveWasBusy = true;
-        UseTemplateAnimator(avatar.GetComponentInChildren<Animator>(), source);
+        liveAnimator = avatar.GetComponentInChildren<Animator>();
+        // Setiap merge, BoZo memanggil Rebind() (parameter kembali default: IsGrounded = false) lalu
+        // OnRigChanged di frame yang sama. Idle dipasang di situ, SEBELUM animator dievaluasi, supaya
+        // karakter tidak sempat "loncat" (InAir) lalu mendarat (Land) setiap ganti baju/warna.
+        avatar.OnRigChanged += _ => ForceIdle(liveAnimator);
+        UseTemplateAnimator(liveAnimator, source);
         _ = BMAC_SaveSystem.LoadCharacter(avatar, data, false, avatar.async);
         turntable.localRotation = Quaternion.identity;
     }
@@ -127,6 +133,7 @@ public class CharacterPreviewStage : MonoBehaviour {
         if (model) Destroy(model);
         model = null;
         liveAvatar = null;
+        liveAnimator = null;
     }
 
     /// Dipanggil CharacterPreviewDrag saat layar preview digeser.
@@ -136,18 +143,27 @@ public class CharacterPreviewStage : MonoBehaviour {
     }
 
     void Update() {
-        RestoreIdleAfterMerge();
+        KeepIdle();
         if (model && autoRotateSpeed != 0f && Time.unscaledTime - lastDragTime > resumeAutoRotateDelay)
             turntable.Rotate(0f, autoRotateSpeed * Time.unscaledDeltaTime, 0f, Space.Self);
     }
 
-    /// BoZo memanggil animator.Rebind() setiap selesai merge, sehingga parameter kembali ke default
-    /// (IsGrounded = false → pose melayang). Pasang lagi parameter idle begitu BoZo selesai.
-    private void RestoreIdleAfterMerge() {
-        if (!liveAvatar) return;
-        bool busy = IsBusy;
-        if (liveWasBusy && !busy) PlayerController.ApplyAnimator(liveAvatar.GetComponentInChildren<Animator>(), 0f, true, 0f);
-        liveWasBusy = busy;
+    /// Jaring pengaman selain OnRigChanged: kalau parameter idle sempat ter-reset (Rebind di jalur lain),
+    /// pasang lagi di frame berikutnya. Murah: hanya membaca satu bool.
+    private void KeepIdle() {
+        if (liveAnimator && liveAnimator.isActiveAndEnabled && !liveAnimator.GetBool(PlayerController.IsGroundedParam))
+            ForceIdle(liveAnimator);
+    }
+
+    /// Diam di tanah: parameter idle + langsung ke state Locomotion (tanpa transisi InAir → Land).
+    private static void ForceIdle(Animator animator) {
+        if (!animator || !animator.runtimeAnimatorController) return;
+        PlayerController.ApplyAnimator(animator, 0f, true, 0f);
+        if (!animator.isActiveAndEnabled || !animator.HasState(0, LocomotionState)) return;
+        AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+        bool inIdle = state.shortNameHash == LocomotionState;
+        if (!inIdle || animator.IsInTransition(0))
+            animator.Play(LocomotionState, 0, inIdle ? state.normalizedTime % 1f : 0f);
     }
 
     void OnDestroy() {
