@@ -215,7 +215,7 @@ public class CharacterSceneUI : MonoBehaviour {
         }
         stage.ShowLive(CustomizerSettings.Instance ? CustomizerSettings.Instance.characterBase : null,
                        CharacterRecordConverter.ToCharacterData(record),
-                       CharacterDatabase.Instance.Get(record.templateId));
+                       CharacterDatabase.Instance.Get(record.templateId), record.expression);
     }
 
     /// Slot yang sedang dipreview belum punya foto (mis. dibuat di perangkat lain): foto begitu selesai dirakit.

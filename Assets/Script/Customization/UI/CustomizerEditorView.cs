@@ -30,6 +30,7 @@ public sealed class CustomizerEditorRefs {
     public Image HeaderIcon;
     public TextMeshProUGUI HeaderTitle;
     public RectTransform SubTabRow;
+    public ScrollRect SubTabScroll;
     public GameObject OutfitPanel;
     public RectTransform GridContent;
     public ScrollRect GridScroll;
@@ -46,6 +47,7 @@ public sealed class CustomizerEditorRefs {
     public GameObject ColorArea;
     public PatternAreaRefs Pattern;
     public RectTransform ChannelList;
+    public ScrollRect ChannelScroll;
     public HsvColorPicker Picker;
     public Button MatchButton;
     public TextMeshProUGUI MatchLabel;
@@ -82,6 +84,15 @@ public static class CustomizerEditorView {
     private const float GridTop = SubTabY + ChipHeight + 16f;
     private const float ColorHeight = 330f;
     private const float ChannelWidth = 210f;
+    private const float ScrollbarWidth = 6f;
+    /// Jarak scrollbar dari tepi kanan grid (masih di dalam padding panel).
+    private const float ScrollbarGap = 10f;
+    private const float MoreHintHeight = 70f;
+    private const float ColorAreaHeight = 214f;
+    /// Pudar penanda scroll di daftar bagian warna (lebih pendek dari grid karena areanya cuma 214px).
+    private const float ChannelHintHeight = 40f;
+    /// Lebar pudar + panah ▶ di kanan baris sub-tab (tampil selama masih ada chip di kanan).
+    private const float SubTabHintWidth = 64f;
     private const int GridColumns = 5;
     private const float GridGap = 10f;
     public const float ItemSize = (InnerWidth - GridGap * (GridColumns - 1)) / GridColumns;
@@ -229,12 +240,7 @@ public static class CustomizerEditorView {
         refs.HeaderTitle = ChatUiKit.CreateText("Header Title", panel, a.font, "ATASAN", 40, Color.white, FontStyles.Bold);
         ChatUiKit.Place(refs.HeaderTitle.rectTransform, Pad + HeaderHeight + 18f, Pad, 400f, HeaderHeight);
 
-        refs.SubTabRow = ChatUiKit.CreateRect("Sub Tabs", panel);
-        ChatUiKit.Place(refs.SubTabRow, Pad, SubTabY, InnerWidth, ChipHeight);
-        HorizontalLayoutGroup row = refs.SubTabRow.gameObject.AddComponent<HorizontalLayoutGroup>();
-        row.spacing = 8f;
-        row.childControlWidth = row.childControlHeight = true;
-        row.childForceExpandWidth = row.childForceExpandHeight = false;
+        BuildSubTabRow(panel, a, refs);
 
         BuildOutfitPanel(panel, a, refs);
         refs.Shapes = CustomizerEditorPanels.BuildShapePanel(panel, Pad, GridTop);
@@ -267,8 +273,67 @@ public static class CustomizerEditorView {
         fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         refs.GridScroll.content = refs.GridContent;
         refs.GridScroll.viewport = scrollRect;
+        BuildScrollIndicators(outfit, scrollRect, a, refs.GridScroll);
 
         BuildColorSection(outfit, a, refs);
+    }
+
+    /// Supaya pemain tahu masih ada item di bawah (mis. "Kilau Mata" di bawah "Pupil"): scrollbar tipis di sisi
+    /// kanan (tampil hanya kalau isinya tidak muat) + pudar dan panah ▼ di bawah grid sampai discroll ke ujung.
+    private static void BuildScrollIndicators(RectTransform outfit, RectTransform viewport, ChatUiAssets a,
+                                              ScrollRect scroll) {
+        RectTransform bar = CreateScrollbar("Item Scrollbar", outfit, a, scroll);
+        bar.anchorMin = new Vector2(1f, 0f);
+        bar.anchorMax = new Vector2(1f, 1f);
+        bar.pivot = new Vector2(0f, 1f);
+        // Di celah padding kanan panel, sejajar tinggi grid (tidak menutupi item).
+        bar.offsetMin = new Vector2(ScrollbarGap, ColorHeight + 14f);
+        bar.offsetMax = new Vector2(ScrollbarGap + ScrollbarWidth, 0f);
+
+        RectTransform hint = CreateMoreHint("More Below Hint", outfit, a, viewport, 28f);
+        hint.anchorMin = new Vector2(0f, 0f);
+        hint.anchorMax = new Vector2(1f, 0f);
+        hint.pivot = new Vector2(0.5f, 0f);
+        hint.offsetMin = new Vector2(0f, ColorHeight + 14f);
+        hint.offsetMax = new Vector2(0f, ColorHeight + 14f + MoreHintHeight);
+    }
+
+    /// Scrollbar vertikal tipis (AutoHide: hanya tampil kalau isi tidak muat). Posisi diatur pemanggil.
+    private static RectTransform CreateScrollbar(string name, RectTransform parent, ChatUiAssets a, ScrollRect scroll) {
+        RectTransform bar = ChatUiKit.CreateRect(name, parent);
+        ChatUiKit.AddShape(bar.gameObject, a.rounded, new Color(1f, 1f, 1f, 0.06f), 6f);
+        RectTransform slide = ChatUiKit.Stretch(ChatUiKit.CreateRect("Sliding Area", bar), 0f, 0f, 0f, 0f);
+        RectTransform handle = ChatUiKit.Stretch(ChatUiKit.CreateRect("Handle", slide), 0f, 0f, 0f, 0f);
+        Image handleImage = ChatUiKit.AddShape(handle.gameObject, a.rounded, FriendsTheme.Muted, 6f);
+        Scrollbar scrollbar = bar.gameObject.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+        scrollbar.handleRect = handle;
+        scrollbar.targetGraphic = handleImage;
+        scroll.verticalScrollbar = scrollbar;
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        return bar;
+    }
+
+    /// Pudar ke warna panel + panah ▼ di bawah viewport, hilang saat sudah discroll ke ujung (ScrollMoreHint).
+    /// Posisi diatur pemanggil; dibuat di luar viewport supaya tidak ikut di-mask.
+    private static RectTransform CreateMoreHint(string name, RectTransform parent, ChatUiAssets a,
+                                                RectTransform viewport, float arrowSize) {
+        RectTransform hint = ChatUiKit.CreateRect(name, parent);
+        Image fade = hint.gameObject.AddComponent<Image>();
+        fade.color = Color.white;
+        fade.raycastTarget = false;
+        Color panel = FriendsTheme.Panel;
+        hint.gameObject.AddComponent<UIVerticalGradient>().SetColors(new Color(panel.r, panel.g, panel.b, 0f), panel);
+        Image arrow = ChatUiKit.AddIcon("Arrow", hint, a.chevron, FriendsTheme.Neutral);
+        RectTransform arrowRect = arrow.rectTransform;
+        arrowRect.anchorMin = arrowRect.anchorMax = new Vector2(0.5f, 0f);
+        arrowRect.pivot = new Vector2(0.5f, 0.5f);
+        arrowRect.sizeDelta = new Vector2(arrowSize, arrowSize);
+        arrowRect.anchoredPosition = new Vector2(0f, arrowSize * 0.65f);
+        arrowRect.localRotation = Quaternion.Euler(0f, 0f, -90f); // chevron kanan → bawah
+
+        viewport.gameObject.AddComponent<ScrollMoreHint>().SetHint(hint.gameObject.AddComponent<CanvasGroup>());
+        return hint;
     }
 
     private static void BuildColorSection(RectTransform outfit, ChatUiAssets a, CustomizerEditorRefs refs) {
@@ -287,20 +352,13 @@ public static class CustomizerEditorView {
         BuildColorModeToggle(section, a, refs);
 
         RectTransform colorArea = ChatUiKit.CreateRect("Color Area", section);
-        ChatUiKit.Place(colorArea, 0f, 50f, InnerWidth, 214f);
+        ChatUiKit.Place(colorArea, 0f, 50f, InnerWidth, ColorAreaHeight);
         refs.ColorArea = colorArea.gameObject;
-        RectTransform channels = ChatUiKit.CreateRect("Channels", colorArea);
-        ChatUiKit.Place(channels, 0f, 0f, ChannelWidth, 214f);
-        VerticalLayoutGroup list = channels.gameObject.AddComponent<VerticalLayoutGroup>();
-        list.spacing = 6f;
-        list.childControlWidth = list.childControlHeight = true;
-        list.childForceExpandWidth = true;
-        list.childForceExpandHeight = false;
-        refs.ChannelList = channels;
+        BuildChannelList(colorArea, a, refs);
 
         RectTransform pickerHost = ChatUiKit.CreateRect("Picker Host", colorArea);
         float pickerX = ChannelWidth + 16f;
-        ChatUiKit.Place(pickerHost, pickerX, 0f, InnerWidth - pickerX, 214f);
+        ChatUiKit.Place(pickerHost, pickerX, 0f, InnerWidth - pickerX, ColorAreaHeight);
         refs.Picker = HsvColorPicker.Build(pickerHost, a, InnerWidth - pickerX);
         refs.Pattern = CustomizerEditorPanels.BuildPatternArea(section, a, 50f, InnerWidth);
 
@@ -316,6 +374,90 @@ public static class CustomizerEditorView {
         keepRect.anchorMin = keepRect.anchorMax = keepRect.pivot = new Vector2(1f, 0f);
         keepRect.anchoredPosition = Vector2.zero;
         keepRect.sizeDelta = new Vector2(300f, 50f);
+    }
+
+    /// Baris chip sub-tab bisa digeser ke samping: Wajah (6 chip) dan Aksesori lebih lebar dari panel, dan chip
+    /// tidak boleh dipampatkan. Pudar + panah ▶ di kanan menandakan masih ada sub-tab yang belum terlihat.
+    private static void BuildSubTabRow(RectTransform panel, ChatUiAssets a, CustomizerEditorRefs refs) {
+        RectTransform viewport = ChatUiKit.CreateRect("Sub Tabs", panel);
+        ChatUiKit.Place(viewport, Pad, SubTabY, InnerWidth, ChipHeight);
+        viewport.gameObject.AddComponent<RectMask2D>();
+        ScrollRect scroll = viewport.gameObject.AddComponent<ScrollRect>();
+        scroll.vertical = false;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 30f;
+
+        RectTransform row = ChatUiKit.CreateRect("Sub Tab Row", viewport);
+        row.anchorMin = new Vector2(0f, 0f);
+        row.anchorMax = new Vector2(0f, 1f);
+        row.pivot = new Vector2(0f, 0.5f);
+        row.sizeDelta = Vector2.zero;
+        HorizontalLayoutGroup layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 8f;
+        layout.childControlWidth = layout.childControlHeight = true;
+        layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+        ContentSizeFitter fit = row.gameObject.AddComponent<ContentSizeFitter>();
+        fit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        scroll.content = row;
+        scroll.viewport = viewport;
+        refs.SubTabRow = row;
+        refs.SubTabScroll = scroll;
+
+        RectTransform hint = ChatUiKit.CreateRect("Sub Tab More Hint", panel);
+        ChatUiKit.Place(hint, Pad + InnerWidth - SubTabHintWidth, SubTabY, SubTabHintWidth, ChipHeight);
+        // Gradien BoZo-UI hanya vertikal (atas → bawah): diputar 90° supaya transparan di kiri, pekat di kanan.
+        RectTransform fade = ChatUiKit.CreateRect("Fade", hint);
+        fade.anchorMin = fade.anchorMax = fade.pivot = new Vector2(0.5f, 0.5f);
+        fade.sizeDelta = new Vector2(ChipHeight, SubTabHintWidth);
+        fade.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        Image fadeImage = fade.gameObject.AddComponent<Image>();
+        fadeImage.color = Color.white;
+        fadeImage.raycastTarget = false;
+        Color color = FriendsTheme.Panel;
+        fade.gameObject.AddComponent<UIVerticalGradient>().SetColors(new Color(color.r, color.g, color.b, 0f), color);
+        Image arrow = ChatUiKit.AddIcon("Arrow", hint, a.chevron, FriendsTheme.Neutral);
+        RectTransform arrowRect = arrow.rectTransform;
+        arrowRect.anchorMin = arrowRect.anchorMax = arrowRect.pivot = new Vector2(1f, 0.5f);
+        arrowRect.sizeDelta = new Vector2(22f, 22f);
+        arrowRect.anchoredPosition = Vector2.zero;
+        ScrollMoreHint more = viewport.gameObject.AddComponent<ScrollMoreHint>();
+        more.SetHorizontal(true);
+        more.SetHint(hint.gameObject.AddComponent<CanvasGroup>());
+    }
+
+    /// Daftar bagian warna (Base, Warna 2, ...) bisa discroll: kepala punya lebih banyak bagian dari yang muat di
+    /// 214px. Tinggi baris tetap 46px (sama dengan item lain, tidak dipampatkan); scrollbar di celah ke picker +
+    /// pudar/panah ▼ menandakan masih ada bagian di bawah.
+    private static void BuildChannelList(RectTransform colorArea, ChatUiAssets a, CustomizerEditorRefs refs) {
+        RectTransform viewport = ChatUiKit.CreateRect("Channels", colorArea);
+        ChatUiKit.Place(viewport, 0f, 0f, ChannelWidth, ColorAreaHeight);
+        viewport.gameObject.AddComponent<RectMask2D>();
+        ScrollRect scroll = viewport.gameObject.AddComponent<ScrollRect>();
+        scroll.horizontal = false;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 30f;
+
+        RectTransform content = ChatUiKit.CreateRect("Channel List", viewport);
+        content.anchorMin = new Vector2(0f, 1f);
+        content.anchorMax = new Vector2(1f, 1f);
+        content.pivot = new Vector2(0.5f, 1f);
+        content.sizeDelta = Vector2.zero;
+        VerticalLayoutGroup list = content.gameObject.AddComponent<VerticalLayoutGroup>();
+        list.spacing = 6f;
+        list.childControlWidth = list.childControlHeight = true;
+        list.childForceExpandWidth = true;
+        list.childForceExpandHeight = false;
+        ContentSizeFitter fit = content.gameObject.AddComponent<ContentSizeFitter>();
+        fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        scroll.content = content;
+        scroll.viewport = viewport;
+        refs.ChannelList = content;
+        refs.ChannelScroll = scroll;
+
+        RectTransform bar = CreateScrollbar("Channel Scrollbar", colorArea, a, scroll);
+        ChatUiKit.Place(bar, ChannelWidth + 5f, 0f, ScrollbarWidth, ColorAreaHeight);
+        RectTransform hint = CreateMoreHint("Channel More Hint", colorArea, a, viewport, 22f);
+        ChatUiKit.Place(hint, 0f, ColorAreaHeight - ChannelHintHeight, ChannelWidth, ChannelHintHeight);
     }
 
     /// Toggle "Warna | Motif" di kanan judul bagian warna (mockup layar 2). Motif aktif hanya kalau baju mendukung.
@@ -385,6 +527,20 @@ public static class CustomizerEditorView {
         RectTransform dot = ChatUiKit.Stretch(ChatUiKit.CreateRect("Swatch", button.transform), 18f, 18f, 18f, 18f);
         ChatUiKit.AddShape(dot.gameObject, a.circle, color).raycastTarget = false;
         dot.SetSiblingIndex(1);
+        return button;
+    }
+
+    /// <summary>Kotak bernomor besar + label (Wajah · Ekspresi), ukuran sama dengan item outfit.</summary>
+    public static Button CreateNumberItem(Transform parent, ChatUiAssets a, string number, string label,
+                                          out GameObject selected) {
+        Button button = CreateItem(parent, a, null, label, out selected);
+        Transform icon = button.transform.Find("Icon");
+        if (icon) Object.Destroy(icon.gameObject);
+        TextMeshProUGUI digit = ChatUiKit.CreateText("Number", button.transform, a.font, number, 44, Color.white,
+                                                     FontStyles.Bold, TextAlignmentOptions.Center);
+        ChatUiKit.Stretch(digit.rectTransform, 8f, 8f, 8f, 30f);
+        digit.raycastTarget = false;
+        digit.transform.SetSiblingIndex(1);
         return button;
     }
 

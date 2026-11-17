@@ -10,6 +10,8 @@ public enum EditorPanelKind {
     Skin,
     /// <summary>Slider bentuk wajah (blendshape kepala).</summary>
     FaceShapes,
+    /// <summary>Grid ekspresi wajah bernomor (FaceExpressions), tanpa bagian warna.</summary>
+    Expressions,
     /// <summary>Stiker (decal BoZo): pilih, posisi preset, ukuran, putar, warna.</summary>
     Stickers
 }
@@ -64,6 +66,7 @@ public static class EditorCategories {
                            new EditorSubTab("Warna Kulit", EditorPanelKind.Skin, "Body")),
         new EditorCategory("Wajah", "icon-face", EditorCategoryKind.Face, true,
                            new EditorSubTab("Bentuk", EditorPanelKind.FaceShapes),
+                           new EditorSubTab("Ekspresi", EditorPanelKind.Expressions),
                            new EditorSubTab("Kepala", "Head"),
                            new EditorSubTab("Mata", "Eyes", "Pupil", "EyeShine"),
                            new EditorSubTab("Alis & Bulu Mata", "EyeBrows", "EyeLashes"),

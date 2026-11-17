@@ -32,6 +32,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private CharacterPreviewStage _stage;
     private CustomizationSession _session;
     private CharacterTemplate _template;
+    /// Record template asli (cache per sesi editor) untuk warna alis/bulu mata.
+    private CustomCharacterRecord _templateRecord;
     private CustomizerFaceShapes _faces;
     private CustomizerStickers _stickers;
     private Action _closed;
@@ -47,6 +49,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private readonly List<GameObject> _subTabSelected = new List<GameObject>();
     private readonly List<(string type, string path, GameObject selected)> _items = new List<(string, string, GameObject)>();
     private readonly List<(Image swatch, GameObject selected)> _channels = new List<(Image, GameObject)>();
+    /// Item yang daftar bagian warnanya sedang tampil; scroll daftar itu kembali ke atas hanya saat item berganti.
+    private string _channelsFor = "";
     private readonly List<(string id, GameObject selected)> _patterns = new List<(string, GameObject)>();
 
     public bool IsOpen => _ui != null && _ui.Root.activeSelf;
@@ -65,7 +69,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
 
     private EditorCategory CurrentCategory => EditorCategories.All[_category];
     private EditorSubTab CurrentSubTab => CurrentCategory.SubTabs[_subTab];
-    private bool ShowsOutfits => CurrentSubTab.Panel == EditorPanelKind.Outfits || CurrentSubTab.Panel == EditorPanelKind.Skin;
+    private bool ShowsOutfits => CurrentSubTab.Panel == EditorPanelKind.Outfits || CurrentSubTab.Panel == EditorPanelKind.Skin ||
+                                 CurrentSubTab.Panel == EditorPanelKind.Expressions;
 
     public void Init(CustomizerEditorRefs ui, ChatUiAssets assets, CharacterPreviewStage stage) {
         _ui = ui;
@@ -107,13 +112,17 @@ public sealed class CustomizerEditor : MonoBehaviour {
             return;
         }
         _session = new CustomizationSession(record, slot);
+        _templateRecord = null;
         _closed = closed;
         _ui.Root.SetActive(true);
         _ui.Discard.Overlay.SetActive(false);
         _ui.MatchPopup.SetActive(false);
         _stickers.CloseColor();
         _ui.KeepColorsOn.SetActive(_keepColors);
-        if (_stage) _ui.Preview.texture = _stage.Texture;
+        if (_stage) {
+            _ui.Preview.texture = _stage.Texture;
+            _stage.AutoRotate = false; // karakter diam saat diedit; tetap bisa digeser
+        }
         if (!previewReady) RebuildLive();
         SelectCategory(DefaultCategory);
         RefreshTopBar();
@@ -148,7 +157,10 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _ui.Discard.Overlay.SetActive(false);
         _stickers.CloseColor();
         _ui.Root.SetActive(false);
-        if (_stage) _stage.SetFaceFocus(false);
+        if (_stage) {
+            _stage.SetFaceFocus(false);
+            _stage.AutoRotate = true;
+        }
         _session = null;
         Action closed = _closed;
         _closed = null;
@@ -225,6 +237,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private void BuildSubTabs(EditorCategory category) {
         ChatUiKit.DestroyChildren(_ui.SubTabRow);
         _subTabSelected.Clear();
+        _ui.SubTabScroll.horizontalNormalizedPosition = 0f;
         for (int i = 0; i < category.SubTabs.Count; i++) {
             int index = i;
             Button chip = CustomizerEditorView.CreateChip(_ui.SubTabRow, _a, category.SubTabs[i].Label, out GameObject selected);
@@ -272,6 +285,10 @@ public sealed class CustomizerEditor : MonoBehaviour {
             BuildSkinTones();
             return;
         }
+        if (CurrentSubTab.Panel == EditorPanelKind.Expressions) {
+            BuildExpressions();
+            return;
+        }
         IReadOnlyList<string> types = CurrentSubTab.OutfitTypes;
         foreach (string type in types) {
             IReadOnlyList<Outfit> outfits = OutfitCatalog.ForType(type, _template.IsAnime);
@@ -316,8 +333,33 @@ public sealed class CustomizerEditor : MonoBehaviour {
         RefreshItemSelection();
     }
 
+    /// Wajah · Ekspresi: kotak bernomor 1..8; ekspresi langsung tampil di avatar (bukan outfit, tanpa bagian warna).
+    private void BuildExpressions() {
+        RectTransform grid = CustomizerEditorView.CreateItemSection(_ui.GridContent, _a, null);
+        for (int i = 0; i < FaceExpressions.Count; i++) {
+            int index = i;
+            Button item = CustomizerEditorView.CreateNumberItem(grid, _a, (i + 1).ToString(), FaceExpressions.Label(i),
+                                                                out GameObject selected);
+            item.onClick.AddListener(() => SetExpression(index));
+            _items.Add(("", index.ToString(), selected));
+        }
+        RefreshItemSelection();
+    }
+
+    private void SetExpression(int expression) {
+        _session.Apply(r => RecordEdits.WithExpression(r, expression));
+        if (_stage) _stage.SetExpression(_session.Current.expression);
+        RefreshItemSelection();
+        RefreshTopBar();
+    }
+
     private void RefreshItemSelection() {
         CustomCharacterRecord record = _session.Current;
+        if (CurrentSubTab.Panel == EditorPanelKind.Expressions) {
+            string current = record.expression.ToString();
+            foreach ((string type, string key, GameObject selected) in _items) selected.SetActive(key == current);
+            return;
+        }
         bool skin = CurrentSubTab.Panel == EditorPanelKind.Skin;
         foreach ((string type, string key, GameObject selected) in _items) {
             OutfitRecord worn = RecordEdits.Find(record, type);
@@ -334,15 +376,24 @@ public sealed class CustomizerEditor : MonoBehaviour {
             RefreshColors(); // ketuk item yang sudah dipakai = pilih bagian warnanya
             return;
         }
-        if (_keepColors && previous != null) {
+        if (_keepColors && previous != null && CustomizationRules.KeepsPreviousColors(type)) {
             for (int i = 0; i < next.colors.Count && i < previous.colors.Count; i++) next.colors[i] = previous.colors[i];
         }
+        if (CustomizationRules.UsesTemplateColors(type)) CopyTemplateColors(type, next);
         CopyLinkedColors(outfit, next);
-        _session.Apply(r => RecordEdits.WithOutfit(r, next));
+        _session.Apply(r => CharacterRecordConverter.WithOutfitClearingDecals(r, next));
         StartCoroutine(AttachLive(outfit, next));
         _channel = 0;
         _patternMode = false;
         RefreshPanel();
+    }
+
+    /// Alis/bulu mata baru memakai warna dari template (mis. alis cokelat template), bukan item sebelumnya.
+    private void CopyTemplateColors(string type, OutfitRecord next) {
+        _templateRecord ??= CharacterRecordConverter.FromTemplate(_template);
+        OutfitRecord source = RecordEdits.Find(_templateRecord, type);
+        if (source == null) return; // template tidak memakai tipe ini: tetap warna bawaan prefab
+        for (int i = 0; i < next.colors.Count && i < source.colors.Count; i++) next.colors[i] = source.colors[i];
     }
 
     /// Kepala baru memakai warna kulit badan (dan sebaliknya), tidak warna bawaan prefab.
@@ -360,10 +411,10 @@ public sealed class CustomizerEditor : MonoBehaviour {
             RefreshColors();
             return;
         }
-        _session.Apply(r => RecordEdits.WithoutOutfit(r, type));
+        _session.Apply(r => CharacterRecordConverter.WithoutOutfitClearingDecals(r, type));
         OutfitSystem avatar = Avatar;
         if (avatar) avatar.RemoveOutfit(type);
-        ApplyDecalsWhenIdle(); // stiker pindah ke outfit pembawa berikutnya (mis. Dada → Body)
+        ApplyDecalsWhenIdle(); // stiker di baju yang dilepas ikut hilang
         RefreshPanel();
     }
 
@@ -380,8 +431,11 @@ public sealed class CustomizerEditor : MonoBehaviour {
         yield return null; // Start (SetColorInital) sudah lewat
         if (!instance) yield break;
         LiveAvatarEdits.ApplyColors(instance, record);
-        if (instance.Type != null && instance.Type.name == "Head") LiveAvatarEdits.ApplyFaceShapes(avatar, _session?.Current);
-        ApplyDecalsWhenIdle(); // outfit baru belum membawa stiker record
+        if (instance.Type != null && instance.Type.name == "Head") {
+            LiveAvatarEdits.ApplyFaceShapes(avatar, _session?.Current);
+            if (_stage && _session != null) _stage.SetExpression(_session.Current.expression); // kepala baru = bobot 0
+        }
+        ApplyDecalsWhenIdle(); // stiker baju lama dibuang dari baju lain/kulit
     }
 
     // ---------------------------------------------------------------- Warna
@@ -411,6 +465,11 @@ public sealed class CustomizerEditor : MonoBehaviour {
 
         int count = OutfitCatalog.ChannelCount(prefab);
         _channel = Mathf.Clamp(_channel, 0, count - 1);
+        string channelsFor = _focusType + "|" + record.path;
+        if (channelsFor != _channelsFor) {
+            _channelsFor = channelsFor;
+            _ui.ChannelScroll.verticalNormalizedPosition = 1f;
+        }
         for (int i = 0; i < count; i++) {
             int index = i;
             string name = prefab.ColorChannels != null && i < prefab.ColorChannels.Length ? prefab.ColorChannels[i] : "";
@@ -591,7 +650,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private void RebuildLive() {
         if (!_stage || !CustomizerSettings.Instance || !CharacterDatabase.Instance) return;
         _stage.ShowLive(CustomizerSettings.Instance.characterBase, CharacterRecordConverter.ToCharacterData(_session.Current),
-                        CharacterDatabase.Instance.Get(_template.Id));
+                        CharacterDatabase.Instance.Get(_template.Id), _session.Current.expression);
     }
 
     /// Tunggu BoZo selesai merakit/merge/update tekstur (maks IdleTimeout), lalu jalankan action.

@@ -9,7 +9,8 @@ using UnityEngine;
 ///  - warna   → Outfit.SetColor (BoZo ikut menyalin ke tipe tertaut, mis. kulit Body ↔ Head);
 ///  - stiker  → Outfit.decalDatas lalu OnColorChanged (bake ulang tekstur);
 ///  - motif   → Outfit.SetPattern / SetPatternSize;
-///  - wajah   → OutfitSystem.SetShape.
+///  - wajah   → OutfitSystem.SetShape;
+///  - ekspresi → bobot blendshape "Expression_*" langsung di renderer (FaceExpressions).
 /// </summary>
 public static class LiveAvatarEdits {
     /// <summary>Warna semua bagian dari record ke instance outfit (bagian 1 = indeks 0).</summary>
@@ -61,6 +62,24 @@ public static class LiveAvatarEdits {
         if (!avatar || record?.faceShapes == null) return;
         foreach (ShapeRecord shape in record.faceShapes) {
             if (shape != null) avatar.SetShape(shape.key, shape.value);
+        }
+    }
+
+    /// <summary>
+    /// Ekspresi wajah ke semua renderer avatar yang punya blendshape "Expression_*" (kepala terpisah di panggung
+    /// editor, atau mesh gabungan hasil merge). Blendshape ekspresi lain dikembalikan ke 0 dulu.
+    /// </summary>
+    public static void ApplyExpression(GameObject avatar, int expression) {
+        if (!avatar) return;
+        IReadOnlyDictionary<string, float> weights = FaceExpressions.Weights(expression);
+        foreach (SkinnedMeshRenderer renderer in avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true)) {
+            Mesh mesh = renderer.sharedMesh;
+            if (!mesh) continue;
+            for (int i = 0; i < mesh.blendShapeCount; i++) {
+                string key = FaceExpressions.KeyOf(mesh.GetBlendShapeName(i));
+                if (key == null) continue;
+                renderer.SetBlendShapeWeight(i, weights.TryGetValue(key, out float weight) ? weight : 0f);
+            }
         }
     }
 

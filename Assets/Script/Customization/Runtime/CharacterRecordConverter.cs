@@ -130,6 +130,38 @@ public static class CharacterRecordConverter {
         return result;
     }
 
+    /// <summary>Bagian badan (bukan baju): ganti kepala/badan tidak membuang stiker.</summary>
+    private static readonly HashSet<string> BodyPartTypes = new HashSet<string> { "Head", "Body" };
+
+    /// <summary>
+    /// Record tanpa stiker yang sedang menempel di outfit tipe <paramref name="outfitType"/> (dihitung dari
+    /// outfit yang dipakai di record ini, jadi panggil SEBELUM outfit itu diganti/dilepas). Stiker tidak
+    /// pindah ke baju baru: ganti baju = stikernya hilang, baik stiker bawaan template maupun yang dipasang
+    /// pemain. Kepala dan badan bukan baju, jadi tidak membuang stiker.
+    /// </summary>
+    public static CustomCharacterRecord WithoutDecalsOn(CustomCharacterRecord record, string outfitType) {
+        if (record?.decals == null || record.decals.Count == 0 || BodyPartTypes.Contains(outfitType ?? "")) return record;
+        List<string> worn = record.outfits.Where(o => o != null).Select(o => o.path).ToList();
+        return RecordEdits.WithoutDecals(record, decal =>
+            DecalsByHost(worn, new[] { decal }, isMale: true, loadTextures: false).ContainsKey(outfitType));
+    }
+
+    /// <summary>
+    /// Pasang outfit + buang stiker di baju lama tipe itu, DAN stiker yang akan pindah ke baju baru (mis. stiker
+    /// Dada di kulit saat tanpa atasan, lalu atasan dipasang). Ganti baju selalu mulai tanpa stiker.
+    /// </summary>
+    public static CustomCharacterRecord WithOutfitClearingDecals(CustomCharacterRecord record, OutfitRecord outfit) {
+        string type = OutfitCatalog.TypeOf(outfit?.path);
+        CustomCharacterRecord worn = RecordEdits.WithOutfit(WithoutDecalsOn(record, type), outfit);
+        return WithoutDecalsOn(worn, type);
+    }
+
+    /// <summary>Lepas outfit + buang stiker yang menempel di situ (tidak pindah ke kulit).</summary>
+    public static CustomCharacterRecord WithoutOutfitClearingDecals(CustomCharacterRecord record, string outfitType) {
+        if (RecordEdits.Find(record, outfitType) == null) return record;
+        return RecordEdits.WithoutOutfit(WithoutDecalsOn(record, outfitType), outfitType);
+    }
+
     private static void ApplyFaceShapes(CharacterData data, List<ShapeRecord> shapes) {
         var ids = new List<string>(data.faceIDs ?? new List<string>());
         var values = new List<float>(data.faceShapes ?? new List<float>());

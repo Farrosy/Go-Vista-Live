@@ -36,6 +36,10 @@ public class CharacterPreviewStage : MonoBehaviour {
     private GameObject model;
     private OutfitSystem liveAvatar;
     private Animator liveAnimator;
+    // Ekspresi wajah avatar live (FaceExpressions). Dipasang ulang setelah BoZo selesai merakit/merge, karena
+    // kepala/mesh gabungan yang baru mulai dari bobot blendshape 0.
+    private int liveExpression;
+    private bool expressionDirty;
     // State idle di HumanoidPlayerController. InAir/Land = pose melayang lalu mendarat yang harus dihindari.
     private static readonly int LocomotionState = Animator.StringToHash("Locomotion");
     private float lastDragTime = -999f;
@@ -53,6 +57,20 @@ public class CharacterPreviewStage : MonoBehaviour {
 
     /// <summary>Kamera sedang (menuju) preset Wajah.</summary>
     public bool FaceFocus => faceFocus;
+
+    /// <summary>
+    /// false = meja putar diam (karakter hanya berputar kalau digeser). Dimatikan customizer supaya karakter
+    /// tidak berputar sendiri saat diedit; layar pilih karakter / profil tetap berputar otomatis.
+    /// Saat dimatikan, karakter diputar balik menghadap depan sekali.
+    /// </summary>
+    public bool AutoRotate {
+        get => autoRotate;
+        set {
+            if (autoRotate && !value) turnToFront = true;
+            autoRotate = value;
+        }
+    }
+    private bool autoRotate = true;
 
     /// <summary>Karakter live (custom) sedang dirakit/digabung BoZo: tampilkan indikator "Memuat…".</summary>
     public bool IsBusy => liveAvatar && (liveAvatar.isloading || liveAvatar.isMerging || liveAvatar.isUpdatingTexture);
@@ -104,7 +122,9 @@ public class CharacterPreviewStage : MonoBehaviour {
     /// Merakit karakter custom dari data BoZo di meja putar (OutfitSystem + bake runtime). Animator memakai
     /// controller dan skala model <paramref name="template"/>, jadi idle dan tingginya sama dengan saat main.
     /// </summary>
-    public void ShowLive(OutfitSystem characterBase, CharacterData data, CharacterDatabase.Entry template) {
+    /// <param name="expression">Ekspresi wajah record (FaceExpressions); tidak ada di CharacterData BoZo.</param>
+    public void ShowLive(OutfitSystem characterBase, CharacterData data, CharacterDatabase.Entry template,
+                         int expression = 0) {
         Clear();
         if (!characterBase || data == null) return;
 
@@ -130,7 +150,11 @@ public class CharacterPreviewStage : MonoBehaviour {
         // Setiap merge, BoZo memanggil Rebind() (parameter kembali default: IsGrounded = false) lalu
         // OnRigChanged di frame yang sama. Idle dipasang di situ, SEBELUM animator dievaluasi, supaya
         // karakter tidak sempat "loncat" (InAir) lalu mendarat (Land) setiap ganti baju/warna.
-        avatar.OnRigChanged += _ => ForceIdle(liveAnimator);
+        avatar.OnRigChanged += _ => {
+            ForceIdle(liveAnimator);
+            expressionDirty = true;
+        };
+        SetExpression(expression);
         UseTemplateAnimator(liveAnimator, source);
         _ = BMAC_SaveSystem.LoadCharacter(avatar, data, false, avatar.async);
         turntable.localRotation = Quaternion.identity;
@@ -145,7 +169,7 @@ public class CharacterPreviewStage : MonoBehaviour {
             return;
         }
         ShowLive(settings.characterBase, CharacterRecordConverter.ToCharacterData(record),
-                 CharacterDatabase.Instance.Get(record.templateId));
+                 CharacterDatabase.Instance.Get(record.templateId), record.expression);
     }
 
     /// Idle bernapas dari controller pemain (HumanoidPlayerController), bukan controller creator BoZo.
@@ -183,8 +207,15 @@ public class CharacterPreviewStage : MonoBehaviour {
         faceFocus = face;
     }
 
+    /// <summary>Ganti ekspresi avatar live; dipasang begitu avatar tidak sibuk merakit.</summary>
+    public void SetExpression(int expression) {
+        liveExpression = expression;
+        expressionDirty = true;
+    }
+
     void Update() {
         KeepIdle();
+        ApplyExpressionWhenIdle();
         UpdateTurntable();
         UpdateCamera();
     }
@@ -195,7 +226,7 @@ public class CharacterPreviewStage : MonoBehaviour {
 
     private void UpdateTurntable() {
         if (!model || !turntable) return;
-        if (faceFocus) {
+        if (faceFocus || !autoRotate) {
             if (turnToFront)
                 turntable.localRotation = Quaternion.RotateTowards(turntable.localRotation, Quaternion.identity,
                                                                    360f * Time.unscaledDeltaTime);
@@ -318,6 +349,12 @@ public class CharacterPreviewStage : MonoBehaviour {
         bool inIdle = state.shortNameHash == LocomotionState;
         if (!inIdle || animator.IsInTransition(0))
             animator.Play(LocomotionState, 0, inIdle ? state.normalizedTime % 1f : 0f);
+    }
+
+    private void ApplyExpressionWhenIdle() {
+        if (!expressionDirty || !liveAvatar || IsBusy) return;
+        expressionDirty = false;
+        LiveAvatarEdits.ApplyExpression(liveAvatar.gameObject, liveExpression);
     }
 
     void OnDestroy() {

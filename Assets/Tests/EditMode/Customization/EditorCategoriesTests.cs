@@ -42,12 +42,12 @@ public class EditorCategoriesTests {
     }
 
     [Test]
-    public void Face_tab_has_shapes_head_eyes_brows_and_makeup() {
+    public void Face_tab_has_shapes_expressions_head_eyes_brows_and_makeup() {
         EditorCategory face = EditorCategories.Get("Wajah");
-        CollectionAssert.AreEqual(new[] { "Bentuk", "Kepala", "Mata", "Alis & Bulu Mata", "Make-up" },
+        CollectionAssert.AreEqual(new[] { "Bentuk", "Ekspresi", "Kepala", "Mata", "Alis & Bulu Mata", "Make-up" },
                                   face.SubTabs.Select(t => t.Label).ToArray());
         Assert.AreEqual(EditorPanelKind.FaceShapes, face.SubTabs[0].Panel);
-        CollectionAssert.AreEquivalent(new[] { "EyeBrows", "EyeLashes" }, face.SubTabs[3].OutfitTypes.ToArray());
+        CollectionAssert.AreEquivalent(new[] { "EyeBrows", "EyeLashes" }, face.SubTabs[4].OutfitTypes.ToArray());
     }
 
     [Test]

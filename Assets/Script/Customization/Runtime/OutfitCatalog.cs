@@ -63,9 +63,11 @@ public static class OutfitCatalog {
         return Color.white;
     }
 
+    /// Outfit tekstur (make-up, detail wajah) tidak punya Renderer; warnanya ada di Outfit.material.
     private static Material SourceMaterial(Outfit outfit) {
-        Renderer renderer = outfit != null ? outfit.GetComponentInChildren<Renderer>(true) : null;
-        return renderer != null ? renderer.sharedMaterial : null;
+        if (outfit == null) return null;
+        Renderer renderer = outfit.GetComponentInChildren<Renderer>(true);
+        return renderer != null ? renderer.sharedMaterial : outfit.material;
     }
 
     /// <summary>Jumlah bagian warna yang bisa diubah (ColorChannels BoZo, minimal 1).</summary>

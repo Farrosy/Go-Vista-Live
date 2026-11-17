@@ -18,6 +18,8 @@ public class CustomCharacterRecord {
     public List<OutfitRecord> outfits = new List<OutfitRecord>();
     public List<DecalRecord> decals = new List<DecalRecord>();
     public List<ShapeRecord> faceShapes = new List<ShapeRecord>();
+    /// <summary>Indeks FaceExpressions (0 = netral). Record lama tanpa field ini = 0.</summary>
+    public int expression;
 
     /// <summary>Salinan dalam (deep copy): mengubah salinan tidak mengubah record ini.</summary>
     public CustomCharacterRecord Clone() {
@@ -26,7 +28,8 @@ public class CustomCharacterRecord {
             templateId = templateId,
             outfits = (outfits ?? new List<OutfitRecord>()).Select(o => o?.Clone()).ToList(),
             decals = (decals ?? new List<DecalRecord>()).Select(d => d?.Clone()).ToList(),
-            faceShapes = (faceShapes ?? new List<ShapeRecord>()).Select(f => f?.Clone()).ToList()
+            faceShapes = (faceShapes ?? new List<ShapeRecord>()).Select(f => f?.Clone()).ToList(),
+            expression = expression
         };
     }
 }

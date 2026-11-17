@@ -97,6 +97,15 @@ public static class RecordEdits {
         return shape != null ? shape.value : fallback;
     }
 
+    /// <summary>Ekspresi wajah (indeks FaceExpressions, di luar jangkauan = netral). Nilai sama = record yang sama.</summary>
+    public static CustomCharacterRecord WithExpression(CustomCharacterRecord record, int expression) {
+        int clamped = FaceExpressions.Clamp(expression);
+        if (record == null || record.expression == clamped) return record;
+        CustomCharacterRecord copy = record.Clone();
+        copy.expression = clamped;
+        return copy;
+    }
+
     // ---------------------------------------------------------------- Stiker
 
     /// <summary>Tambah stiker baru di posisi Dada; tidak berubah kalau sudah CustomizationRules.MaxDecals.</summary>
@@ -136,6 +145,14 @@ public static class RecordEdits {
         if (record?.decals == null || index < 0 || index >= record.decals.Count) return record;
         CustomCharacterRecord copy = record.Clone();
         copy.decals.RemoveAt(index);
+        return copy;
+    }
+
+    /// <summary>Buang semua stiker yang cocok <paramref name="remove"/>; record sama kalau tidak ada yang terbuang.</summary>
+    public static CustomCharacterRecord WithoutDecals(CustomCharacterRecord record, Predicate<DecalRecord> remove) {
+        if (record?.decals == null || remove == null || !record.decals.Exists(d => d != null && remove(d))) return record;
+        CustomCharacterRecord copy = record.Clone();
+        copy.decals.RemoveAll(d => d != null && remove(d));
         return copy;
     }
 
