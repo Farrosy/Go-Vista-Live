@@ -16,21 +16,25 @@ public static class CharacterRecordConverter {
         return new CustomCharacterRecord {
             templateId = template.Id,
             outfits = source.data.outfitDatas.Select(ToOutfitRecord).ToList(),
-            decals = TemplateDecals(source.data.outfitDatas),
+            decals = TemplateDecals(source.data.outfitDatas, template.IsMale),
             faceShapes = ToShapes(source.data.faceIDs, source.data.faceShapes)
         };
     }
 
     /// Decal bawaan template (mis. logo Go Vista di hoodie) dipetakan ke preset dengan tulang yang sama.
-    private static List<DecalRecord> TemplateDecals(List<OutfitData> outfits) {
+    private static List<DecalRecord> TemplateDecals(List<OutfitData> outfits, bool isMale) {
         var decals = new List<DecalRecord>();
         foreach (OutfitData outfit in outfits) {
             if (outfit.decalDatas == null) continue;
             foreach (DecalData data in outfit.decalDatas) {
                 string position = DecalPresets.PositionForBone(data.parent);
-                if (position == null || string.IsNullOrEmpty(data.decal)) continue;
+                if (position == null || string.IsNullOrEmpty(data.decal) ||
+                    !DecalPresets.TryGet(position, out DecalPresets.Preset preset)) continue;
+                // Posisi persis template disimpan sebagai geser XYZ dari titik preset.
+                Vector3 offset = DecalPresets.OffsetFor(data, preset, isMale);
                 decals.Add(new DecalRecord {
-                    decal = data.decal, position = position, size = data.scale, rotation = data.roll, color = ToHex(data.color)
+                    decal = data.decal, position = position, size = data.scale / preset.SizeScale, rotation = data.roll,
+                    color = ToHex(data.color), offsetX = offset.x, offsetY = offset.y
                 });
             }
         }
@@ -44,7 +48,7 @@ public static class CharacterRecordConverter {
         if (source == null) return null;
 
         List<OutfitData> outfits = record.outfits.Select(ToOutfitData).ToList();
-        AttachDecals(outfits, record.decals);
+        AttachDecals(outfits, record.decals, template.IsMale);
         var data = new CharacterData(source.data) {
             characterName = template.Id + "_custom",
             outfitDatas = outfits,
@@ -86,23 +90,44 @@ public static class CharacterRecordConverter {
     }
 
     /// Decal menempel ke outfit pembawa pertama yang dipakai (lihat DecalPresets.HostTypes).
-    private static void AttachDecals(List<OutfitData> outfits, List<DecalRecord> decals) {
-        foreach (DecalRecord decal in decals) {
-            if (!DecalPresets.TryGet(decal.position, out DecalPresets.Preset preset)) continue;
-            int host = FindHost(outfits, preset.HostTypes);
-            if (host < 0) continue;
-            OutfitData data = outfits[host];
-            data.decalDatas.Add(DecalPresets.ToDecalData(decal, preset));
-            outfits[host] = data;
+    private static void AttachDecals(List<OutfitData> outfits, List<DecalRecord> decals, bool isMale) {
+        Dictionary<string, List<DecalData>> byHost =
+            DecalsByHost(outfits.Select(o => o.outfit), decals, isMale, loadTextures: false);
+        for (int i = 0; i < outfits.Count; i++) {
+            if (!byHost.TryGetValue(OutfitCatalog.TypeOf(outfits[i].outfit), out List<DecalData> list)) continue;
+            OutfitData data = outfits[i];
+            data.decalDatas.AddRange(list);
+            outfits[i] = data;
         }
     }
 
-    private static int FindHost(List<OutfitData> outfits, string[] hostTypes) {
-        foreach (string type in hostTypes) {
-            int index = outfits.FindIndex(o => OutfitCatalog.TypeOf(o.outfit) == type);
-            if (index >= 0) return index;
+    /// <summary>
+    /// Stiker record dikelompokkan per tipe outfit pembawa. Pembawa = tipe pertama di preset yang sedang
+    /// dipakai DAN mendukung decal (supportDecals), mis. Dada → Top, lalu Overall, lalu Body. Preset dengan
+    /// AllHosts (lengan, kaki, wajah) dipasang ke semua pembawa yang dipakai.
+    /// </summary>
+    /// <param name="wornPaths">Path outfit yang sedang dipakai.</param>
+    /// <param name="loadTextures">Isi DecalData.decalTexture (untuk update avatar live; saat load, BoZo memuatnya sendiri).</param>
+    /// <param name="isMale">Template cowok/cewek: titik preset Dada berbeda.</param>
+    public static Dictionary<string, List<DecalData>> DecalsByHost(IEnumerable<string> wornPaths, IEnumerable<DecalRecord> decals,
+                                                                  bool isMale, bool loadTextures) {
+        var hosts = new HashSet<string>();
+        foreach (string path in wornPaths) {
+            Outfit prefab = OutfitCatalog.Load(path);
+            if (prefab != null && prefab.supportDecals) hosts.Add(OutfitCatalog.TypeOf(path));
         }
-        return -1;
+        var result = new Dictionary<string, List<DecalData>>();
+        foreach (DecalRecord decal in decals ?? Enumerable.Empty<DecalRecord>()) {
+            if (decal == null || !DecalPresets.TryGet(decal.position, out DecalPresets.Preset preset)) continue;
+            DecalData data = DecalPresets.ToDecalData(decal, preset, isMale);
+            if (loadTextures) data.decalTexture = TexturePackageCatalog.LoadDecalTexture(decal.decal);
+            IEnumerable<string> worn = preset.HostTypes.Where(hosts.Contains);
+            foreach (string host in preset.AllHosts ? worn : worn.Take(1)) {
+                if (!result.TryGetValue(host, out List<DecalData> list)) result[host] = list = new List<DecalData>();
+                list.Add(data);
+            }
+        }
+        return result;
     }
 
     private static void ApplyFaceShapes(CharacterData data, List<ShapeRecord> shapes) {

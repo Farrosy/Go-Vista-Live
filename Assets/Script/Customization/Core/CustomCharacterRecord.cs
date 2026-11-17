@@ -65,9 +65,18 @@ public class DecalRecord {
     /// <summary>Derajat, -180..180.</summary>
     public float rotation;
     public string color = HexColor.White;
+    /// <summary>
+    /// Geser halus (meter) dari titik preset posisi, dalam bingkai proyektor BoZo: X kiri–kanan, Y atas–bawah.
+    /// Kedalaman (Z) selalu dari preset. Lihat CustomizationRules.ClampDecalOffset.
+    /// </summary>
+    public float offsetX;
+    public float offsetY;
 
     public DecalRecord Clone() {
-        return new DecalRecord { decal = decal, position = position, size = size, rotation = rotation, color = color };
+        return new DecalRecord {
+            decal = decal, position = position, size = size, rotation = rotation, color = color,
+            offsetX = offsetX, offsetY = offsetY
+        };
     }
 }
 

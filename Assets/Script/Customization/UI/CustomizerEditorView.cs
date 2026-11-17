@@ -21,6 +21,10 @@ public sealed class CustomizerEditorRefs {
     public GameObject DirtyPill;
     public RawImage Preview;
     public GameObject Loading;
+    public Button BodyCamButton;
+    public GameObject BodyCamOn;
+    public Button FaceCamButton;
+    public GameObject FaceCamOn;
     public EditorTabRefs[] Tabs;
 
     public Image HeaderIcon;
@@ -29,11 +33,18 @@ public sealed class CustomizerEditorRefs {
     public GameObject OutfitPanel;
     public RectTransform GridContent;
     public ScrollRect GridScroll;
-    public GameObject PlaceholderPanel;
-    public TextMeshProUGUI PlaceholderText;
+    public ShapePanelRefs Shapes;
+    public StickerPanelRefs Stickers;
 
     public GameObject ColorSection;
     public TextMeshProUGUI ColorTitle;
+    public Button ColorModeButton;
+    public GameObject ColorModeOn;
+    public Button PatternModeButton;
+    public GameObject PatternModeOn;
+    public CanvasGroup PatternModeGroup;
+    public GameObject ColorArea;
+    public PatternAreaRefs Pattern;
     public RectTransform ChannelList;
     public HsvColorPicker Picker;
     public Button MatchButton;
@@ -43,6 +54,7 @@ public sealed class CustomizerEditorRefs {
 
     public GameObject MatchPopup;
     public RectTransform MatchList;
+    public ColorPopupRefs ColorPopup;
     public CustomizerUi.ConfirmDialog Discard;
     public TextMeshProUGUI Toast;
 }
@@ -91,6 +103,7 @@ public static class CustomizerEditorView {
         refs.Discard = CustomizerUi.CreateConfirmDialog(root, a, "Buang perubahan?",
             "Perubahan yang belum disimpan akan hilang.", "BATAL", "BUANG");
         BuildMatchPopup(root, a, refs);
+        refs.ColorPopup = CustomizerEditorPanels.BuildColorPopup(root, a);
         refs.Toast = CustomizerUi.CreateToast(root, a);
         UiTextFit.ApplyAll(root);
         root.gameObject.SetActive(false);
@@ -181,12 +194,18 @@ public static class CustomizerEditorView {
     private static void BuildStage(RectTransform parent, ChatUiAssets a, CustomizerEditorRefs refs) {
         RectTransform area = ChatUiKit.Stretch(ChatUiKit.CreateRect("Stage Area", parent), Edge + RailWidth + Gap,
                                                ContentTop, Edge + SideWidth + Gap, ContentBottom);
-        RectTransform previewRect = ChatUiKit.Stretch(ChatUiKit.CreateRect("Preview", area), 0f, 0f, 0f, 44f);
+        // AspectRatioFitter (FitInParent) mengukur dari PARENT dan mengabaikan offset rect-nya sendiri. Karena itu
+        // gambar ditaruh di dalam kotak yang sudah dikurangi ruang toggle (atas) + petunjuk (bawah); kalau tidak,
+        // alas karakter tertimpa tulisan "Geser untuk memutar".
+        RectTransform box = ChatUiKit.Stretch(ChatUiKit.CreateRect("Preview Box", area), 0f, 64f, 0f, 40f);
+        RectTransform previewRect = ChatUiKit.CreateRect("Preview", box);
         AspectRatioFitter fitter = previewRect.gameObject.AddComponent<AspectRatioFitter>();
         fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
         fitter.aspectRatio = CustomizerPickView.PreviewAspect;
         refs.Preview = previewRect.gameObject.AddComponent<RawImage>();
 
+        CustomizerEditorPanels.CreateCameraToggle(area, a, out refs.BodyCamButton, out refs.BodyCamOn,
+                                                  out refs.FaceCamButton, out refs.FaceCamOn);
         TextMeshProUGUI hint = ChatUiKit.CreateText("Drag Hint", area, a.font, "Geser untuk memutar", FriendsTheme.SmallSize,
                                                     FriendsTheme.Muted, FontStyles.Normal, TextAlignmentOptions.Center);
         hint.rectTransform.anchorMin = new Vector2(0f, 0f);
@@ -195,6 +214,7 @@ public static class CustomizerEditorView {
         hint.rectTransform.offsetMin = new Vector2(0f, 0f);
         hint.rectTransform.offsetMax = new Vector2(0f, 34f);
         refs.Loading = CustomizerUi.CreateLoadingPill(area, a, 0f);
+        ((RectTransform)refs.Loading.transform).anchoredPosition += new Vector2(0f, -64f); // di bawah toggle kamera
     }
 
     // ---------------------------------------------------------------- Panel kanan
@@ -217,7 +237,8 @@ public static class CustomizerEditorView {
         row.childForceExpandWidth = row.childForceExpandHeight = false;
 
         BuildOutfitPanel(panel, a, refs);
-        BuildPlaceholder(panel, a, refs);
+        refs.Shapes = CustomizerEditorPanels.BuildShapePanel(panel, Pad, GridTop);
+        refs.Stickers = CustomizerEditorPanels.BuildStickerPanel(panel, a, Pad, GridTop, InnerWidth);
     }
 
     private static void BuildOutfitPanel(RectTransform panel, ChatUiAssets a, CustomizerEditorRefs refs) {
@@ -236,11 +257,12 @@ public static class CustomizerEditorView {
         refs.GridContent.anchorMax = new Vector2(1f, 1f);
         refs.GridContent.pivot = new Vector2(0.5f, 1f);
         refs.GridContent.sizeDelta = Vector2.zero;
-        GridLayoutGroup grid = refs.GridContent.gameObject.AddComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(ItemSize, ItemSize);
-        grid.spacing = new Vector2(GridGap, GridGap);
-        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = GridColumns;
+        // Isi = satu atau beberapa seksi (judul tipe + grid), mis. "Alis" dan "Bulu Mata" (CreateItemSection).
+        VerticalLayoutGroup sections = refs.GridContent.gameObject.AddComponent<VerticalLayoutGroup>();
+        sections.spacing = 8f;
+        sections.childControlWidth = sections.childControlHeight = true;
+        sections.childForceExpandWidth = true;
+        sections.childForceExpandHeight = false;
         ContentSizeFitter fit = refs.GridContent.gameObject.AddComponent<ContentSizeFitter>();
         fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         refs.GridScroll.content = refs.GridContent;
@@ -261,12 +283,14 @@ public static class CustomizerEditorView {
         refs.ColorTitle = ChatUiKit.CreateText("Color Title", section, a.font, "Warna", FriendsTheme.SmallSize, FriendsTheme.Neutral,
                                                FontStyles.Bold);
         refs.ColorTitle.richText = true; // nama item ditulis putih (<color>)
-        ChatUiKit.Place(refs.ColorTitle.rectTransform, 0f, 0f, InnerWidth - 260f, 36f);
-        refs.KeepColorsButton = CreateSwitch(section, a, "Simpan warna saat ganti", out refs.KeepColorsOn);
-        ChatUiKit.PlaceTopRight((RectTransform)refs.KeepColorsButton.transform, 0f, 0f, 260f, 36f);
+        ChatUiKit.Place(refs.ColorTitle.rectTransform, 0f, 0f, InnerWidth - 250f, 40f);
+        BuildColorModeToggle(section, a, refs);
 
-        RectTransform channels = ChatUiKit.CreateRect("Channels", section);
-        ChatUiKit.Place(channels, 0f, 46f, ChannelWidth, 214f);
+        RectTransform colorArea = ChatUiKit.CreateRect("Color Area", section);
+        ChatUiKit.Place(colorArea, 0f, 50f, InnerWidth, 214f);
+        refs.ColorArea = colorArea.gameObject;
+        RectTransform channels = ChatUiKit.CreateRect("Channels", colorArea);
+        ChatUiKit.Place(channels, 0f, 0f, ChannelWidth, 214f);
         VerticalLayoutGroup list = channels.gameObject.AddComponent<VerticalLayoutGroup>();
         list.spacing = 6f;
         list.childControlWidth = list.childControlHeight = true;
@@ -274,30 +298,44 @@ public static class CustomizerEditorView {
         list.childForceExpandHeight = false;
         refs.ChannelList = channels;
 
-        RectTransform pickerHost = ChatUiKit.CreateRect("Picker Host", section);
+        RectTransform pickerHost = ChatUiKit.CreateRect("Picker Host", colorArea);
         float pickerX = ChannelWidth + 16f;
-        ChatUiKit.Place(pickerHost, pickerX, 46f, InnerWidth - pickerX, 214f);
+        ChatUiKit.Place(pickerHost, pickerX, 0f, InnerWidth - pickerX, 214f);
         refs.Picker = HsvColorPicker.Build(pickerHost, a, InnerWidth - pickerX);
+        refs.Pattern = CustomizerEditorPanels.BuildPatternArea(section, a, 50f, InnerWidth);
 
         refs.MatchButton = FriendsUiKit.CreateOutlineButton("Match Button", section, a, "Samakan dengan…", Color.white,
                                                             FriendsTheme.NeutralFill, null, 18);
         var matchRect = (RectTransform)refs.MatchButton.transform;
         matchRect.anchorMin = matchRect.anchorMax = matchRect.pivot = new Vector2(0f, 0f);
         matchRect.anchoredPosition = Vector2.zero;
-        matchRect.sizeDelta = new Vector2(320f, 50f);
+        matchRect.sizeDelta = new Vector2(300f, 50f);
         refs.MatchLabel = FriendsUiKit.LabelOf(refs.MatchButton);
+        refs.KeepColorsButton = CreateSwitch(section, a, "Simpan warna saat ganti", out refs.KeepColorsOn);
+        var keepRect = (RectTransform)refs.KeepColorsButton.transform;
+        keepRect.anchorMin = keepRect.anchorMax = keepRect.pivot = new Vector2(1f, 0f);
+        keepRect.anchoredPosition = Vector2.zero;
+        keepRect.sizeDelta = new Vector2(300f, 50f);
     }
 
-    private static void BuildPlaceholder(RectTransform panel, ChatUiAssets a, CustomizerEditorRefs refs) {
-        RectTransform box = ChatUiKit.Stretch(ChatUiKit.CreateRect("Placeholder", panel), Pad, GridTop, Pad, Pad);
-        ChatUiKit.AddShape(box.gameObject, a.rounded, new Color(1f, 1f, 1f, 0.03f), 1.6f).raycastTarget = false;
-        FriendsUiKit.AddBorder((RectTransform)box, new Color(1f, 1f, 1f, 0.15f), 1.6f);
-        refs.PlaceholderText = ChatUiKit.CreateText("Text", box, a.font, "", FriendsTheme.BodySize, FriendsTheme.Muted,
-                                                    FontStyles.Normal, TextAlignmentOptions.Center);
-        refs.PlaceholderText.textWrappingMode = TextWrappingModes.Normal;
-        ChatUiKit.Stretch(refs.PlaceholderText.rectTransform, 40f, 40f, 40f, 40f);
-        refs.PlaceholderPanel = box.gameObject;
-        box.gameObject.SetActive(false);
+    /// Toggle "Warna | Motif" di kanan judul bagian warna (mockup layar 2). Motif aktif hanya kalau baju mendukung.
+    private static void BuildColorModeToggle(RectTransform section, ChatUiAssets a, CustomizerEditorRefs refs) {
+        RectTransform toggle = ChatUiKit.CreateRect("Color Mode", section);
+        ChatUiKit.PlaceTopRight(toggle, 0f, 0f, 240f, 44f);
+        ChatUiKit.AddShape(toggle.gameObject, a.rounded, FriendsTheme.Card, 2.4f);
+        HorizontalLayoutGroup row = toggle.gameObject.AddComponent<HorizontalLayoutGroup>();
+        row.padding = new RectOffset(4, 4, 4, 4);
+        row.spacing = 4f;
+        row.childControlWidth = row.childControlHeight = true;
+        row.childForceExpandWidth = row.childForceExpandHeight = true;
+        refs.ColorModeButton = CreateChip(toggle, a, "Warna", out refs.ColorModeOn);
+        refs.PatternModeButton = CreateChip(toggle, a, "Motif", out refs.PatternModeOn);
+        refs.PatternModeGroup = refs.PatternModeButton.gameObject.AddComponent<CanvasGroup>();
+        foreach (Button chip in new[] { refs.ColorModeButton, refs.PatternModeButton }) {
+            LayoutElement size = chip.GetComponent<LayoutElement>();
+            size.preferredHeight = 36f;
+            FriendsUiKit.LabelOf(chip).fontSize = 18f;
+        }
     }
 
     private static void BuildMatchPopup(RectTransform root, ChatUiAssets a, CustomizerEditorRefs refs) {
@@ -323,6 +361,33 @@ public static class CustomizerEditorView {
 
     // ---------------------------------------------------------------- Isi dinamis
 
+    /// <summary>Seksi grid item; judul hanya kalau sub-tab berisi beberapa tipe (mis. "Alis", "Bulu Mata").</summary>
+    public static RectTransform CreateItemSection(Transform parent, ChatUiAssets a, string title) {
+        if (!string.IsNullOrEmpty(title)) {
+            TextMeshProUGUI label = ChatUiKit.CreateText("Section " + title, parent, a.font, title, 20, FriendsTheme.Neutral,
+                                                         FontStyles.Bold);
+            label.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
+        }
+        RectTransform grid = ChatUiKit.CreateRect("Grid " + title, parent);
+        GridLayoutGroup layout = grid.gameObject.AddComponent<GridLayoutGroup>();
+        layout.cellSize = new Vector2(ItemSize, ItemSize);
+        layout.spacing = new Vector2(GridGap, GridGap);
+        layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        layout.constraintCount = GridColumns;
+        return grid;
+    }
+
+    /// <summary>Kotak warna kulit siap pakai (tab Kulit).</summary>
+    public static Button CreateSwatchItem(Transform parent, ChatUiAssets a, Color color, out GameObject selected) {
+        Button button = CreateItem(parent, a, null, "", out selected);
+        Transform icon = button.transform.Find("Icon");
+        if (icon) Object.Destroy(icon.gameObject);
+        RectTransform dot = ChatUiKit.Stretch(ChatUiKit.CreateRect("Swatch", button.transform), 18f, 18f, 18f, 18f);
+        ChatUiKit.AddShape(dot.gameObject, a.circle, color).raycastTarget = false;
+        dot.SetSiblingIndex(1);
+        return button;
+    }
+
     public static Button CreateChip(Transform parent, ChatUiAssets a, string label, out GameObject selected) {
         RectTransform rect = ChatUiKit.CreateRect("Chip " + label, parent);
         Image bg = ChatUiKit.AddShape(rect.gameObject, a.rounded, FriendsTheme.Card, 2.2f);
@@ -334,7 +399,7 @@ public static class CustomizerEditorView {
                                                     TextAlignmentOptions.Center);
         ChatUiKit.Stretch(text.rectTransform, 18f, 0f, 18f, 0f);
         LayoutElement size = rect.gameObject.AddComponent<LayoutElement>();
-        size.preferredWidth = text.GetPreferredValues(label).x + 40f;
+        size.preferredWidth = text.GetPreferredValues(label).x + 48f; // + ruang huruf tebal
         size.preferredHeight = ChipHeight;
         Button button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = bg;

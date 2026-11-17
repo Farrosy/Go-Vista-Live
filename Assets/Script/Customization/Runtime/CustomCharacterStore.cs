@@ -31,6 +31,16 @@ public static class CustomCharacterStore {
         return CustomCharacterValidator.Sanitize(all[slot], OutfitCatalog.Exists);
     }
 
+    /// <summary>Semua slot (record bersih), urut dari slot 0.</summary>
+    public static List<CustomCharacterRecord> All() {
+        var result = new List<CustomCharacterRecord>();
+        for (int i = 0; i < Count; i++) {
+            CustomCharacterRecord record = Get(i);
+            if (record != null) result.Add(record);
+        }
+        return result;
+    }
+
     /// <summary>Simpan ke slot yang ada, atau buat slot baru kalau <paramref name="slot"/> &lt; 0.</summary>
     /// <returns>Indeks slot yang disimpan, atau -1 kalau gagal (data tidak valid / slot penuh).</returns>
     public static int Save(int slot, CustomCharacterRecord record) {

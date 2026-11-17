@@ -19,7 +19,9 @@ public static class CustomizerRandomizer {
         CustomCharacterRecord result = record;
         foreach (EditorCategory category in EditorCategories.All) {
             if (category.Kind != EditorCategoryKind.Outfits || KeptCategories.Contains(category.Label)) continue;
-            foreach (EditorSubTab tab in category.SubTabs) result = RandomizeType(result, tab.OutfitType, template);
+            foreach (EditorSubTab tab in category.SubTabs) {
+                foreach (string type in tab.OutfitTypes) result = RandomizeType(result, type, template);
+            }
         }
         return result;
     }

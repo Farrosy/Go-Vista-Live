@@ -100,13 +100,17 @@ public static class CustomizerPickView {
         ChatUiKit.Place(title.rectTransform, x + 88f, TopBarY + 4f, 600f, 68f);
     }
 
-    /// Panggung kiri: karakter + alas 3D (objek Floor di Preview Stage, ikut dirender kamera) (RawImage dengan rasio RenderTexture) + nama & petunjuk geser.
+    /// Panggung kiri: karakter + alas 3D (objek Floor di Preview Stage, ikut dirender kamera; RawImage dengan rasio
+    /// RenderTexture) + nama & petunjuk geser di bawahnya.
     private static void BuildStage(RectTransform parent, ChatUiAssets a, CustomizerPickRefs refs) {
         RectTransform area = ChatUiKit.Stretch(ChatUiKit.CreateRect("Stage Area", parent), Edge, ContentTop,
                                                Edge + PickerWidth + StageGap, ContentBottom);
 
         // Rect preview stretch, isinya dijaga rasio RenderTexture supaya karakter tidak gepeng.
-        RectTransform previewRect = ChatUiKit.Stretch(ChatUiKit.CreateRect("Preview", area), 0f, 0f, 0f, 92f);
+        // AspectRatioFitter (FitInParent) mengukur dari PARENT dan mengabaikan offset rect-nya sendiri, jadi gambar
+        // ditaruh di kotak yang sudah dikurangi ruang nama + petunjuk; kalau tidak, alas tertimpa tulisan.
+        RectTransform box = ChatUiKit.Stretch(ChatUiKit.CreateRect("Preview Box", area), 0f, 0f, 0f, 92f);
+        RectTransform previewRect = ChatUiKit.CreateRect("Preview", box);
         AspectRatioFitter fitter = previewRect.gameObject.AddComponent<AspectRatioFitter>();
         fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
         fitter.aspectRatio = PreviewAspect;
