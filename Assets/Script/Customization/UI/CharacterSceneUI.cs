@@ -33,6 +33,8 @@ public class CharacterSceneUI : MonoBehaviour {
     private CustomizerEditor editor;
     // Frame saat editor ditutup: tombol Back di frame yang sama jangan ikut menutup scene.
     private int editorClosedFrame = -1;
+    // Jumlah slot saat "Buat" ditekan; -1 = editor dibuka untuk slot yang sudah ada.
+    private int slotsBeforeCreate = -1;
     private float previewIdleSince = -1f;
     private int thumbnailCheckedKey = int.MinValue;
 
@@ -249,22 +251,28 @@ public class CharacterSceneUI : MonoBehaviour {
 
     /// Slot baru dari template yang sedang dipilih, atau salinan slot yang sedang dipilih.
     private void CreateSlot() {
-        CustomCharacterRecord source = selectedKind == SelectionKind.Slot
-            ? CustomCharacterStore.Get(selectedIndex)
-            : CharacterRecordConverter.FromTemplate(CharacterTemplates.All[selectedIndex]);
-        int slot = CustomCharacterStore.Save(-1, source);
-        if (slot < 0) {
+        if (!CustomCharacterStore.CanCreate) {
             ShowToast("Tidak bisa membuat karakter baru");
             return;
         }
-        Select(SelectionKind.Slot, slot);
-        EditSlot(slot);
+        bool fromSlot = selectedKind == SelectionKind.Slot;
+        CustomCharacterRecord source = fromSlot
+            ? CustomCharacterStore.Get(selectedIndex)
+            : CharacterRecordConverter.FromTemplate(CharacterTemplates.All[selectedIndex]);
+        if (source == null) return;
+        // Belum disimpan apa pun: slot baru baru dibuat saat SIMPAN di editor (slot -1). Kalau dibuang,
+        // tidak ada slot "template polos" yang tertinggal di Cloud Save.
+        bool previewReady = fromSlot && previewKey == 100 + selectedIndex;
+        slotsBeforeCreate = CustomCharacterStore.Count;
+        ui.Root.SetActive(false);
+        editor.Open(source, -1, previewReady, OnEditorClosed);
     }
 
     /// UBAH: buka editor untuk slot ini. Kalau preview sudah menampilkan slot ini, tidak dirakit ulang.
     private void EditSlot(int slot) {
         CustomCharacterRecord record = CustomCharacterStore.Get(slot);
         if (record == null) return;
+        slotsBeforeCreate = -1;
         bool previewReady = selectedKind == SelectionKind.Slot && selectedIndex == slot && previewKey == 100 + slot;
         ui.Root.SetActive(false);
         editor.Open(record, slot, previewReady, OnEditorClosed);
@@ -277,6 +285,13 @@ public class CharacterSceneUI : MonoBehaviour {
         ui.Root.SetActive(true);
         if (stage) ui.Preview.texture = stage.Texture;
         previewKey = int.MinValue;
+        // Karakter baru yang disimpan: langsung pilih slot barunya. Kalau dibuang, pilihan tetap seperti semula.
+        bool created = slotsBeforeCreate >= 0 && CustomCharacterStore.Count > slotsBeforeCreate;
+        slotsBeforeCreate = -1;
+        if (created) {
+            Select(SelectionKind.Slot, CustomCharacterStore.Count - 1);
+            return;
+        }
         Refresh();
     }
 

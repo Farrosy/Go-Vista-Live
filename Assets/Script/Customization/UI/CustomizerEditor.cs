@@ -136,7 +136,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
     // ---------------------------------------------------------------- Bar atas
 
     private void Back() {
-        if (_session != null && _session.IsDirty) {
+        // Karakter baru (slot -1) belum pernah disimpan: selalu konfirmasi, walau belum ada yang diubah.
+        if (_session != null && (_session.IsDirty || _session.Slot < 0)) {
             _ui.Discard.Overlay.SetActive(true);
             return;
         }
@@ -191,7 +192,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private void RefreshTopBar() {
         string name = _session.Slot >= 0 ? CustomSlotRules.SlotName(_session.Slot) : "Karakter baru";
         _ui.NameText.text = name + " · " + _template.Label;
-        _ui.DirtyPill.SetActive(_session.IsDirty);
+        _ui.DirtyPill.SetActive(_session.IsDirty || _session.Slot < 0); // karakter baru = belum disimpan
         _ui.UndoButton.interactable = _session.CanUndo;
     }
 
