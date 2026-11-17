@@ -87,22 +87,41 @@ public static class CharacterRecordConverter {
 
     /// Decal menempel ke outfit pembawa pertama yang dipakai (lihat DecalPresets.HostTypes).
     private static void AttachDecals(List<OutfitData> outfits, List<DecalRecord> decals) {
-        foreach (DecalRecord decal in decals) {
-            if (!DecalPresets.TryGet(decal.position, out DecalPresets.Preset preset)) continue;
-            int host = FindHost(outfits, preset.HostTypes);
-            if (host < 0) continue;
-            OutfitData data = outfits[host];
-            data.decalDatas.Add(DecalPresets.ToDecalData(decal, preset));
-            outfits[host] = data;
+        Dictionary<string, List<DecalData>> byHost = DecalsByHost(outfits.Select(o => o.outfit), decals, loadTextures: false);
+        for (int i = 0; i < outfits.Count; i++) {
+            if (!byHost.TryGetValue(OutfitCatalog.TypeOf(outfits[i].outfit), out List<DecalData> list)) continue;
+            OutfitData data = outfits[i];
+            data.decalDatas.AddRange(list);
+            outfits[i] = data;
         }
     }
 
-    private static int FindHost(List<OutfitData> outfits, string[] hostTypes) {
-        foreach (string type in hostTypes) {
-            int index = outfits.FindIndex(o => OutfitCatalog.TypeOf(o.outfit) == type);
-            if (index >= 0) return index;
+    /// <summary>
+    /// Stiker record dikelompokkan per tipe outfit pembawa. Pembawa = tipe pertama di preset yang sedang
+    /// dipakai DAN mendukung decal (supportDecals), mis. Dada → Top, lalu Overall, lalu Body. Preset dengan
+    /// AllHosts (lengan, kaki, wajah) dipasang ke semua pembawa yang dipakai.
+    /// </summary>
+    /// <param name="wornPaths">Path outfit yang sedang dipakai.</param>
+    /// <param name="loadTextures">Isi DecalData.decalTexture (untuk update avatar live; saat load, BoZo memuatnya sendiri).</param>
+    public static Dictionary<string, List<DecalData>> DecalsByHost(IEnumerable<string> wornPaths, IEnumerable<DecalRecord> decals,
+                                                                  bool loadTextures) {
+        var hosts = new HashSet<string>();
+        foreach (string path in wornPaths) {
+            Outfit prefab = OutfitCatalog.Load(path);
+            if (prefab != null && prefab.supportDecals) hosts.Add(OutfitCatalog.TypeOf(path));
         }
-        return -1;
+        var result = new Dictionary<string, List<DecalData>>();
+        foreach (DecalRecord decal in decals ?? Enumerable.Empty<DecalRecord>()) {
+            if (decal == null || !DecalPresets.TryGet(decal.position, out DecalPresets.Preset preset)) continue;
+            DecalData data = DecalPresets.ToDecalData(decal, preset);
+            if (loadTextures) data.decalTexture = TexturePackageCatalog.LoadDecalTexture(decal.decal);
+            IEnumerable<string> worn = preset.HostTypes.Where(hosts.Contains);
+            foreach (string host in preset.AllHosts ? worn : worn.Take(1)) {
+                if (!result.TryGetValue(host, out List<DecalData> list)) result[host] = list = new List<DecalData>();
+                list.Add(data);
+            }
+        }
+        return result;
     }
 
     private static void ApplyFaceShapes(CharacterData data, List<ShapeRecord> shapes) {

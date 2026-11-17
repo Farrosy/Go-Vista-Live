@@ -40,7 +40,7 @@ Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 | 1a | Data, aturan, validator, Cloud Save, jembatan BoZo | Selesai |
 | 1b | Layar Pilih Karakter + preview live | Selesai |
 | 1c | Editor outfit + semua bagian warna (HSV picker, URUNGKAN, ACAK, SIMPAN, Samakan dengan, dialog Buang perubahan) | Selesai |
-| 1d | Wajah, kulit, stiker + motif (pattern), kamera Wajah | Berikutnya |
+| 1d | Wajah, kulit, stiker + motif (pattern), kamera Wajah, thumbnail slot | Selesai |
 | 3 | Sinkronisasi ke room: bake avatar pemain lain (opsi A) | |
 
 Editor 1c: `CustomizerEditor` (pengendali) + `CustomizerEditorView` (tata letak) + `HsvColorPicker`. Logika murni
@@ -48,6 +48,20 @@ ada di Core dan dites EditMode: `CustomizationSession` (record kerja, URUNGKAN m
 disimpan"), `RecordEdits` (ganti/lepas outfit, warna per bagian; selalu record baru), `EditorCategories` (rail +
 sub-tab → tipe outfit BoZo). Ganti baju = instance outfit BoZo di bawah avatar (BoZo mengganti slot sendiri);
 ganti warna = `Outfit.SetColor` (tanpa merge); URUNGKAN/ACAK = avatar dirakit ulang dari record.
+
+Editor 1d: `CustomizerFaceShapes` (Wajah · Bentuk: slider dari blendshape kepala lewat `FaceShapeCatalog`; IrisSize,
+EyeLidHeight, Stern selalu tampil, nonaktif kalau kepala tidak punya), `CustomizerStickers` (maks 5 stiker, posisi
+preset `DecalPresets`, warna/ukuran/putar), tab Kulit (warna cepat + bagian warna Body; kulit Body ↔ Head ikut
+tersalin lewat `LinkedColorSets` BoZo), mode Motif di bagian warna (hanya baju `supportPatterns`). Wajah dan Rambut
+otomatis memakai kamera Wajah (`CharacterPreviewStage.SetFaceFocus`). Update avatar tanpa merakit ulang ada di
+`LiveAvatarEdits`. Kartu "Karakter kamu" memakai foto karakter (`SlotThumbnails`, PNG lokal per isi record, tidak
+ikut Cloud Save), dibuat saat SIMPAN atau saat slot pertama kali dipreview di perangkat ini.
+
+Catatan decal BoZo (penting untuk Tahap 3):
+- Tulang `head` diproyeksikan ke arah DUNIA (`-Vector3.forward`), jadi hasilnya tergantung arah hadap karakter saat
+  bake. Preset Wajah karena itu memakai `neck_02`.
+- Decal dibake dalam pose T; offset lengan lebih dari 0.12 jatuh di luar mesh.
+- UV celana dicerminkan kiri-kanan: stiker Kaki muncul di kedua paha.
 
 Sampai Tahap 3, avatar di world tetap memakai **template asal** slot yang aktif (`characterId`).
 

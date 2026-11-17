@@ -17,6 +17,21 @@ public class CharacterPreviewStage : MonoBehaviour {
     [SerializeField] private float resumeAutoRotateDelay = 2f;
     [SerializeField] private Vector2Int textureSize = new Vector2Int(1024, 1024);
 
+    [Header("Preset kamera Wajah (customizer)")]
+    [Tooltip("Jarak kamera ke wajah (meter) saat mode Wajah.")]
+    [SerializeField] private float faceDistance = 1.15f;
+    [SerializeField] private float faceFieldOfView = 24f;
+    [Tooltip("Titik bidik di atas tulang kepala (meter): kira-kira tengah wajah.")]
+    [SerializeField] private float faceAimAbove = 0.09f;
+    [Tooltip("Waktu (detik) kamera berpindah antara Seluruh Badan dan Wajah.")]
+    [SerializeField] private float cameraSmoothTime = 0.18f;
+
+    [Header("Thumbnail slot")]
+    [SerializeField] private float thumbnailDistance = 1.7f;
+    [SerializeField] private float thumbnailFieldOfView = 26f;
+    [Tooltip("Titik bidik thumbnail di bawah titik wajah (meter): kepala + bahu.")]
+    [SerializeField] private float thumbnailAimBelow = 0.12f;
+
     private RenderTexture texture;
     private GameObject model;
     private OutfitSystem liveAvatar;
@@ -24,6 +39,20 @@ public class CharacterPreviewStage : MonoBehaviour {
     // State idle di HumanoidPlayerController. InAir/Land = pose melayang lalu mendarat yang harus dihindari.
     private static readonly int LocomotionState = Animator.StringToHash("Locomotion");
     private float lastDragTime = -999f;
+
+    // Kamera "Seluruh Badan" = posisi kamera di scene/prefab (diambil saat pertama dipakai).
+    private bool cameraBaseCaptured;
+    private Vector3 baseCameraPosition;
+    private Quaternion baseCameraRotation;
+    private float baseFieldOfView;
+    private bool faceFocus;
+    private bool turnToFront;
+    private float cameraBlend;
+    private float cameraBlendVelocity;
+    private Transform headBone;
+
+    /// <summary>Kamera sedang (menuju) preset Wajah.</summary>
+    public bool FaceFocus => faceFocus;
 
     /// <summary>Karakter live (custom) sedang dirakit/digabung BoZo: tampilkan indikator "Memuat…".</summary>
     public bool IsBusy => liveAvatar && (liveAvatar.isloading || liveAvatar.isMerging || liveAvatar.isUpdatingTexture);
@@ -134,18 +163,143 @@ public class CharacterPreviewStage : MonoBehaviour {
         model = null;
         liveAvatar = null;
         liveAnimator = null;
+        headBone = null;
     }
 
     /// Dipanggil CharacterPreviewDrag saat layar preview digeser.
     public void Rotate(float degrees) {
         if (turntable) turntable.Rotate(0f, degrees, 0f, Space.Self);
         lastDragTime = Time.unscaledTime;
+        turnToFront = false;
+    }
+
+    /// <summary>
+    /// Preset kamera customizer: Wajah (zoom ke kepala, karakter diputar menghadap depan, putar otomatis
+    /// berhenti) atau Seluruh Badan (posisi kamera di scene).
+    /// </summary>
+    public void SetFaceFocus(bool face) {
+        CaptureCameraBase();
+        if (face && !faceFocus) turnToFront = true;
+        faceFocus = face;
     }
 
     void Update() {
         KeepIdle();
-        if (model && autoRotateSpeed != 0f && Time.unscaledTime - lastDragTime > resumeAutoRotateDelay)
+        UpdateTurntable();
+        UpdateCamera();
+    }
+
+    void LateUpdate() {
+        if (cameraBlend > 0f) ApplyCamera(cameraBlend);
+    }
+
+    private void UpdateTurntable() {
+        if (!model || !turntable) return;
+        if (faceFocus) {
+            if (turnToFront)
+                turntable.localRotation = Quaternion.RotateTowards(turntable.localRotation, Quaternion.identity,
+                                                                   360f * Time.unscaledDeltaTime);
+            return;
+        }
+        if (autoRotateSpeed != 0f && Time.unscaledTime - lastDragTime > resumeAutoRotateDelay)
             turntable.Rotate(0f, autoRotateSpeed * Time.unscaledDeltaTime, 0f, Space.Self);
+    }
+
+    private void UpdateCamera() {
+        if (!cameraBaseCaptured || !previewCamera) return;
+        float target = faceFocus ? 1f : 0f;
+        if (Mathf.Approximately(cameraBlend, target) && cameraBlend == 0f) return;
+        cameraBlend = Mathf.SmoothDamp(cameraBlend, target, ref cameraBlendVelocity, cameraSmoothTime,
+                                       Mathf.Infinity, Time.unscaledDeltaTime);
+        if (Mathf.Abs(cameraBlend - target) < 0.001f) cameraBlend = target;
+        if (cameraBlend == 0f) ApplyCamera(0f);
+    }
+
+    /// Kamera di antara Seluruh Badan (0) dan Wajah (1). Titik bidik memakai tinggi tulang kepala di sumbu
+    /// meja putar, jadi kamera tidak ikut bergoyang saat karakter berputar.
+    private void ApplyCamera(float blend) {
+        if (!previewCamera) return;
+        Pose face = FramePose(faceDistance, faceAimAbove);
+        previewCamera.transform.SetPositionAndRotation(Vector3.Lerp(baseCameraPosition, face.position, blend),
+                                                       Quaternion.Slerp(baseCameraRotation, face.rotation, blend));
+        previewCamera.fieldOfView = Mathf.Lerp(baseFieldOfView, faceFieldOfView, blend);
+    }
+
+    private Pose FramePose(float distance, float aimAbove) {
+        Vector3 axis = turntable ? turntable.position : transform.position;
+        Vector3 aim = new Vector3(axis.x, HeadHeight() + aimAbove, axis.z);
+        Vector3 toCamera = baseCameraPosition - axis;
+        toCamera.y = 0f;
+        Vector3 direction = toCamera.sqrMagnitude > 0.0001f ? toCamera.normalized : Vector3.forward;
+        Vector3 position = aim + direction * distance;
+        return new Pose(position, Quaternion.LookRotation(aim - position, Vector3.up));
+    }
+
+    /// Tinggi dunia tulang kepala; tanpa tulang "head", perkiraan dari bagian atas mesh.
+    private float HeadHeight() {
+        if (model && !headBone) headBone = FindBone(model.transform, "head");
+        if (headBone) return headBone.position.y;
+        Vector3 axis = turntable ? turntable.position : transform.position;
+        return axis.y + 1.55f;
+    }
+
+    private static Transform FindBone(Transform root, string boneName) {
+        foreach (Transform child in root.GetComponentsInChildren<Transform>(true)) {
+            if (string.Equals(child.name, boneName, System.StringComparison.OrdinalIgnoreCase)) return child;
+        }
+        return null;
+    }
+
+    private void CaptureCameraBase() {
+        if (cameraBaseCaptured || !previewCamera) return;
+        baseCameraPosition = previewCamera.transform.position;
+        baseCameraRotation = previewCamera.transform.rotation;
+        baseFieldOfView = previewCamera.fieldOfView;
+        cameraBaseCaptured = true;
+    }
+
+    /// <summary>
+    /// Foto kepala + bahu karakter yang tampil (menghadap depan, latar transparan) untuk kartu slot.
+    /// Dirender sekali di frame ini; kamera dan meja putar dikembalikan seperti semula.
+    /// </summary>
+    /// <returns>Texture2D baru (pemanggil yang memiliki), atau null kalau tidak ada karakter.</returns>
+    public Texture2D CaptureThumbnail(int width, int height) {
+        if (!model || !previewCamera || !turntable) return null;
+        CaptureCameraBase();
+        Transform cam = previewCamera.transform;
+        Vector3 oldPosition = cam.position;
+        Quaternion oldRotation = cam.rotation;
+        float oldFov = previewCamera.fieldOfView;
+        Quaternion oldTurn = turntable.localRotation;
+        RenderTexture oldTarget = previewCamera.targetTexture;
+        CameraClearFlags oldClear = previewCamera.clearFlags;
+        Color oldBackground = previewCamera.backgroundColor;
+        RenderTexture oldActive = RenderTexture.active;
+        RenderTexture shot = RenderTexture.GetTemporary(width, height, 24, RenderTextureFormat.ARGB32);
+        try {
+            turntable.localRotation = Quaternion.identity;
+            Pose pose = FramePose(thumbnailDistance, faceAimAbove - thumbnailAimBelow);
+            cam.SetPositionAndRotation(pose.position, pose.rotation);
+            previewCamera.fieldOfView = thumbnailFieldOfView;
+            previewCamera.clearFlags = CameraClearFlags.SolidColor;
+            previewCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            previewCamera.targetTexture = shot;
+            previewCamera.Render();
+            RenderTexture.active = shot;
+            var result = new Texture2D(width, height, TextureFormat.RGBA32, false) { name = "Slot Thumbnail" };
+            result.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+            result.Apply();
+            return result;
+        } finally {
+            RenderTexture.active = oldActive;
+            previewCamera.targetTexture = oldTarget;
+            previewCamera.clearFlags = oldClear;
+            previewCamera.backgroundColor = oldBackground;
+            cam.SetPositionAndRotation(oldPosition, oldRotation);
+            previewCamera.fieldOfView = oldFov;
+            turntable.localRotation = oldTurn;
+            RenderTexture.ReleaseTemporary(shot);
+        }
     }
 
     /// Jaring pengaman selain OnRigChanged: kalau parameter idle sempat ter-reset (Rebind di jalur lain),

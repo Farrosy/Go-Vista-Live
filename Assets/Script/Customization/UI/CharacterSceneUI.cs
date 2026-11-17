@@ -17,6 +17,11 @@ public class CharacterSceneUI : MonoBehaviour {
     [SerializeField] private ChatUiAssets assets = new ChatUiAssets();
     [SerializeField] private float toastSeconds = 2.2f;
 
+    private const int ThumbnailWidth = 240;
+    private const int ThumbnailHeight = 360;
+    // Jeda setelah karakter selesai dirakit sebelum difoto (tekstur + pose idle sudah stabil).
+    private const float ThumbnailSettleSeconds = 0.4f;
+
     private enum SelectionKind { Template, Slot }
 
     private CustomizerPickRefs ui;
@@ -28,6 +33,8 @@ public class CharacterSceneUI : MonoBehaviour {
     private CustomizerEditor editor;
     // Frame saat editor ditutup: tombol Back di frame yang sama jangan ikut menutup scene.
     private int editorClosedFrame = -1;
+    private float previewIdleSince = -1f;
+    private int thumbnailCheckedKey = int.MinValue;
 
     private bool IsOpen => ui != null && ui.Root.activeSelf;
 
@@ -77,9 +84,19 @@ public class CharacterSceneUI : MonoBehaviour {
         }
     }
 
-    void OnEnable() => ProgressService.Loaded += OnProgressLoaded;
+    void OnEnable() {
+        ProgressService.Loaded += OnProgressLoaded;
+        SlotThumbnails.Changed += OnThumbnailsChanged;
+    }
 
-    void OnDisable() => ProgressService.Loaded -= OnProgressLoaded;
+    void OnDisable() {
+        ProgressService.Loaded -= OnProgressLoaded;
+        SlotThumbnails.Changed -= OnThumbnailsChanged;
+    }
+
+    private void OnThumbnailsChanged() {
+        if (IsOpen) RefreshSlots();
+    }
 
     /// Progres Cloud baru selesai dimuat (mis. login otomatis) saat menu terbuka: tampilkan data akun.
     private void OnProgressLoaded() {
@@ -91,6 +108,7 @@ public class CharacterSceneUI : MonoBehaviour {
     void Update() {
         if (!IsOpen) return;
         if (stage) ui.Loading.SetActive(stage.IsBusy);
+        CaptureMissingThumbnail();
         // Tombol Back di Android: tutup dialog dulu, baru menu.
         if (!Input.GetKeyDown(KeyCode.Escape) || Time.frameCount == editorClosedFrame) return;
         if (ui.ConfirmOverlay.activeSelf) ui.ConfirmOverlay.SetActive(false);
@@ -157,7 +175,9 @@ public class CharacterSceneUI : MonoBehaviour {
             if (!filled) continue;
             CharacterTemplates.TryGet(record.templateId, out CharacterTemplate template);
             slot.Origin.text = "dari " + template.Label;
-            slot.Thumbnail.texture = TemplateIcon(template);
+            // Foto karakter ini (SlotThumbnails); sebelum pernah difoto di perangkat ini, ikon template asalnya.
+            Texture photo = SlotThumbnails.Get(record);
+            slot.Thumbnail.texture = photo ? photo : TemplateIcon(template);
             slot.Selected.SetActive(selectedKind == SelectionKind.Slot && selectedIndex == i);
             slot.UsedBadge.SetActive(CustomCharacterStore.ActiveSlot == i);
         }
@@ -177,6 +197,7 @@ public class CharacterSceneUI : MonoBehaviour {
         int key = selectedKind == SelectionKind.Template ? selectedIndex : 100 + selectedIndex;
         if (key == previewKey || !stage) return;
         previewKey = key;
+        thumbnailCheckedKey = int.MinValue;
 
         if (selectedKind == SelectionKind.Template) {
             CharacterTemplate template = CharacterTemplates.All[selectedIndex];
@@ -193,6 +214,23 @@ public class CharacterSceneUI : MonoBehaviour {
         stage.ShowLive(CustomizerSettings.Instance ? CustomizerSettings.Instance.characterBase : null,
                        CharacterRecordConverter.ToCharacterData(record),
                        CharacterDatabase.Instance.Get(record.templateId));
+    }
+
+    /// Slot yang sedang dipreview belum punya foto (mis. dibuat di perangkat lain): foto begitu selesai dirakit.
+    private void CaptureMissingThumbnail() {
+        bool waiting = stage && selectedKind == SelectionKind.Slot && previewKey == 100 + selectedIndex &&
+                       stage.LiveAvatar && !stage.IsBusy;
+        if (!waiting) {
+            previewIdleSince = -1f;
+            return;
+        }
+        if (previewIdleSince < 0f) previewIdleSince = Time.unscaledTime;
+        if (Time.unscaledTime - previewIdleSince < ThumbnailSettleSeconds || thumbnailCheckedKey == previewKey) return;
+        thumbnailCheckedKey = previewKey; // sekali per preview, bukan setiap frame
+        CustomCharacterRecord record = CustomCharacterStore.Get(selectedIndex);
+        if (record == null || SlotThumbnails.Has(record)) return;
+        Texture2D shot = stage.CaptureThumbnail(ThumbnailWidth, ThumbnailHeight);
+        if (shot) SlotThumbnails.Store(record, shot, CustomCharacterStore.All());
     }
 
     // ---------------------------------------------------------------- Aksi
