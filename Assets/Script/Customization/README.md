@@ -60,7 +60,7 @@ ikut Cloud Save), dibuat saat SIMPAN atau saat slot pertama kali dipreview di pe
 Catatan decal BoZo (penting untuk Tahap 3):
 - Tulang `head` diproyeksikan ke arah DUNIA (`-Vector3.forward`), jadi hasilnya tergantung arah hadap karakter saat
   bake. Preset Wajah karena itu memakai `neck_02`.
-- Decal dibake dalam pose T; offset lengan lebih dari 0.12 jatuh di luar mesh.
+- Decal dibake dalam pose T: di lengan bawah X menyusuri lengan, tandanya terbalik untuk sisi kanan.
 - UV celana dicerminkan kiri-kanan: stiker Kaki muncul di kedua paha.
 
 Sampai Tahap 3, avatar di world tetap memakai **template asal** slot yang aktif (`characterId`).

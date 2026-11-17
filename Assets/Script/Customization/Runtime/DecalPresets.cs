@@ -52,13 +52,16 @@ public static class DecalPresets {
     // (-Vector3.forward), jadi hasilnya bergantung arah hadap karakter saat bake (meja putar, pemain di world).
     // BoZo membake decal dalam pose T (lengan horizontal): offset lengan > 0.12 jatuh di luar mesh lengan.
     private static readonly Dictionary<string, Preset> Presets = new Dictionary<string, Preset> {
-        // Dada = logo Go Vista bawaan template 0_DefaultAnimeMale / 0_DefaultAnimeFemale (posisinya beda per gender).
-        { "Chest", new Preset("spine_04", new Vector3(0.08687518f, 0.1158332f, -0.05f),
-                              new Vector3(0.07860119f, 0.12824404f, -0.05f), 0f, false, 1f, "Top", "Overall", "Body") },
+        // Dada = tengah dada. Tinggi diambil dari logo Go Vista template 0_DefaultAnimeMale / 0_DefaultAnimeFemale
+        // (beda per gender); logo bawaan template sendiri (di sisi dada) diimpor lewat geser X.
+        { "Chest", new Preset("spine_04", new Vector3(0f, 0.1158332f, -0.05f),
+                              new Vector3(0f, 0.12824404f, -0.05f), 0f, false, 1f, "Top", "Overall", "Body") },
         { "Back", new Preset("spine_04", new Vector3(0f, 0f, -0.05f), 180f, false, 1f, "Top", "Overall", "Body") },
         { "Face", new Preset("neck_02", new Vector3(0.045f, 0.025f, -0.07f), 0f, true, 0.35f, "Head") },
-        { "LeftArm", new Preset("upperarm_l", new Vector3(0f, -0.12f, 0f), -90f, true, 0.8f, "Top", "Overall", "Body") },
-        { "RightArm", new Preset("upperarm_r", new Vector3(0f, -0.12f, 0f), -90f, true, 0.8f, "Top", "Overall", "Body") },
+        // Lengan = forearm atas sisi luar, tepat di bawah siku (bukan dekat ketiak). Di pose T, X menyusuri lengan
+        // bawah dan tandanya terbalik untuk sisi kanan (BoZo hanya mencerminkan Z untuk tulang _r).
+        { "LeftArm", new Preset("lowerarm_l", new Vector3(0.07f, 0f, 0f), -90f, true, 0.8f, "Top", "Overall", "Body") },
+        { "RightArm", new Preset("lowerarm_r", new Vector3(-0.07f, 0f, 0f), -90f, true, 0.8f, "Top", "Overall", "Body") },
         // UV celana BoZo dicerminkan kiri-kanan, jadi stiker Kaki muncul di kedua paha.
         { "Leg", new Preset("thigh_l", new Vector3(0f, -0.15f, 0f), 0f, true, 0.8f, "Bottom", "Overall", "Leggings", "Body") }
     };
