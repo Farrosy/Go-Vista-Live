@@ -69,6 +69,25 @@ public static class CustomizationRules {
         return !RequiredTypes.Contains(outfitType ?? "");
     }
 
+    /// Semua item tab Wajah (kepala, mata, alis, bulu mata, make-up, bintik) selalu mulai dari warna bawaannya sendiri
+    /// saat diganti, tidak ikut "pertahankan warna": urutan bagian warnanya berbeda antar item (mis. bagian 4 = Sclera
+    /// di kepala anime tapi Eye Lashes di kepala stylized; Eyes_BasicEyes = Scalar/ScalarEdge, Eyes_BasicIris =
+    /// Base/Top/Bottom). Warna kulit kepala tetap ikut Body lewat LinkedColorSets.
+    private static readonly HashSet<string> DefaultColorTypes = new HashSet<string> {
+        "Head", "Eyes", "Pupil", "EyeShine", "EyeBrows", "EyeLashes",
+        "MakeUpLips", "MakeUpCheeks", "MakeUpEyes", "FaceDetails"
+    };
+
+    /// <summary>false = outfit baru tipe ini memakai warna bawaannya, walau "pertahankan warna" menyala.</summary>
+    public static bool KeepsPreviousColors(string outfitType) => !DefaultColorTypes.Contains(outfitType ?? "");
+
+    /// Alis dan bulu mata baru memakai warna alis/bulu mata TEMPLATE (biasanya serasi dengan rambut template),
+    /// bukan warna item sebelumnya atau warna bawaan prefab. Template tanpa tipe ini → warna bawaan prefab.
+    private static readonly HashSet<string> TemplateColorTypes = new HashSet<string> { "EyeBrows", "EyeLashes" };
+
+    /// <summary>true = outfit baru tipe ini mengambil warna dari outfit tipe yang sama di template.</summary>
+    public static bool UsesTemplateColors(string outfitType) => TemplateColorTypes.Contains(outfitType ?? "");
+
     /// <summary>Label bagian warna. Bagian tanpa nama di data BoZo jadi "Warna N".</summary>
     public static string ColorChannelLabel(string channelName, int index) {
         return string.IsNullOrWhiteSpace(channelName) ? $"Warna {index + 1}" : channelName;

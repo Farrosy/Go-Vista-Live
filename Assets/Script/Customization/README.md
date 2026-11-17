@@ -57,6 +57,11 @@ otomatis memakai kamera Wajah (`CharacterPreviewStage.SetFaceFocus`). Update ava
 `LiveAvatarEdits`. Kartu "Karakter kamu" memakai foto karakter (`SlotThumbnails`, PNG lokal per isi record, tidak
 ikut Cloud Save), dibuat saat SIMPAN atau saat slot pertama kali dipreview di perangkat ini.
 
+Ganti atau lepas baju (manual maupun ACAK) membuang stiker yang menempel di baju itu, termasuk stiker bawaan template
+dan stiker di kulit yang akan pindah ke baju baru (`CharacterRecordConverter.WithOutfitClearingDecals`). Ganti
+kepala/badan tidak membuang stiker. Di editor karakter tidak berputar sendiri (`CharacterPreviewStage.AutoRotate`),
+hanya kalau digeser; layar pilih karakter dan profil tetap berputar otomatis.
+
 Catatan decal BoZo (penting untuk Tahap 3):
 - Tulang `head` diproyeksikan ke arah DUNIA (`-Vector3.forward`), jadi hasilnya tergantung arah hadap karakter saat
   bake. Preset Wajah karena itu memakai `neck_02`.

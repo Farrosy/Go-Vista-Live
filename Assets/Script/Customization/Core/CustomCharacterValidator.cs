@@ -17,7 +17,8 @@ public static class CustomCharacterValidator {
             templateId = template.Id,
             outfits = SanitizeOutfits(record.outfits, isOutfitAllowed),
             decals = SanitizeDecals(record.decals),
-            faceShapes = SanitizeShapes(record.faceShapes, template.IsMale)
+            faceShapes = SanitizeShapes(record.faceShapes, template.IsMale),
+            expression = FaceExpressions.Clamp(record.expression)
         };
     }
 

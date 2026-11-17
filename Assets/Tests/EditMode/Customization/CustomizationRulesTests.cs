@@ -58,6 +58,34 @@ public class CustomizationRulesTests {
         Assert.IsFalse(CustomizationRules.CanBeEmpty(type, isMale: true));
     }
 
+    [TestCase("Head")]
+    [TestCase("MakeUpLips")]
+    [TestCase("MakeUpCheeks")]
+    [TestCase("Eyes")]
+    [TestCase("Pupil")]
+    [TestCase("EyeShine")]
+    [TestCase("EyeBrows")]
+    [TestCase("EyeLashes")]
+    [TestCase("MakeUpEyes")]
+    [TestCase("FaceDetails")]
+    public void Head_and_face_makeup_always_start_with_their_own_colors(string type) {
+        Assert.IsFalse(CustomizationRules.KeepsPreviousColors(type));
+    }
+
+    [TestCase("EyeBrows", true)]
+    [TestCase("EyeLashes", true)]
+    [TestCase("MakeUpLips", false)]
+    [TestCase("Top", false)]
+    public void Brows_and_lashes_take_their_colors_from_the_template(string type, bool expected) {
+        Assert.AreEqual(expected, CustomizationRules.UsesTemplateColors(type));
+    }
+
+    [TestCase("Top")]
+    [TestCase("HairFront")]
+    public void Clothes_and_hair_keep_previous_colors(string type) {
+        Assert.IsTrue(CustomizationRules.KeepsPreviousColors(type));
+    }
+
     [TestCase("Base", 0, "Base")]
     [TestCase("", 1, "Warna 2")]
     [TestCase(null, 2, "Warna 3")]

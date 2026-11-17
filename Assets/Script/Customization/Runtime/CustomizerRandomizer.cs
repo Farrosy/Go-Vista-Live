@@ -4,7 +4,8 @@ using UnityEngine;
 
 /// <summary>
 /// Tombol ACAK di editor: memilih outfit dan warna acak untuk tab pakaian (Rambut, Atasan, Bawahan, Kaki,
-/// Aksesori). Kepala, badan, mata, kulit, wajah, stiker, dan pakaian dalam tidak diubah. Aksesori opsional
+/// Aksesori). Kepala, badan, mata, kulit, wajah, dan pakaian dalam tidak diubah; stiker di baju yang diganti
+/// ikut hilang (sama seperti ganti baju manual). Aksesori opsional
 /// (topi, kacamata, jenggot, dll.) hanya dipakai sesekali supaya hasilnya tidak ramai.
 /// </summary>
 public static class CustomizerRandomizer {
@@ -31,12 +32,12 @@ public static class CustomizerRandomizer {
         bool canBeEmpty = CustomizationRules.CanBeEmpty(type, template.IsMale);
         bool skip = options.Count == 0 || (type == BeardType && !template.IsMale) ||
                     (canBeEmpty && OptionalTypes.Contains(type) && Random.value > OptionalChance);
-        if (skip) return canBeEmpty ? RecordEdits.WithoutOutfit(record, type) : record;
+        if (skip) return canBeEmpty ? CharacterRecordConverter.WithoutOutfitClearingDecals(record, type) : record;
 
         Outfit outfit = options[Random.Range(0, options.Count)];
         OutfitRecord outfitRecord = OutfitCatalog.DefaultRecord(type, outfit);
         for (int i = 0; i < outfitRecord.colors.Count; i++) outfitRecord.colors[i] = CharacterRecordConverter.ToHex(NiceColor());
-        return RecordEdits.WithOutfit(record, outfitRecord);
+        return CharacterRecordConverter.WithOutfitClearingDecals(record, outfitRecord);
     }
 
     /// Warna acak yang enak dilihat: tidak terlalu pucat dan tidak terlalu gelap.

@@ -122,7 +122,11 @@ public sealed class AvatarBakeService : MonoBehaviour {
                 string reason = !avatar ? "avatar tidak bisa dibuat" : IsBusy(avatar) ? "timeout" : "mesh gabungan tidak ada";
                 Debug.LogWarning($"[Appearance] Bake avatar gagal ({reason}, template {job.Record.templateId}).");
             }
-            else AvatarTextureShrinker.Shrink(avatar, job.TextureSize);
+            else {
+                AvatarTextureShrinker.Shrink(avatar, job.TextureSize);
+                // Bobot blendshape mesh gabungan ikut disalin AvatarMeshTransplant ke rig pemain.
+                LiveAvatarEdits.ApplyExpression(avatar.gameObject, job.Record.expression);
+            }
 
             bool current = _tracker.Complete(key, success);
             if (current && success) Deliver(job, avatar);

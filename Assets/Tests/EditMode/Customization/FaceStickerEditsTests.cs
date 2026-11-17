@@ -144,6 +144,23 @@ public class FaceStickerEditsTests {
         Assert.AreEqual(2, record.decals.Count, "original must not change");
     }
 
+    [Test]
+    public void Without_decals_removes_only_matching_stickers_without_touching_the_original() {
+        CustomCharacterRecord record = RecordEdits.WithDecalAdded(RecordEdits.WithDecalAdded(Sample(), "A"), "B");
+
+        CustomCharacterRecord edited = RecordEdits.WithoutDecals(record, d => d.decal == "A");
+
+        CollectionAssert.AreEqual(new[] { "B" }, edited.decals.Select(d => d.decal).ToArray());
+        Assert.AreEqual(2, record.decals.Count, "original must not change");
+    }
+
+    [Test]
+    public void Without_decals_returns_the_same_record_when_nothing_matches() {
+        CustomCharacterRecord record = RecordEdits.WithDecalAdded(Sample(), "A");
+
+        Assert.AreSame(record, RecordEdits.WithoutDecals(record, d => d.decal == "Z"));
+    }
+
     // ---------------------------------------------------------------- Motif
 
     [Test]
