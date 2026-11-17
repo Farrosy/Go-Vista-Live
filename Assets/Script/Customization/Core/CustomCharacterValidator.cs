@@ -29,10 +29,10 @@ public static class CustomCharacterValidator {
             result.Add(new OutfitRecord {
                 path = outfit.path,
                 colors = SanitizeColors(outfit.colors, CustomizationRules.MaxColorChannels),
-                pattern = outfit.pattern ?? "",
+                pattern = CustomizationRules.IsPatternPath(outfit.pattern) ? outfit.pattern ?? "" : "",
                 patternColors = SanitizeColors(outfit.patternColors, CustomizationRules.PatternColorCount),
-                patternScaleX = Positive(outfit.patternScaleX),
-                patternScaleY = Positive(outfit.patternScaleY)
+                patternScaleX = CustomizationRules.ClampPatternScale(Positive(outfit.patternScaleX)),
+                patternScaleY = CustomizationRules.ClampPatternScale(Positive(outfit.patternScaleY))
             });
         }
         return result;
@@ -50,7 +50,9 @@ public static class CustomCharacterValidator {
                 position = decal.position,
                 size = CustomizationRules.ClampDecalSize(decal.size),
                 rotation = CustomizationRules.ClampDecalRotation(decal.rotation),
-                color = HexColor.SanitizeOrWhite(decal.color)
+                color = HexColor.SanitizeOrWhite(decal.color),
+                offsetX = CustomizationRules.ClampDecalOffset(decal.offsetX),
+                offsetY = CustomizationRules.ClampDecalOffset(decal.offsetY)
             });
         }
         return result;

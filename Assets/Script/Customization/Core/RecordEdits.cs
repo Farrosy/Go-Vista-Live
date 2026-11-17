@@ -64,6 +64,81 @@ public static class RecordEdits {
         return copy;
     }
 
+    /// <summary>Ukuran motif (sama untuk X dan Y), di-clamp ke CustomizationRules.</summary>
+    public static CustomCharacterRecord WithPatternScale(CustomCharacterRecord record, string outfitType, float scale) {
+        OutfitRecord current = Find(record, outfitType);
+        float clamped = CustomizationRules.ClampPatternScale(scale);
+        if (current == null || (current.patternScaleX == clamped && current.patternScaleY == clamped)) return record;
+        CustomCharacterRecord copy = record.Clone();
+        OutfitRecord outfit = Find(copy, outfitType);
+        outfit.patternScaleX = clamped;
+        outfit.patternScaleY = clamped;
+        return copy;
+    }
+
+    // ---------------------------------------------------------------- Wajah
+
+    /// <summary>Nilai slider wajah (di-clamp sesuai CustomizationRules). Kunci baru ditambahkan.</summary>
+    public static CustomCharacterRecord WithFaceShape(CustomCharacterRecord record, string key, float value) {
+        if (record == null || string.IsNullOrEmpty(key) || float.IsNaN(value)) return record;
+        float clamped = CustomizationRules.ClampFaceShape(key, value);
+        ShapeRecord existing = record.faceShapes?.Find(s => s != null && s.key == key);
+        if (existing != null && existing.value == clamped) return record;
+        CustomCharacterRecord copy = record.Clone();
+        ShapeRecord shape = copy.faceShapes.Find(s => s != null && s.key == key);
+        if (shape != null) shape.value = clamped;
+        else copy.faceShapes.Add(new ShapeRecord { key = key, value = clamped });
+        return copy;
+    }
+
+    /// <returns>Nilai slider di record, atau <paramref name="fallback"/> kalau belum ada.</returns>
+    public static float FaceShape(CustomCharacterRecord record, string key, float fallback) {
+        ShapeRecord shape = record?.faceShapes?.Find(s => s != null && s.key == key);
+        return shape != null ? shape.value : fallback;
+    }
+
+    // ---------------------------------------------------------------- Stiker
+
+    /// <summary>Tambah stiker baru di posisi Dada; tidak berubah kalau sudah CustomizationRules.MaxDecals.</summary>
+    public static CustomCharacterRecord WithDecalAdded(CustomCharacterRecord record, string decalName) {
+        if (record == null || string.IsNullOrEmpty(decalName)) return record;
+        if ((record.decals?.Count ?? 0) >= CustomizationRules.MaxDecals) return record;
+        CustomCharacterRecord copy = record.Clone();
+        copy.decals.Add(new DecalRecord { decal = decalName });
+        return copy;
+    }
+
+    /// <summary>Ganti stiker ke-<paramref name="index"/>; nilai di-clamp, posisi/warna tidak valid diabaikan.</summary>
+    public static CustomCharacterRecord WithDecal(CustomCharacterRecord record, int index, DecalRecord decal) {
+        if (record?.decals == null || decal == null || index < 0 || index >= record.decals.Count) return record;
+        if (string.IsNullOrEmpty(decal.decal) || !CustomizationRules.IsDecalPosition(decal.position) ||
+            !HexColor.IsValid(decal.color)) return record;
+        DecalRecord clean = new DecalRecord {
+            decal = decal.decal,
+            position = decal.position,
+            size = CustomizationRules.ClampDecalSize(decal.size),
+            rotation = CustomizationRules.ClampDecalRotation(decal.rotation),
+            color = decal.color.ToUpperInvariant(),
+            offsetX = CustomizationRules.ClampDecalOffset(decal.offsetX),
+            offsetY = CustomizationRules.ClampDecalOffset(decal.offsetY)
+        };
+        DecalRecord current = record.decals[index];
+        if (current != null && current.decal == clean.decal && current.position == clean.position &&
+            current.size == clean.size && current.rotation == clean.rotation && current.color == clean.color &&
+            current.offsetX == clean.offsetX && current.offsetY == clean.offsetY)
+            return record;
+        CustomCharacterRecord copy = record.Clone();
+        copy.decals[index] = clean;
+        return copy;
+    }
+
+    public static CustomCharacterRecord WithoutDecal(CustomCharacterRecord record, int index) {
+        if (record?.decals == null || index < 0 || index >= record.decals.Count) return record;
+        CustomCharacterRecord copy = record.Clone();
+        copy.decals.RemoveAt(index);
+        return copy;
+    }
+
     private static CustomCharacterRecord EditOutfit(CustomCharacterRecord record, string outfitType, string hex,
                                                     Action<OutfitRecord> edit) {
         if (!HexColor.IsValid(hex) || Find(record, outfitType) == null) return record;

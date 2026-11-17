@@ -15,8 +15,20 @@ public static class CustomizationRules {
     public const float MinDecalSize = 0.05f;
     public const float MaxDecalSize = 0.4f;
     public const float MaxDecalRotation = 180f;
+    /// <summary>Geser stiker X/Y maksimal ±10 cm dari titik preset.</summary>
+    public const float MaxDecalOffset = 0.1f;
     public const int MaxColorChannels = 9;
     public const int PatternColorCount = 3;
+    public const float MinPatternScale = 0.5f;
+    public const float MaxPatternScale = 20f;
+    /// <summary>Motif BoZo dimuat dari Resources "Pattern/&lt;nama&gt;".</summary>
+    public const string PatternFolder = "Pattern/";
+
+    /// <summary>Pilihan cepat warna kulit (tab Kulit), dari terang ke gelap. Warna lain lewat HSV picker.</summary>
+    public static readonly IReadOnlyList<string> SkinTones = new[] {
+        "#FCE3D3", "#F7D2B8", "#F1C09E", "#E5A882", "#D49770", "#C08160",
+        "#A86B4A", "#8D5638", "#6E4129", "#4F2D1C"
+    };
 
     /// <summary>Posisi stiker siap pakai (pengganti dropdown tulang + slider XYZ BoZo).</summary>
     public static readonly IReadOnlyList<string> DecalPositions = new[] {
@@ -65,6 +77,26 @@ public static class CustomizationRules {
             if (known == position) return true;
         }
         return false;
+    }
+
+    /// <summary>Path motif kosong (tanpa motif) atau "Pattern/Nama" tanpa folder lain.</summary>
+    public static bool IsPatternPath(string path) {
+        if (string.IsNullOrEmpty(path)) return true;
+        if (!path.StartsWith(PatternFolder, StringComparison.Ordinal) || path.Length == PatternFolder.Length) return false;
+        string name = path.Substring(PatternFolder.Length);
+        return name.IndexOf('/') < 0 && name.IndexOf('\\') < 0 && name.IndexOf("..", StringComparison.Ordinal) < 0;
+    }
+
+    public static float ClampPatternScale(float scale) {
+        if (float.IsNaN(scale)) return 1f;
+        return Math.Max(MinPatternScale, Math.Min(MaxPatternScale, scale));
+    }
+
+    public static float ClampDecalOffset(float meters) => ClampSymmetric(meters, MaxDecalOffset);
+
+    private static float ClampSymmetric(float value, float limit) {
+        if (float.IsNaN(value)) return 0f;
+        return Math.Max(-limit, Math.Min(limit, value));
     }
 
     public static float ClampDecalSize(float size) => Math.Max(MinDecalSize, Math.Min(MaxDecalSize, size));

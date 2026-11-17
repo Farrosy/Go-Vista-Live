@@ -41,15 +41,31 @@ public static class OutfitCatalog {
     /// <returns>Prefab outfit di path Resources ini, atau null.</returns>
     public static Outfit Load(string path) => string.IsNullOrEmpty(path) ? null : Resources.Load<Outfit>(path);
 
-    /// <summary>Record outfit baru dengan warna bawaan outfit (defaultColors BoZo) untuk semua bagian.</summary>
+    /// <summary>Record outfit baru dengan warna bawaan outfit itu untuk semua bagian (lihat DefaultColor).</summary>
     public static OutfitRecord DefaultRecord(string outfitType, Outfit outfit) {
         var record = new OutfitRecord { path = PathOf(outfitType, outfit) };
         int channels = ChannelCount(outfit);
-        for (int i = 0; i < channels; i++) {
-            Color color = outfit.defaultColors != null && i < outfit.defaultColors.Length ? outfit.defaultColors[i] : Color.white;
-            record.colors.Add(CharacterRecordConverter.ToHex(color));
-        }
+        Material material = SourceMaterial(outfit);
+        for (int i = 0; i < channels; i++) record.colors.Add(CharacterRecordConverter.ToHex(DefaultColor(outfit, material, i)));
         return record;
+    }
+
+    /// Sama dengan BoZo: defaultColors kalau diisi (SetColorInital), selain itu warna _Color_N material outfit
+    /// (Outfit.Awake). Hampir semua outfit BoZo defaultColors-nya kosong, jadi tanpa material warnanya putih polos.
+    private static Color DefaultColor(Outfit outfit, Material material, int channel) {
+        if (outfit.defaultColors != null && channel < outfit.defaultColors.Length) return outfit.defaultColors[channel];
+        string property = "_Color_" + (channel + 1);
+        if (material != null && material.HasProperty(property)) {
+            Color color = material.GetColor(property);
+            color.a = 1f;
+            return color;
+        }
+        return Color.white;
+    }
+
+    private static Material SourceMaterial(Outfit outfit) {
+        Renderer renderer = outfit != null ? outfit.GetComponentInChildren<Renderer>(true) : null;
+        return renderer != null ? renderer.sharedMaterial : null;
     }
 
     /// <summary>Jumlah bagian warna yang bisa diubah (ColorChannels BoZo, minimal 1).</summary>
