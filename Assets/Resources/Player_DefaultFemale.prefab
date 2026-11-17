@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 6598542922422437030}
   - component: {fileID: 7329539436123893606}
   - component: {fileID: 6333138300511101076}
+  - component: {fileID: 5337443178661907005}
   m_Layer: 0
   m_Name: Player_DefaultFemale
   m_TagString: Untagged
@@ -129,6 +130,9 @@ MonoBehaviour:
     isDeprecated: 0
   - componentID: 4
     component: {fileID: 7329539436123893606}
+    isDeprecated: 0
+  - componentID: 5
+    component: {fileID: 5337443178661907005}
     isDeprecated: 0
   _childViews: []
 --- !u!114 &7634548821759413220
@@ -346,6 +350,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 641a2876dff33a711b6fb8b62e463ebb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProximityVoice
+--- !u!114 &5337443178661907005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4500951516635569848}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b61dabf83aca19f6b39c6bab3bfb957, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAppearanceSync
 --- !u!1001 &2360017779304551521
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 1113141287574392260}
   - component: {fileID: 1739356228453825060}
   - component: {fileID: 3193635535448028602}
+  - component: {fileID: 51891219159043794}
   m_Layer: 0
   m_Name: Player_AnimeMale
   m_TagString: Untagged
@@ -129,6 +130,9 @@ MonoBehaviour:
     isDeprecated: 0
   - componentID: 4
     component: {fileID: 1739356228453825060}
+    isDeprecated: 0
+  - componentID: 5
+    component: {fileID: 51891219159043794}
     isDeprecated: 0
   _childViews: []
 --- !u!114 &5587346502598928708
@@ -346,6 +350,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 641a2876dff33a711b6fb8b62e463ebb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProximityVoice
+--- !u!114 &51891219159043794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000590702013142175}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b61dabf83aca19f6b39c6bab3bfb957, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAppearanceSync
 --- !u!1001 &2319578119201971053
 PrefabInstance:
   m_ObjectHideFlags: 0

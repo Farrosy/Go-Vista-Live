@@ -6,11 +6,13 @@ using UnityEngine;
 /// Collider gerak avatar lokal tidak pernah dimatikan.
 ///
 /// Re-evaluasi saat: (a) venue avatar ini berubah, (b) venue pemain lokal berubah (VenueChanged),
-/// (c) avatar ini disembunyikan atau ditampilkan lagi (HiddenChanged).
+/// (c) avatar ini disembunyikan atau ditampilkan lagi (HiddenChanged),
+/// (d) tampilan custom berganti / avatar pemain lain masih menunggu bake (PlayerAppearanceSync.VisualChanged).
 [RequireComponent(typeof(PlayerVenueSync))]
 public class VenueVisibilityFilter : MonoBehaviour
 {
     private PlayerVenueSync venueSync;
+    private PlayerAppearanceSync appearance;
     private Renderer[] renderers;
     private Collider[] colliders;
     private bool applied;
@@ -20,6 +22,12 @@ public class VenueVisibilityFilter : MonoBehaviour
     void Awake()
     {
         venueSync = GetComponent<PlayerVenueSync>();
+        appearance = GetComponent<PlayerAppearanceSync>();
+        CollectTargets();
+    }
+
+    private void CollectTargets()
+    {
         renderers = GetComponentsInChildren<Renderer>(true);
         colliders = GetComponentsInChildren<Collider>(true);
     }
@@ -29,6 +37,7 @@ public class VenueVisibilityFilter : MonoBehaviour
         venueSync.VenueChanged += OnThisAvatarVenueChanged;
         venueSync.HiddenChanged += Reevaluate;
         VenueTravelManager.VenueChanged += Reevaluate;
+        if (appearance) appearance.VisualChanged += OnAppearanceChanged;
         applied = false;
         Reevaluate();
     }
@@ -38,6 +47,15 @@ public class VenueVisibilityFilter : MonoBehaviour
         venueSync.VenueChanged -= OnThisAvatarVenueChanged;
         venueSync.HiddenChanged -= Reevaluate;
         VenueTravelManager.VenueChanged -= Reevaluate;
+        if (appearance) appearance.VisualChanged -= OnAppearanceChanged;
+    }
+
+    /// Renderer berganti (mesh custom dipasang/dilepas): ambil ulang daftarnya lalu pasang visibilitas lagi.
+    private void OnAppearanceChanged()
+    {
+        CollectTargets();
+        applied = false;
+        Reevaluate();
     }
 
     private void OnThisAvatarVenueChanged(PlayerVenueSync sync, VenueId venue) => Reevaluate();
@@ -46,7 +64,8 @@ public class VenueVisibilityFilter : MonoBehaviour
     {
         bool isLocal = venueSync.IsLocalAvatar;
         bool inSameVenue = isLocal || venueSync.Venue == VenueTravelManager.LocalVenue;
-        bool visible = inSameVenue && !venueSync.IsHidden;
+        bool waitingForBake = appearance && appearance.HideUntilReady;
+        bool visible = inSameVenue && !venueSync.IsHidden && !waitingForBake;
         // Jangan pernah matikan collider gerak avatar lokal.
         bool collidable = isLocal || visible;
         Apply(visible, collidable);
