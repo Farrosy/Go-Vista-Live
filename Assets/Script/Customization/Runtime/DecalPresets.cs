@@ -13,7 +13,10 @@ using UnityEngine;
 public static class DecalPresets {
     public readonly struct Preset {
         public readonly string Bone;
+        /// <summary>Titik preset untuk template cowok.</summary>
         public readonly Vector3 Position;
+        /// <summary>Titik preset untuk template cewek (badan berbeda); sama dengan Position kalau tidak diatur.</summary>
+        public readonly Vector3 FemalePosition;
         public readonly float Yaw;
         /// <summary>Tipe outfit pembawa, urut prioritas (mis. Top, lalu Body kalau tanpa atasan).</summary>
         public readonly string[] HostTypes;
@@ -25,14 +28,21 @@ public static class DecalPresets {
         /// <summary>Pengali ukuran stiker (wajah jauh lebih kecil dari dada).</summary>
         public readonly float SizeScale;
 
-        public Preset(string bone, Vector3 position, float yaw, bool allHosts, float sizeScale, params string[] hostTypes) {
+        public Preset(string bone, Vector3 position, float yaw, bool allHosts, float sizeScale, params string[] hostTypes)
+            : this(bone, position, position, yaw, allHosts, sizeScale, hostTypes) { }
+
+        public Preset(string bone, Vector3 position, Vector3 femalePosition, float yaw, bool allHosts, float sizeScale,
+                      params string[] hostTypes) {
             Bone = bone;
             Position = position;
+            FemalePosition = femalePosition;
             Yaw = yaw;
             AllHosts = allHosts;
             SizeScale = sizeScale;
             HostTypes = hostTypes;
         }
+
+        public Vector3 PositionFor(bool isMale) => isMale ? Position : FemalePosition;
     }
 
     // Dikalibrasi visual di tahap 1d (karakter Default Cowok). Sumbu posisi = bingkai proyektor BoZo: X samping,
@@ -42,7 +52,9 @@ public static class DecalPresets {
     // (-Vector3.forward), jadi hasilnya bergantung arah hadap karakter saat bake (meja putar, pemain di world).
     // BoZo membake decal dalam pose T (lengan horizontal): offset lengan > 0.12 jatuh di luar mesh lengan.
     private static readonly Dictionary<string, Preset> Presets = new Dictionary<string, Preset> {
-        { "Chest", new Preset("spine_04", new Vector3(0.087f, 0.116f, -0.05f), 0f, false, 1f, "Top", "Overall", "Body") },
+        // Dada = logo Go Vista bawaan template 0_DefaultAnimeMale / 0_DefaultAnimeFemale (posisinya beda per gender).
+        { "Chest", new Preset("spine_04", new Vector3(0.08687518f, 0.1158332f, -0.05f),
+                              new Vector3(0.07860119f, 0.12824404f, -0.05f), 0f, false, 1f, "Top", "Overall", "Body") },
         { "Back", new Preset("spine_04", new Vector3(0f, 0f, -0.05f), 180f, false, 1f, "Top", "Overall", "Body") },
         { "Face", new Preset("neck_02", new Vector3(0.045f, 0.025f, -0.07f), 0f, true, 0.35f, "Head") },
         { "LeftArm", new Preset("upperarm_l", new Vector3(0f, -0.12f, 0f), -90f, true, 0.8f, "Top", "Overall", "Body") },
@@ -61,10 +73,14 @@ public static class DecalPresets {
         return null;
     }
 
-    /// <summary>DecalData BoZo untuk record ini (tekstur dimuat oleh BMAC_SaveSystem saat load).</summary>
-    public static DecalData ToDecalData(DecalRecord record, Preset preset) {
+    /// <summary>DecalData BoZo untuk record ini: titik preset (sesuai gender) + geser XYZ record.</summary>
+    public static DecalData ToDecalData(DecalRecord record, Preset preset, bool isMale) {
         Color color = ColorUtility.TryParseHtmlString(record.color, out Color parsed) ? parsed : Color.white;
-        return new DecalData(record.decal, preset.Bone, preset.Position, preset.Yaw, record.rotation, 0f,
+        Vector3 position = preset.PositionFor(isMale) + new Vector3(record.offsetX, record.offsetY, 0f);
+        return new DecalData(record.decal, preset.Bone, position, preset.Yaw, record.rotation, 0f,
                              record.size * preset.SizeScale, color);
     }
+
+    /// <summary>Geser XYZ record supaya decal BoZo <paramref name="data"/> tetap di posisi persisnya (impor template).</summary>
+    public static Vector3 OffsetFor(DecalData data, Preset preset, bool isMale) => data.pos - preset.PositionFor(isMale);
 }

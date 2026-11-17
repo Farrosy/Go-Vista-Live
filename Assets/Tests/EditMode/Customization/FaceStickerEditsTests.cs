@@ -110,6 +110,31 @@ public class FaceStickerEditsTests {
     }
 
     [Test]
+    public void Sticker_offsets_are_kept_and_clamped() {
+        CustomCharacterRecord record = RecordEdits.WithDecalAdded(Sample(), "Decal_GoVistaG");
+
+        CustomCharacterRecord edited = RecordEdits.WithDecal(record, 0, new DecalRecord {
+            decal = "Decal_GoVistaG", position = "Chest", size = 0.15f, color = HexColor.White,
+            offsetX = 0.03f, offsetY = -1f
+        });
+
+        Assert.AreEqual(0.03f, edited.decals[0].offsetX, 1e-6f);
+        Assert.AreEqual(-CustomizationRules.MaxDecalOffset, edited.decals[0].offsetY, 1e-6f);
+        Assert.AreEqual(0f, record.decals[0].offsetX, "original must not change");
+    }
+
+    [Test]
+    public void Validator_clamps_sticker_offsets_from_outside_data() {
+        CustomCharacterRecord record = Sample();
+        record.decals.Add(new DecalRecord { decal = "Decal_GoVistaG", position = "Back", offsetX = 9f, offsetY = float.NaN });
+
+        DecalRecord clean = CustomCharacterValidator.Sanitize(record, _ => true).decals[0];
+
+        Assert.AreEqual(CustomizationRules.MaxDecalOffset, clean.offsetX, 1e-6f);
+        Assert.AreEqual(0f, clean.offsetY);
+    }
+
+    [Test]
     public void Removing_a_sticker_keeps_the_others_in_order() {
         CustomCharacterRecord record = RecordEdits.WithDecalAdded(RecordEdits.WithDecalAdded(Sample(), "A"), "B");
 

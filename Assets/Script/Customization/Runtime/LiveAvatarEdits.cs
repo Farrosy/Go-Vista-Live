@@ -33,7 +33,8 @@ public static class LiveAvatarEdits {
     public static void ApplyDecals(OutfitSystem avatar, CustomCharacterRecord record) {
         if (!avatar || record == null) return;
         Dictionary<string, List<DecalData>> byHost =
-            CharacterRecordConverter.DecalsByHost(record.outfits.Select(o => o.path), record.decals, loadTextures: true);
+            CharacterRecordConverter.DecalsByHost(record.outfits.Select(o => o.path), record.decals, IsMale(record),
+                                                  loadTextures: true);
         Outfit changed = null;
         foreach (Outfit outfit in avatar.GetOutfits()) {
             if (!outfit || !outfit.supportDecals || outfit.Type == null) continue;
@@ -49,6 +50,10 @@ public static class LiveAvatarEdits {
         Outfit trigger = avatar.GetOutfit("Body");
         if (!trigger || trigger.materialPriority == 0) trigger = changed;
         trigger.SetPattern(trigger.GetPattern());
+    }
+
+    private static bool IsMale(CustomCharacterRecord record) {
+        return !CharacterTemplates.TryGet(record.templateId, out CharacterTemplate template) || template.IsMale;
     }
 
     /// <summary>Semua slider wajah record ke avatar (dipakai lagi setelah kepala diganti).</summary>

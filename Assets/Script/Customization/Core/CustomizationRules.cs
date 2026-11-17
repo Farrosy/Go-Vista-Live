@@ -15,6 +15,8 @@ public static class CustomizationRules {
     public const float MinDecalSize = 0.05f;
     public const float MaxDecalSize = 0.4f;
     public const float MaxDecalRotation = 180f;
+    /// <summary>Geser stiker X/Y maksimal ±10 cm dari titik preset.</summary>
+    public const float MaxDecalOffset = 0.1f;
     public const int MaxColorChannels = 9;
     public const int PatternColorCount = 3;
     public const float MinPatternScale = 0.5f;
@@ -88,6 +90,13 @@ public static class CustomizationRules {
     public static float ClampPatternScale(float scale) {
         if (float.IsNaN(scale)) return 1f;
         return Math.Max(MinPatternScale, Math.Min(MaxPatternScale, scale));
+    }
+
+    public static float ClampDecalOffset(float meters) => ClampSymmetric(meters, MaxDecalOffset);
+
+    private static float ClampSymmetric(float value, float limit) {
+        if (float.IsNaN(value)) return 0f;
+        return Math.Max(-limit, Math.Min(limit, value));
     }
 
     public static float ClampDecalSize(float size) => Math.Max(MinDecalSize, Math.Min(MaxDecalSize, size));

@@ -118,11 +118,15 @@ public static class RecordEdits {
             position = decal.position,
             size = CustomizationRules.ClampDecalSize(decal.size),
             rotation = CustomizationRules.ClampDecalRotation(decal.rotation),
-            color = decal.color.ToUpperInvariant()
+            color = decal.color.ToUpperInvariant(),
+            offsetX = CustomizationRules.ClampDecalOffset(decal.offsetX),
+            offsetY = CustomizationRules.ClampDecalOffset(decal.offsetY)
         };
         DecalRecord current = record.decals[index];
         if (current != null && current.decal == clean.decal && current.position == clean.position &&
-            current.size == clean.size && current.rotation == clean.rotation && current.color == clean.color) return record;
+            current.size == clean.size && current.rotation == clean.rotation && current.color == clean.color &&
+            current.offsetX == clean.offsetX && current.offsetY == clean.offsetY)
+            return record;
         CustomCharacterRecord copy = record.Clone();
         copy.decals[index] = clean;
         return copy;

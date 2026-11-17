@@ -28,12 +28,17 @@ public sealed class CustomizerStickers {
         _a = assets;
         for (int i = 0; i < _ui.PositionButtons.Length; i++) {
             string position = CustomizationRules.DecalPositions[i];
-            _ui.PositionButtons[i].onClick.AddListener(() => Edit(d => d.position = position, commit: true));
+            _ui.PositionButtons[i].onClick.AddListener(() => Edit(d => {
+                d.position = position;
+                d.offsetX = d.offsetY = 0f; // geser relatif ke preset: ganti/ketuk posisi = mulai dari titiknya
+            }, commit: true));
         }
         _ui.Size.Slider.onValueChanged.AddListener(v => Edit(d => d.size = v, commit: false));
         _ui.Size.Commit.Committed += v => Edit(d => d.size = v, commit: true);
         _ui.Rotation.Slider.onValueChanged.AddListener(v => Edit(d => d.rotation = v, commit: false));
         _ui.Rotation.Commit.Committed += v => Edit(d => d.rotation = v, commit: true);
+        WireSlider(_ui.OffsetX, (d, v) => d.offsetX = v);
+        WireSlider(_ui.OffsetY, (d, v) => d.offsetY = v);
         _ui.ColorButton.onClick.AddListener(OpenColor);
         _popup.Picker.Changed += c => { if (_popupOpen) Edit(d => d.color = Hex(c), commit: false); };
         _popup.Picker.Committed += c => { if (_popupOpen) Edit(d => d.color = Hex(c), commit: true); };
@@ -98,6 +103,13 @@ public sealed class CustomizerStickers {
         _ui.ColorSwatch.color = CharacterRecordConverter.FromHex(decal.color);
         _ui.Size.SetValue(decal.size);
         _ui.Rotation.SetValue(decal.rotation);
+        _ui.OffsetX.SetValue(decal.offsetX);
+        _ui.OffsetY.SetValue(decal.offsetY);
+    }
+
+    private void WireSlider(SliderRow row, Action<DecalRecord, float> set) {
+        row.Slider.onValueChanged.AddListener(v => Edit(d => set(d, v), commit: false));
+        row.Commit.Committed += v => Edit(d => set(d, v), commit: true);
     }
 
     private void Select(int index) {

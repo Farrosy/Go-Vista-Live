@@ -59,6 +59,8 @@ public sealed class StickerPanelRefs {
     public Button ColorButton;
     public SliderRow Size;
     public SliderRow Rotation;
+    public SliderRow OffsetX;
+    public SliderRow OffsetY;
 }
 
 /// <summary>Popup HSV picker (warna stiker).</summary>
@@ -276,6 +278,17 @@ public static class CustomizerEditorPanels {
         refs.Rotation = CreateSliderRow(area, a, "Putar", -CustomizationRules.MaxDecalRotation,
                                         CustomizationRules.MaxDecalRotation);
         refs.Rotation.Format = v => Mathf.RoundToInt(v) + "°";
+
+        // Geser halus dari titik preset (meter → ditampilkan dalam cm). Tekan chip posisi lagi = kembali ke titik preset.
+        Section(area, a, "Geser posisi (tekan chip posisi untuk reset)", null);
+        refs.OffsetX = CreateSliderRow(area, a, "Kiri – Kanan", -CustomizationRules.MaxDecalOffset, CustomizationRules.MaxDecalOffset);
+        refs.OffsetY = CreateSliderRow(area, a, "Atas – Bawah", -CustomizationRules.MaxDecalOffset, CustomizationRules.MaxDecalOffset);
+        foreach (SliderRow row in new[] { refs.OffsetX, refs.OffsetY }) row.Format = Centimeters;
+    }
+
+    private static string Centimeters(float meters) {
+        int cm = Mathf.RoundToInt(meters * 100f);
+        return (cm > 0 ? "+" : "") + cm + " cm";
     }
 
     public static string StickerPositionLabel(string position) {

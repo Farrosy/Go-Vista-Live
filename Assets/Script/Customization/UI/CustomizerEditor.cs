@@ -397,7 +397,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _ui.ColorTitle.text = "Warna · <color=#FFFFFF>" + itemName + "</color>";
         bool canPattern = prefab.supportPatterns && TexturePackageCatalog.Patterns.Count > 0;
         if (!canPattern) _patternMode = false;
-        _ui.PatternModeButton.interactable = canPattern;
+        // Tetap bisa ditekan: baju tanpa motif memberi tahu baju mana yang bisa (bukan tombol mati tanpa penjelasan).
         _ui.PatternModeGroup.alpha = canPattern ? 1f : 0.35f;
         _ui.ColorModeOn.SetActive(!_patternMode);
         _ui.PatternModeOn.SetActive(_patternMode);
@@ -474,9 +474,27 @@ public sealed class CustomizerEditor : MonoBehaviour {
     // ---------------------------------------------------------------- Motif
 
     private void SetPatternMode(bool pattern) {
+        if (pattern && !CanUsePattern()) {
+            ShowToast(PatternHint());
+            return;
+        }
         if (_patternMode == pattern) return;
         _patternMode = pattern;
         RefreshColors();
+    }
+
+    private bool CanUsePattern() {
+        Outfit prefab = OutfitCatalog.Load(RecordEdits.Find(_session.Current, _focusType)?.path);
+        return prefab != null && prefab.supportPatterns && TexturePackageCatalog.Patterns.Count > 0;
+    }
+
+    /// "Motif hanya untuk: Casual Jacket, Dress Shirt" (baju bertipe sama yang mendukung motif BoZo).
+    private string PatternHint() {
+        var names = new List<string>();
+        foreach (Outfit outfit in OutfitCatalog.ForType(_focusType, _template.IsAnime)) {
+            if (outfit.supportPatterns) names.Add(string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName);
+        }
+        return names.Count == 0 ? "Bagian ini tidak punya motif" : "Motif hanya untuk: " + string.Join(", ", names);
     }
 
     private void RefreshPatterns(OutfitRecord record) {

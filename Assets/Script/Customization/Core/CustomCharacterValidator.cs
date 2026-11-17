@@ -50,7 +50,9 @@ public static class CustomCharacterValidator {
                 position = decal.position,
                 size = CustomizationRules.ClampDecalSize(decal.size),
                 rotation = CustomizationRules.ClampDecalRotation(decal.rotation),
-                color = HexColor.SanitizeOrWhite(decal.color)
+                color = HexColor.SanitizeOrWhite(decal.color),
+                offsetX = CustomizationRules.ClampDecalOffset(decal.offsetX),
+                offsetY = CustomizationRules.ClampDecalOffset(decal.offsetY)
             });
         }
         return result;
