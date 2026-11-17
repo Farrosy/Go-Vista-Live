@@ -8,6 +8,7 @@ public class ShrunkTextureOwner : MonoBehaviour {
     private void OnDestroy() {
         foreach (RenderTexture texture in Textures) {
             if (texture == null) continue;
+            if (RenderTexture.active == texture) RenderTexture.active = null;
             texture.Release();
             Destroy(texture);
         }

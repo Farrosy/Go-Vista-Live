@@ -1295,6 +1295,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         // Teman bisa menekan GABUNG di menu teman mereka (presence Unity Friends).
         FriendsManager.SetCurrentRoom(recentRoom);
         PrepareWorldPreview();
+        // Tahap 3 customizer: karakter custom sendiri di-bake selagi menunggu di lobby.
+        AvatarBakeService.Instance.PrebakeLocal();
     }
 
     private void DidDisconnectFromRoom(Realtime disconnectedRealtime) {
@@ -1706,6 +1708,25 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         SetWaitingJoinButtonLoading(false);
     }
 
+    private IEnumerator WaitForAvatarBakes() {
+        AvatarBakeService bakes = AvatarBakeService.Instance;
+        while (!bakes.ReadyForSpawn && realtime != null && realtime.connected) {
+            (int done, int total) = bakes.Progress;
+            SetWaitingJoinButtonLabel($"MENYIAPKAN KARAKTER… {done}/{total}");
+            yield return null;
+        }
+    }
+
+    private void SetWaitingJoinButtonLabel(string text) {
+        if (_waitingJoinButton == null)
+            return;
+        _waitingJoinButton.interactable = false;
+        Transform label = _waitingJoinButton.transform.Find("Waiting Join Game Button Label");
+        Text labelText = label != null ? label.GetComponent<Text>() : null;
+        if (labelText != null)
+            labelText.text = text;
+    }
+
     private void SetWaitingJoinButtonLoading(bool loading) {
         if (_waitingJoinButton == null)
             return;
@@ -1768,10 +1789,15 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (worldScene.IsValid() && worldScene.isLoaded)
             DisableWorldCameras(worldScene);
 
+        // Tahap 3 customizer (per perangkat): masuk world setelah avatar sendiri + semua pemain yang sudah ada
+        // selesai di-bake di HP ini, jadi tidak ada yang terlihat dalam wujud template/setengah jadi.
+        yield return WaitForAvatarBakes();
+
         // Koneksi putus selama pemuatan: lobby sudah tampil, jadi jangan masuk gameplay atau meninggalkan world.
         if (realtime == null || !realtime.connected) {
             UnloadWorldScene();
             _startingGame = false;
+            SetWaitingJoinButtonLoading(false);
             yield break;
         }
 
