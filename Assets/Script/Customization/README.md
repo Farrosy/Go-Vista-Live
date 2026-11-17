@@ -41,7 +41,7 @@ Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 | 1b | Layar Pilih Karakter + preview live | Selesai |
 | 1c | Editor outfit + semua bagian warna (HSV picker, URUNGKAN, ACAK, SIMPAN, Samakan dengan, dialog Buang perubahan) | Selesai |
 | 1d | Wajah, kulit, stiker + motif (pattern), kamera Wajah, thumbnail slot | Selesai |
-| 3 | Sinkronisasi ke room: bake avatar pemain lain (opsi A) | |
+| 3 | Sinkronisasi ke room: bake avatar sendiri + pemain lain (opsi A) | Dikerjakan (`feat/customizer-3`) |
 
 Editor 1c: `CustomizerEditor` (pengendali) + `CustomizerEditorView` (tata letak) + `HsvColorPicker`. Logika murni
 ada di Core dan dites EditMode: `CustomizationSession` (record kerja, URUNGKAN maks 50 langkah, status "Belum
@@ -63,7 +63,25 @@ Catatan decal BoZo (penting untuk Tahap 3):
 - Decal dibake dalam pose T: di lengan bawah X menyusuri lengan, tandanya terbalik untuk sisi kanan.
 - UV celana dicerminkan kiri-kanan: stiker Kaki muncul di kedua paha.
 
-Sampai Tahap 3, avatar di world tetap memakai **template asal** slot yang aktif (`characterId`).
+## Tahap 3: karakter custom di room
+
+Folder `Network/`:
+- `PlayerAppearanceSync` (di root prefab `Resources/Player_*`, dipasang lewat menu *Go Vista > Customization >
+  Pasang PlayerAppearanceSync di Prefab Pemain*): pemilik mengirim JSON slot aktif sekali saat spawn
+  (`PlayerAppearanceModel`, kosong = template). Data dari pemain lain selalu lewat `AppearanceCodec.Decode` →
+  `CustomCharacterValidator`.
+- `AvatarBakeService`: antrean bake satu per satu (jeda 10 frame). Avatar sendiri di-bake di lobby (1024) saat
+  masuk room; pemain lain 512. Status antrean ada di `AvatarBakeTracker` (Core, dites).
+- `AvatarMeshTransplant`: mesh hasil bake dipasang ke tulang rig prefab pemain (dipetakan per nama). Rig, Animator,
+  dan komponen gameplay tidak diganti; renderer model template disembunyikan. Memori hasil bake dimiliki
+  `BakedAppearanceOwner` dan dilepas saat avatar hilang.
+
+Keputusan user (2026-11-17):
+- Per perangkat: avatar pemain lain disembunyikan (dan tidak bisa ditabrak) sampai selesai di-bake di HP itu.
+  Tombol MULAI menunggu sampai avatar sendiri + semua pemain yang sudah ada selesai ("MENYIAPKAN KARAKTER… n/m").
+  Tidak menunggu konfirmasi pemain lain.
+- Room maksimal 10 pemain, jadi semua di-bake tanpa batas.
+- Bake gagal (timeout 45 detik / error) = tampil sebagai template asal, tanpa coba ulang.
 
 ## Catatan performa (hasil Tahap 0b, laptop, 10 avatar)
 

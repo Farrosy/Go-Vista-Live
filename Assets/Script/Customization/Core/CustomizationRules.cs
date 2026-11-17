@@ -18,6 +18,8 @@ public static class CustomizationRules {
     /// <summary>Geser stiker X/Y maksimal ±10 cm dari titik preset.</summary>
     public const float MaxDecalOffset = 0.1f;
     public const int MaxColorChannels = 9;
+    /// <summary>Batas panjang JSON tampilan pemain dari jaringan (data lebih besar ditolak, avatar tampil template).</summary>
+    public const int MaxAppearancePayloadLength = 16 * 1024;
     public const int PatternColorCount = 3;
     public const float MinPatternScale = 0.5f;
     public const float MaxPatternScale = 20f;
