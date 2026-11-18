@@ -294,20 +294,30 @@ public sealed class CustomizerEditor : MonoBehaviour {
             if (outfits.Count == 0 && types.Count > 1) continue;
             string title = types.Count > 1 && TypeLabels.TryGetValue(type, out string label) ? label : null;
             RectTransform grid = CustomizerEditorView.CreateItemSection(_ui.GridContent, _a, title);
-            if (canBeEmpty) AddEmptyItem(grid, type, SectionBlockedMessage(type, title, outfits, animeHead));
+            string sectionLabel = title ?? CurrentSubTab.Label;
+            if (canBeEmpty) AddEmptyItem(grid, type, SectionBlockedMessage(type, sectionLabel, outfits, animeHead));
             foreach (Outfit outfit in outfits) AddOutfitItem(grid, type, outfit, animeHead);
         }
         RefreshItemSelection();
     }
 
-    /// Bagian yang semua itemnya tidak cocok dengan kepala (mis. Kilau Mata di kepala Basic): "Kosong" ikut
-    /// disabled + toast, karena tidak ada pilihan lain. null = bagian ini bisa dipakai.
-    private static string SectionBlockedMessage(string type, string title, IReadOnlyList<Outfit> outfits, bool animeHead) {
+    /// Bagian yang semua itemnya tidak bisa dipakai (mis. Kilau Mata di kepala Basic, Jenggot di karakter cewek):
+    /// "Kosong" ikut disabled + toast, karena tidak ada pilihan lain. null = bagian ini bisa dipakai.
+    private string SectionBlockedMessage(string type, string sectionLabel, IReadOnlyList<Outfit> outfits, bool animeHead) {
         if (outfits.Count == 0) return null;
         foreach (Outfit outfit in outfits) {
-            if (FaceStyleRules.Fits(OutfitCatalog.RequiredStyle(type, outfit), animeHead)) return null;
+            if (BlockedReason(type, outfit, sectionLabel, animeHead) == null) return null;
         }
-        return FaceStyleRules.IncompatibleMessage(title ?? type, OutfitCatalog.RequiredStyle(type, outfits[0]));
+        return BlockedReason(type, outfits[0], sectionLabel, animeHead);
+    }
+
+    /// Alasan outfit ini tidak bisa dipakai karakter sekarang (isi toast), atau null kalau bisa.
+    /// Gender template dicek dulu (GenderRules), lalu gaya kepala yang dipakai (FaceStyleRules).
+    private string BlockedReason(string type, Outfit outfit, string label, bool animeHead) {
+        string path = OutfitCatalog.PathOf(type, outfit);
+        if (!GenderRules.Fits(path, _template.IsMale)) return GenderRules.BlockedMessage(label, GenderRules.GenderOf(path));
+        FaceStyle required = OutfitCatalog.RequiredStyle(type, outfit);
+        return FaceStyleRules.Fits(required, animeHead) ? null : FaceStyleRules.IncompatibleMessage(label, required);
     }
 
     private void AddEmptyItem(RectTransform grid, string type, string blockedMessage) {
@@ -322,17 +332,17 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _items.Add((type, "", selected));
     }
 
-    /// Item yang tidak cocok dengan kepala tetap tampil (abu-abu); diketuk = toast alasannya, bukan dipakai.
+    /// Item yang tidak bisa dipakai (gender lain / tidak cocok dengan kepala) tetap tampil abu-abu;
+    /// diketuk = toast alasannya, bukan dipakai.
     private void AddOutfitItem(RectTransform grid, string type, Outfit outfit, bool animeHead) {
         string label = string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName;
         Button item = CustomizerEditorView.CreateItem(grid, _a, outfit.OutfitIcon, label, out GameObject selected);
-        FaceStyle required = OutfitCatalog.RequiredStyle(type, outfit);
-        if (FaceStyleRules.Fits(required, animeHead)) {
+        string blocked = BlockedReason(type, outfit, label, animeHead);
+        if (blocked == null) {
             item.onClick.AddListener(() => WearOutfit(type, outfit));
         } else {
             CustomizerEditorView.DimItem(item);
-            string message = FaceStyleRules.IncompatibleMessage(label, required);
-            item.onClick.AddListener(() => ShowToast(message));
+            item.onClick.AddListener(() => ShowToast(blocked));
         }
         _items.Add((type, OutfitCatalog.PathOf(type, outfit), selected));
     }
@@ -595,7 +605,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private string PatternHint() {
         var names = new List<string>();
         foreach (Outfit outfit in OutfitCatalog.ForType(_focusType, OutfitCatalog.IsAnimeHead(_session.Current))) {
-            if (outfit.supportPatterns) names.Add(string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName);
+            if (!outfit.supportPatterns || !GenderRules.Fits(OutfitCatalog.PathOf(_focusType, outfit), _template.IsMale)) continue;
+            names.Add(string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName);
         }
         return names.Count == 0 ? "Bagian ini tidak punya motif" : "Motif hanya untuk: " + string.Join(", ", names);
     }
