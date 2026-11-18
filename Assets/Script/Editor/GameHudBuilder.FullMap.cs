@@ -21,6 +21,10 @@ public static partial class GameHudBuilder {
     private const float MapCardHeight = 196f;
     private const float MapRowHeight = 80f;
     private const float MapControlSize = 84f;
+    private const float MapBadgeSize = 40f;
+    // Tombol peta (radar + lencana panah) di depan semua UI HUD lain: HUD/koin (25) dan tombol mic (26).
+    // Tetap di bawah panel modal: pause (51), chat (52), peta penuh / quest (53), layar mati (55).
+    private const int MapOpenSortingOrder = 27;
 
     private static readonly Color MapGlass = new Color32(14, 24, 42, 252); // hampir pejal: peta di belakang panel tidak membayang
     private static readonly Color MapGlassLight = new Color32(14, 24, 42, 214);
@@ -71,6 +75,7 @@ public static partial class GameHudBuilder {
         var route = NewRect("Route", overlay).gameObject.AddComponent<UiPolyline>();
         route.raycastTarget = false;
         Stretch(route.rectTransform);
+        VenueMapOverlay venueOverlay = BuildVenueOverlay(overlay, fonts); // di bawah ikon pemain
         RectTransform icons = Stretch(NewRect("Icons", overlay));
 
         var template = NewRect("Icon Template", icons).gameObject.AddComponent<Image>();
@@ -113,8 +118,8 @@ public static partial class GameHudBuilder {
         hintLayout.childControlWidth = hintLayout.childControlHeight = true;
         var hintFit = hintChip.gameObject.AddComponent<ContentSizeFitter>();
         hintFit.horizontalFit = hintFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        Text("Hint", hintRect, fonts.Medium, "Seret: geser     Cubit / scroll: zoom     Ketuk: pasang tujuan", 24f, MapHint,
-            TextAlignmentOptions.MidlineLeft);
+        TextMeshProUGUI gestureHint = Text("Hint", hintRect, fonts.Medium,
+            "Seret: geser     Cubit / scroll: zoom     Ketuk: pasang tujuan", 24f, MapHint, TextAlignmentOptions.MidlineLeft);
 
         var view = viewport.gameObject.AddComponent<GoVistaFullMap>();
         Bind(view, ("panelCanvas", panelCanvas), ("panelGroup", panelGroup), ("seaBackground", sea), ("mapImage", map),
@@ -127,13 +132,15 @@ public static partial class GameHudBuilder {
             ("legendContent", parts.LegendContent), ("legendRowTemplate", parts.RowTemplate),
             ("openButtonCanvas", openCanvas), ("openButton", openButton), ("closeButton", parts.Close),
             ("clearButton", parts.Clear), ("centerButton", center), ("zoomInButton", zoomIn), ("zoomOutButton", zoomOut),
-            ("shore", shore));
+            ("shore", shore), ("venueOverlay", venueOverlay), ("panelTitle", parts.PanelTitle),
+            ("sectionLabel", parts.Section), ("gestureHint", gestureHint), ("areaSprite", MapSprite("ui_circle.png")),
+            ("hereSprite", MapSprite("icon_locate.png")));
         panelCanvas.enabled = false;
     }
 
     private struct SidePanelParts {
         public Image IconBackground, Icon;
-        public TextMeshProUGUI Caption, Title, Hint;
+        public TextMeshProUGUI Caption, Title, Hint, PanelTitle, Section;
         public RectTransform LegendContent;
         public Button RowTemplate, Close, Clear;
     }
@@ -162,6 +169,11 @@ public static partial class GameHudBuilder {
         TopLeft(kicker.rectTransform, MapPanelPadding, 26f, 300f, 30f);
         TextMeshProUGUI title = Text("Title", side, fonts.Bold, "Peta Kota", 50f, Color.white, TextAlignmentOptions.TopLeft);
         TopLeft(title.rectTransform, MapPanelPadding, 56f, 360f, 64f);
+        title.overflowMode = TextOverflowModes.Ellipsis; // "KPOP Community" juga muat
+        title.enableAutoSizing = true;
+        title.fontSizeMin = 36f;
+        title.fontSizeMax = 50f;
+        parts.PanelTitle = title;
 
         Image closeBg = MapCircle("Close Button", side, MapSurface);
         RectTransform closeRect = closeBg.rectTransform;
@@ -220,6 +232,7 @@ public static partial class GameHudBuilder {
             TextAlignmentOptions.BottomLeft);
         section.characterSpacing = 8f;
         TopLeft(section.rectTransform, MapPanelPadding, listTop, inner, 30f);
+        parts.Section = section;
 
         RectTransform scrollRect = Stretch(NewRect("Places", side), MapPanelPadding, listTop + 44f, MapPanelPadding - 8f,
             MapPanelPadding - 8f);
@@ -269,22 +282,38 @@ public static partial class GameHudBuilder {
         return side;
     }
 
-    /// Area ketuk transparan di atas lingkaran radar (minimap kiri atas).
-    /// Punya Canvas sendiri karena grup minimap tidak menerima sentuhan.
+    /// Area ketuk transparan di atas lingkaran radar (minimap kiri atas), plus lencana panah "perbesar" di celah
+    /// bawah radar supaya pemain tahu radar bisa diketuk. Punya Canvas sendiri karena grup minimap tidak menerima
+    /// sentuhan; urutannya di atas UI HUD lain supaya lencana tidak tertimpa.
     private static Button BuildMapOpenButton(RectTransform safeArea, out Canvas canvas) {
         RectTransform rect = TopLeft(NewRect("Map Open Button", safeArea), HudLayout.MinimapLeft, HudLayout.MinimapTop,
             HudLayout.MinimapSize, HudLayout.MinimapSize);
         canvas = rect.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true;
-        canvas.sortingOrder = HudSortingOrder;
+        canvas.sortingOrder = MapOpenSortingOrder;
         rect.gameObject.AddComponent<GraphicRaycaster>();
 
         var hit = NewRect("Hit Area", rect).gameObject.AddComponent<Image>();
         hit.color = Transparent;
         Center(hit.rectTransform, 0f, 0f, RadarDiameter, RadarDiameter);
 
-        // Lencana "perbesar" di bawah radar dihapus (2026-11-18); radar tetap bisa diketuk untuk membuka peta.
-        return PlainButton(hit);
+        // Di celah bawah antara busur HP dan O2, sedikit turun supaya tidak menutupi ujung busur;
+        // tetap di atas tombol chat / mic (16 px di bawah minimap).
+        // Anak "Hit Area" dan menerima sentuhan, jadi ketuk lencana juga menekan tombol yang sama
+        // (event klik naik ke Button di Hit Area). Hit Area di tengah rect, jadi posisinya tetap sama.
+        Image badge = MapCircle("Expand Badge", hit.rectTransform, MapGlass);
+        badge.raycastTarget = true;
+        Center(badge.rectTransform, 0f, -HudLayout.MinimapSize * 0.5f + 10f, MapBadgeSize, MapBadgeSize);
+        Image ring = NewRect("Ring", badge.rectTransform).gameObject.AddComponent<Image>();
+        ring.sprite = MapSprite("ui_ring.png");
+        ring.color = new Color(1f, 1f, 1f, 0.85f);
+        ring.raycastTarget = false;
+        Stretch(ring.rectTransform);
+        MapIcon("Icon", badge.rectTransform, "icon_expand.png", Color.white, 20f);
+
+        Button button = PlainButton(hit);
+        hit.gameObject.AddComponent<UiPressScale>().Configure(badge.rectTransform, 0.85f);
+        return button;
     }
 
     // ------------------------------------------------------------ Pembantu peta penuh
@@ -358,6 +387,7 @@ public static partial class GameHudBuilder {
         if (AssetImporter.GetAtPath(path) is TextureImporter importer) {
             Vector4 border = file == "ui_shadow.png" ? new Vector4(52f, 52f, 52f, 52f)
                 : file.StartsWith("ui_rounded") ? new Vector4(28f, 28f, 28f, 28f)
+                : file.StartsWith("ui_dashed") ? new Vector4(8f, 8f, 8f, 8f)
                 : Vector4.zero;
             if (importer.textureType != TextureImporterType.Sprite || importer.spriteBorder != border ||
                 importer.mipmapEnabled) {

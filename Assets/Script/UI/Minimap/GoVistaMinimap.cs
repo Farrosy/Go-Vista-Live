@@ -10,8 +10,9 @@ using UnityEngine.SceneManagement;
 ///  - Pemain lain = kotak kecil berwarna per pemain, menempel di tepi kalau jauh.
 ///  - Tempat penting = MinimapBlip di WorldScene (lihat MinimapScanTool: "Pasang ikon tempat penting").
 ///  - Radar sedikit zoom out saat sprint (di GTA SA radar zoom out mengikuti kecepatan).
-///  - Tidak ada scan di scene aktif (venue Dance Club / Rooftop Bar) = peta disembunyikan dan
-///    placeholder HUD tampil, seperti radar di dalam interior GTA SA.
+///  - Venue KPOP Arena / KPOP Community punya scan sendiri (VenueMinimapBaker) + VenueMapData: jangkauan radar
+///    lebih kecil (ruangan ±43 m) dan label BALKON saat pemain di lantai atas (memory: venue-map-decisions).
+///  - Tidak ada scan di scene aktif (lobi) = peta disembunyikan dan placeholder HUD tampil.
 /// Dipasang oleh GameHudBuilder di "Minimap/Radar" pada GameHudCanvas.
 [DefaultExecutionOrder(-50)] // sebelum MinimapRenderer, supaya kameranya sudah ada saat Update pertama
 [RequireComponent(typeof(MinimapRenderer))]
@@ -39,6 +40,12 @@ public sealed class GoVistaMinimap : MonoBehaviour {
     [Tooltip("Kehalusan gerak dan putaran peta (Movements Smoothing di Easy Minimap System).")]
     [SerializeField] private float followSmoothing = 20f;
     [SerializeField] private MinimapCamera.CaptureResolutionSquare resolution = MinimapCamera.CaptureResolutionSquare.pixels512x512;
+
+    [Header("Venue (KPOP Arena / Community)")]
+    [Tooltip("Jangkauan radar di dalam venue. Saat sprint ikut diperbesar dengan rasio yang sama dengan pulau.")]
+    [SerializeField] private float venueWalkRadius = 12f;
+    [Tooltip("Label \"BALKON\" di bawah radar, tampil saat pemain di lantai atas venue.")]
+    [SerializeField] private GameObject levelBadge;
 
     [Header("Blip pemain")]
     [SerializeField] private Sprite localArrowSprite;
@@ -136,8 +143,12 @@ public sealed class GoVistaMinimap : MonoBehaviour {
         if (view != null) _rig.rotation = Quaternion.Euler(0f, view.transform.eulerAngles.y, 0f);
         SetShowing(_hasMap && player != null);
 
+        VenueMapData venue = VenueMapData.Current;
+        float walk = venue != null ? venueWalkRadius : walkRadius;
+        float run = venue != null ? VenueMapRules.SprintRadius(venueWalkRadius, walkRadius, sprintRadius) : sprintRadius;
         float sprint = player != null ? Mathf.InverseLerp(0.5f, 1f, player.Speed01) : 0f;
-        float targetRadius = Mathf.Lerp(walkRadius, sprintRadius, sprint);
+        float targetRadius = Mathf.Lerp(walk, run, sprint);
+        SetLevelBadge(_showing == true && venue != null && venue.IsUpper(player.transform.position));
         _radius = Mathf.Lerp(_radius, targetRadius, 1f - Mathf.Exp(-zoomSharpness * Time.deltaTime));
         _minimapCamera.fieldOfView = _radius;
         _minimapCamera.movementsSmoothing = followSmoothing;
@@ -146,6 +157,14 @@ public sealed class GoVistaMinimap : MonoBehaviour {
         IReadOnlyList<MinimapBlip> blips = MinimapBlip.All;
         for (int i = 0; i < blips.Count; i++)
             blips[i].Apply(metersPerPixel, _rig, followSmoothing, _renderer);
+    }
+
+    private void SetLevelBadge(bool show) {
+        if (levelBadge == null) return;
+        if (levelBadge.activeSelf != show) levelBadge.SetActive(show);
+        // MinimapRenderer menambah anak (Base Shape, Mask, Items) saat runtime; label harus di atas semuanya.
+        Transform badge = levelBadge.transform;
+        if (show && badge.GetSiblingIndex() != badge.parent.childCount - 1) badge.SetAsLastSibling();
     }
 
     private void SetShowing(bool show) {

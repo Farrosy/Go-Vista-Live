@@ -13,7 +13,9 @@ using UnityEngine.UI;
 ///  - Menampilkan semua blip radar (pemain, tempat penting, tujuan sendiri), tujuan quest, dan rute GPS.
 ///  - Laut: di luar hasil scan diisi warna laut yang sama, dan ombak animasi mengikuti garis pantai
 ///    (MinimapShoreData, di-bake dari hasil scan; lihat MinimapShoreBaker).
-/// Gambar peta = hasil scan Minimap Scanner di WorldScene (sama dengan radar), jadi tidak ada kamera tambahan.
+/// Gambar peta = hasil scan Minimap Scanner di scene aktif (sama dengan radar), jadi tidak ada kamera tambahan.
+/// Mode venue (KPOP Arena / Community, ada VenueMapData): tanpa tujuan / GPS; daftar berisi area di dalam ruangan,
+/// ketuk area = sorot + geser ke sana; kartu atas = "Kamu di"; label BALKON di lantai atas (VenueMapOverlay).
 /// Dibuka dengan mengetuk radar (ada lencana "perbesar" di bawah radar) atau tombol M;
 /// ditutup dengan tombol X, Esc / Back, atau M lagi.
 /// Komponen ini ada di "Viewport" peta (area yang menerima sentuhan). Dipasang oleh GameHudBuilder.FullMap.cs.
@@ -68,6 +70,22 @@ public sealed class GoVistaFullMap : MonoBehaviour,
     [SerializeField] private Button zoomOutButton;
     [SerializeField] private KeyCode toggleKey = KeyCode.M;
 
+    [Header("Venue (KPOP Arena / Community)")]
+    [SerializeField] private VenueMapOverlay venueOverlay;
+    [Tooltip("Judul panel (\"Peta Kota\"), diganti nama venue.")]
+    [SerializeField] private TextMeshProUGUI panelTitle;
+    [Tooltip("Judul daftar (\"TEMPAT PENTING\"), diganti \"AREA DI DALAM\".")]
+    [SerializeField] private TextMeshProUGUI sectionLabel;
+    [SerializeField] private TextMeshProUGUI gestureHint;
+    [Tooltip("Ikon baris area: lingkaran yang diwarnai warna area.")]
+    [SerializeField] private Sprite areaSprite;
+    [SerializeField] private Sprite hereSprite;
+    [SerializeField] private Color hereColor = new Color32(54, 196, 186, 255);
+    [Tooltip("Zoom maksimal di venue (ruangan kecil, jadi boleh jauh lebih dekat dari peta kota).")]
+    [SerializeField] private float venueMaxZoom = 40f;
+    [Tooltip("Zoom saat dibuka = zoom pas-layar x angka ini (scan 60 m, ruangan ±43 m).")]
+    [SerializeField] private float venueOpenZoomFactor = 1.3f;
+
     [Header("Laut dan ombak")]
     [Tooltip("Hasil bake garis pantai. Kosong = tanpa ombak, laut memakai warna latar bawaan.")]
     [SerializeField] private MinimapShoreData shore;
@@ -115,11 +133,17 @@ public sealed class GoVistaFullMap : MonoBehaviour,
     private readonly List<Vector2> _routeLocal = new List<Vector2>();
     private readonly List<LegendRow> _rows = new List<LegendRow>();
     private readonly Vector3[] _corners = new Vector3[4];
+    private VenueMapData _venue;
+    private Color _seaColor;
+    private string _cityTitle, _citySection, _cityHint;
+    private Func<Vector2, Vector2> _worldToLocal; // disimpan sekali: method group baru tiap frame = alokasi
 
     private struct LegendRow {
         public Button Button;
         public Image Background;
         public MinimapBlip Blip;
+        /// Indeks area venue (-1 = baris tempat penting pulau).
+        public int Area;
     }
 
     private static readonly Comparison<MinimapBlip> ByOrder = (a, b) => a.Item.orderInLayer.CompareTo(b.Item.orderInLayer);
@@ -127,6 +151,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
     private void Awake() {
         Current = this;
         _viewport = (RectTransform)transform;
+        _worldToLocal = WorldToLocal2;
         _sidePanelRest = sidePanel.anchoredPosition;
         _controlsRest = mapControls.anchoredPosition;
         panelCanvas.enabled = false;
@@ -140,6 +165,10 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         zoomOutButton.onClick.AddListener(() => ZoomAroundLocal(FocusLocal, 1f / buttonZoomStep));
 
         if (shore != null) seaBackground.color = shore.waterColor;
+        _seaColor = seaBackground.color;
+        _cityTitle = panelTitle != null ? panelTitle.text : "";
+        _citySection = sectionLabel != null ? sectionLabel.text : "";
+        _cityHint = gestureHint != null ? gestureHint.text : "";
         // Salinan material per peta, supaya mengatur parameter ombak tidak mengubah aset material.
         if (wavesImage.material != null && wavesImage.material != Canvas.GetDefaultCanvasMaterial())
             wavesImage.material = _wavesMaterial = new Material(wavesImage.material);
@@ -195,8 +224,14 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         Cursor.visible = true;
         RebuildLegend();
         _panTarget = null;
-        _zoom = Mathf.Clamp(openZoom, MinZoom, maxZoom);
-        _focus = PlayerPosition();
+        if (_venue != null) {
+            // Ruangan kecil: buka dengan seluruh ruangan terlihat, dipusatkan di tengah ruangan.
+            _zoom = Mathf.Clamp(MinZoom * venueOpenZoomFactor, MinZoom, MaxZoom);
+            _focus = _mapCorner + Vector2.one * (_mapSize * 0.5f);
+        } else {
+            _zoom = Mathf.Clamp(openZoom, MinZoom, MaxZoom);
+            _focus = PlayerPosition();
+        }
         ClampFocus();
     }
 
@@ -229,17 +264,38 @@ public sealed class GoVistaFullMap : MonoBehaviour,
     }
 
     private bool BindScan() {
-        MinimapScanner scanner = FindAnyObjectByType<MinimapScanner>();
+        // Di venue, scanner ada di objek yang sama dengan VenueMapData (gambar dan data pasti cocok).
+        VenueMapData venue = VenueMapData.Current;
+        MinimapScanner scanner = venue != null && venue.TryGetComponent(out MinimapScanner venueScanner)
+            ? venueScanner
+            : FindAnyObjectByType<MinimapScanner>();
         if (scanner == null || scanner.textureResultOfScan == null) return false;
         mapImage.texture = scanner.textureResultOfScan;
         Vector3 corner = scanner.transform.position;
         _mapCorner = new Vector2(corner.x, corner.z);
         _mapSize = ScanAreaMeters(scanner.scanArea);
+        BindVenue(venue);
         BindWaves(scanner.textureResultOfScan);
         return true;
     }
 
+    /// Pulau ↔ venue: warna latar, judul, petunjuk gestur, dan lapisan area.
+    private void BindVenue(VenueMapData venue) {
+        _venue = venue;
+        seaBackground.color = venue != null ? venue.BackgroundColor : _seaColor;
+        if (panelTitle != null) panelTitle.text = venue != null ? venue.DisplayName : _cityTitle;
+        if (sectionLabel != null) sectionLabel.text = venue != null ? "AREA DI DALAM" : _citySection;
+        if (gestureHint != null) gestureHint.text = venue != null ? "Seret: geser     Cubit / scroll: zoom" : _cityHint;
+        if (venueOverlay != null) venueOverlay.Bind(venue);
+    }
+
     private void BindWaves(Texture scan) {
+        if (_venue != null) {
+            // Di dalam ruangan tidak ada laut.
+            _wavesReady = false;
+            wavesImage.enabled = false;
+            return;
+        }
         _wavesReady = shore != null && shore.distanceField != null && _wavesMaterial != null;
         if (_wavesReady && shore.sourceScan != scan) {
             // Garis pantai dari scan lama tidak cocok lagi dengan gambar peta: lebih baik tanpa ombak.
@@ -265,39 +321,76 @@ public sealed class GoVistaFullMap : MonoBehaviour,
     // ------------------------------------------------------------ Daftar tempat penting
 
     private void RebuildLegend() {
+        if (_venue != null) {
+            RebuildVenueLegend();
+            return;
+        }
         var blips = new List<MinimapBlip>();
         foreach (MinimapBlip blip in MinimapBlip.All)
             if (blip != null && !string.IsNullOrEmpty(blip.MapLabel) && blip.Item.itemSprite != null) blips.Add(blip);
         blips.Sort((a, b) => string.Compare(a.MapLabel, b.MapLabel, StringComparison.OrdinalIgnoreCase));
 
-        while (_rows.Count < blips.Count) {
-            Button button = Instantiate(legendRowTemplate, legendContent);
-            int index = _rows.Count;
-            button.onClick.AddListener(() => SelectLandmark(index));
-            _rows.Add(new LegendRow { Button = button, Background = button.GetComponent<Image>() });
-        }
+        EnsureRows(blips.Count);
         for (int i = 0; i < _rows.Count; i++) {
             LegendRow row = _rows[i];
             bool used = i < blips.Count;
             row.Button.gameObject.SetActive(used);
             if (!used) continue;
             row.Blip = blips[i];
-            row.Button.name = "Row " + row.Blip.MapLabel;
-            row.Button.transform.Find("Icon").GetComponent<Image>().sprite = row.Blip.Item.itemSprite;
-            row.Button.transform.Find("Label").GetComponent<TextMeshProUGUI>().text = row.Blip.MapLabel;
+            row.Area = -1;
+            SetRow(row, "Row " + row.Blip.MapLabel, row.Blip.Item.itemSprite, Color.white, row.Blip.MapLabel);
             _rows[i] = row;
         }
     }
 
+    private void RebuildVenueLegend() {
+        IReadOnlyList<VenueMapData.Area> areas = _venue.Areas;
+        EnsureRows(areas.Count);
+        for (int i = 0; i < _rows.Count; i++) {
+            LegendRow row = _rows[i];
+            bool used = i < areas.Count;
+            row.Button.gameObject.SetActive(used);
+            if (!used) continue;
+            row.Blip = null;
+            row.Area = i;
+            SetRow(row, "Row " + areas[i].name, areaSprite, areas[i].color, areas[i].name);
+            _rows[i] = row;
+        }
+    }
+
+    private void EnsureRows(int count) {
+        while (_rows.Count < count) {
+            Button button = Instantiate(legendRowTemplate, legendContent);
+            int index = _rows.Count;
+            button.onClick.AddListener(() => SelectLandmark(index));
+            _rows.Add(new LegendRow { Button = button, Background = button.GetComponent<Image>(), Area = -1 });
+        }
+    }
+
+    private static void SetRow(LegendRow row, string name, Sprite icon, Color iconColor, string label) {
+        row.Button.name = name;
+        Image image = row.Button.transform.Find("Icon").GetComponent<Image>();
+        image.sprite = icon;
+        image.color = iconColor;
+        row.Button.transform.Find("Label").GetComponent<TextMeshProUGUI>().text = label;
+    }
+
     private void SelectLandmark(int index) {
-        if (!_open || index >= _rows.Count || _rows[index].Blip == null) return;
+        if (!_open || index >= _rows.Count) return;
+        if (_venue != null) {
+            int area = _rows[index].Area;
+            if (area < 0 || area >= _venue.Areas.Count || venueOverlay == null) return;
+            if (venueOverlay.ToggleSelect(area)) PanTo(_venue.Areas[area].center);
+            return;
+        }
+        if (_rows[index].Blip == null) return;
         Vector3 position = _rows[index].Blip.transform.position;
         GpsService.SetCustomWaypoint(position);
         PanTo(Flat(position));
     }
 
     private MinimapBlip SelectedLandmark() {
-        if (!GpsService.HasCustomWaypoint) return null;
+        if (_venue != null || !GpsService.HasCustomWaypoint) return null;
         Vector2 waypoint = Flat(GpsService.CustomWaypoint);
         foreach (LegendRow row in _rows)
             if (row.Blip != null && row.Button.gameObject.activeSelf &&
@@ -310,6 +403,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
 
     public void OnPointerClick(PointerEventData eventData) {
         if (!_open || eventData.dragging || _gestureHadPinch || eventData.button != PointerEventData.InputButton.Left) return;
+        if (_venue != null) return; // venue: tidak ada tujuan / GPS (ruangan kecil)
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_viewport, eventData.position,
                 eventData.pressEventCamera, out Vector2 local)) return;
 
@@ -361,7 +455,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
 
     private void ZoomAroundLocal(Vector2 local, float factor) {
         Vector2 world = LocalToWorld(local);
-        _zoom = Mathf.Clamp(_zoom * factor, MinZoom, maxZoom);
+        _zoom = Mathf.Clamp(_zoom * factor, MinZoom, MaxZoom);
         _focus = world - (local - FocusLocal) / _zoom;
         ClampFocus();
     }
@@ -391,7 +485,14 @@ public sealed class GoVistaFullMap : MonoBehaviour,
 
         DrawIcons();
         DrawRoute();
-        DrawDestination();
+        if (_venue != null) {
+            PlayerController player = PlayerController.Local;
+            if (venueOverlay != null)
+                venueOverlay.Draw(_worldToLocal, _zoom, player != null ? player.transform.position : (Vector3?)null);
+            DrawHere(player);
+        } else {
+            DrawDestination();
+        }
     }
 
     private void DrawIcons() {
@@ -422,7 +523,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
                 : Quaternion.Euler(0f, 0f, -blip.transform.eulerAngles.y);
         }
 
-        Transform quest = QuestWaypoint.Target;
+        Transform quest = _venue == null ? QuestWaypoint.Target : null;
         questIcon.gameObject.SetActive(quest != null);
         if (quest != null) {
             questIcon.anchoredPosition = WorldToLocal(quest.position);
@@ -432,7 +533,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
 
     private void DrawRoute() {
         GpsRoute route = GpsRoute.Active;
-        if (route == null || !route.IsShowing || route.Points.Count < 2) {
+        if (_venue != null || route == null || !route.IsShowing || route.Points.Count < 2) {
             routeLine.Clear();
             return;
         }
@@ -493,6 +594,28 @@ public sealed class GoVistaFullMap : MonoBehaviour,
             if (row.Blip != null) row.Background.color = row.Blip == landmark ? rowSelectedColor : rowColor;
     }
 
+    /// Kartu atas di venue: area tempat pemain berada (tanpa tujuan / rute).
+    private void DrawHere(PlayerController player) {
+        int here = player != null ? _venue.AreaIndexAt(player.transform.position) : -1;
+        bool upper = player != null && _venue.IsUpper(player.transform.position);
+        SetText(destinationCaption, upper ? "KAMU DI · BALKON" : "KAMU DI");
+        SetText(destinationTitle, here >= 0 ? _venue.Areas[here].name : "Lorong");
+        SetText(destinationHint, "Ketuk area di daftar untuk menyorotnya");
+        destinationCaption.color = hereColor;
+        destinationIconBackground.color = new Color(hereColor.r, hereColor.g, hereColor.b, 0.22f);
+        destinationIcon.color = hereColor;
+        destinationIcon.sprite = hereSprite != null ? hereSprite : pinSprite;
+        if (clearButton.gameObject.activeSelf) {
+            clearButton.gameObject.SetActive(false);
+            float clearSpace = ((RectTransform)clearButton.transform).sizeDelta.x + 12f;
+            RectTransform hintRect = destinationHint.rectTransform;
+            hintRect.sizeDelta = new Vector2(hintRect.sizeDelta.x + clearSpace, hintRect.sizeDelta.y);
+        }
+        int selected = venueOverlay != null ? venueOverlay.Selected : -1;
+        foreach (LegendRow row in _rows)
+            if (row.Area >= 0) row.Background.color = row.Area == selected ? rowSelectedColor : rowColor;
+    }
+
     private static void SetText(TextMeshProUGUI label, string text) {
         if (label.text != text) label.text = text;
     }
@@ -520,9 +643,11 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         get {
             float width = VisibleRight - _viewport.rect.xMin;
             float fit = Mathf.Min(width, _viewport.rect.height) / Mathf.Max(1f, _mapSize);
-            return Mathf.Min(fit, maxZoom);
+            return Mathf.Min(fit, MaxZoom);
         }
     }
+
+    private float MaxZoom => _venue != null ? venueMaxZoom : maxZoom;
 
     private float CanvasScale => panelCanvas.rootCanvas != null ? panelCanvas.rootCanvas.scaleFactor : 1f;
 

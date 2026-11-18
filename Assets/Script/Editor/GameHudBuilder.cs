@@ -231,7 +231,7 @@ public static partial class GameHudBuilder {
         mask.gameObject.AddComponent<Mask>().showMaskGraphic = false;
         Image mapPlaceholder = PlainImage("Map Content", mask.rectTransform, folder + "minimap_placeholder.png");
         Stretch(mapPlaceholder.rectTransform);
-        BuildRadar(group, mapPlaceholder.gameObject);
+        BuildRadar(group, mapPlaceholder.gameObject, fonts);
 
         RectTransform healthRect = Stretch(NewRect("Health Arc", group));
         Stretch(PlainImage("Frame", healthRect, folder + "minimap_hp_frame.png").rectTransform);
