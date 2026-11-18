@@ -299,7 +299,10 @@ public static partial class GameHudBuilder {
 
         // Di celah bawah antara busur HP dan O2, sedikit turun supaya tidak menutupi ujung busur;
         // tetap di atas tombol chat / mic (16 px di bawah minimap).
-        Image badge = MapCircle("Expand Badge", rect, MapGlass);
+        // Anak "Hit Area" dan menerima sentuhan, jadi ketuk lencana juga menekan tombol yang sama
+        // (event klik naik ke Button di Hit Area). Hit Area di tengah rect, jadi posisinya tetap sama.
+        Image badge = MapCircle("Expand Badge", hit.rectTransform, MapGlass);
+        badge.raycastTarget = true;
         Center(badge.rectTransform, 0f, -HudLayout.MinimapSize * 0.5f + 10f, MapBadgeSize, MapBadgeSize);
         Image ring = NewRect("Ring", badge.rectTransform).gameObject.AddComponent<Image>();
         ring.sprite = MapSprite("ui_ring.png");
