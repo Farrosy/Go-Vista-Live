@@ -718,6 +718,23 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 8548896590521847137, guid: f248c30e1a22d5444ad861d24bd90de4, type: 3}
   m_PrefabInstance: {fileID: 1810142199}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1014915149
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2641637513422447608, guid: f4f6cf9e9f264988795c3d96b679cee7, type: 3}
+      propertyPath: m_Name
+      value: GameHudCanvas
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: f4f6cf9e9f264988795c3d96b679cee7, type: 3}
 --- !u!1 &1066204854
 GameObject:
   m_ObjectHideFlags: 0
@@ -1022,23 +1039,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 7606531919527334328, guid: 1d506d68259f8ef46a8038bc7f893c84, type: 3}
   m_PrefabInstance: {fileID: 1340728033}
   m_PrefabAsset: {fileID: 0}
---- !u!1001 &1407075510
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 2641637513422447608, guid: f4f6cf9e9f264988795c3d96b679cee7, type: 3}
-      propertyPath: m_Name
-      value: GameHudCanvas
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: f4f6cf9e9f264988795c3d96b679cee7, type: 3}
 --- !u!1 &1456235800
 GameObject:
   m_ObjectHideFlags: 0
@@ -1554,5 +1554,5 @@ SceneRoots:
   - {fileID: 1977137822}
   - {fileID: 590405446}
   - {fileID: 1072991907}
-  - {fileID: 1407075510}
   - {fileID: 1238083305}
+  - {fileID: 1014915149}
