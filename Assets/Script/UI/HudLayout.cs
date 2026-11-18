@@ -1,11 +1,16 @@
 /// Posisi bersama HUD kiri atas (referensi 1920x1080, diukur dari kiri atas safe area), mengikuti storyboard:
-/// minimap di pojok, lalu tombol chat dan mic berdampingan di bawahnya. Dipakai GameHudBuilder (minimap),
-/// ChatPanelBuilder/ChatPanel (tombol chat), dan VoiceMicButton (tombol mic).
+/// minimap di pojok, koin GoVista di kanannya, lalu tombol chat dan mic berdampingan di bawah minimap.
+/// Dipakai GameHudBuilder (minimap, koin), ChatPanelBuilder/ChatPanel (tombol chat), dan VoiceMicButton (tombol mic).
 public static class HudLayout {
-    /// Sprite minimap 372 px (@2x mockup) x 1,417 / 2.
-    public const float MinimapSize = 264f;
+    /// Sprite minimap 372 px (@2x mockup); awalnya 264, diperbesar ke 300 (2026-11-18).
+    public const float MinimapSize = 300f;
     public const float MinimapLeft = 40f;
     public const float MinimapTop = 16f;
+
+    /// Koin GoVista di kanan minimap, atasnya rata dengan atas minimap.
+    private const float CoinGapFromMinimap = 20f;
+    public const float CoinLeft = MinimapLeft + MinimapSize + CoinGapFromMinimap;
+    public const float CoinTop = MinimapTop;
 
     private const float ButtonsGapBelowMinimap = 16f;
     private const float ButtonsGap = 20f;

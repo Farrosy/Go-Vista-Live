@@ -21,7 +21,6 @@ public static partial class GameHudBuilder {
     private const float MapCardHeight = 196f;
     private const float MapRowHeight = 80f;
     private const float MapControlSize = 84f;
-    private const float MapBadgeSize = 40f;
 
     private static readonly Color MapGlass = new Color32(14, 24, 42, 252); // hampir pejal: peta di belakang panel tidak membayang
     private static readonly Color MapGlassLight = new Color32(14, 24, 42, 214);
@@ -270,8 +269,8 @@ public static partial class GameHudBuilder {
         return side;
     }
 
-    /// Area ketuk transparan di atas lingkaran radar (minimap kiri atas), plus lencana "perbesar" di celah bawah
-    /// radar supaya pemain tahu radar bisa diketuk. Punya Canvas sendiri karena grup minimap tidak menerima sentuhan.
+    /// Area ketuk transparan di atas lingkaran radar (minimap kiri atas).
+    /// Punya Canvas sendiri karena grup minimap tidak menerima sentuhan.
     private static Button BuildMapOpenButton(RectTransform safeArea, out Canvas canvas) {
         RectTransform rect = TopLeft(NewRect("Map Open Button", safeArea), HudLayout.MinimapLeft, HudLayout.MinimapTop,
             HudLayout.MinimapSize, HudLayout.MinimapSize);
@@ -284,20 +283,8 @@ public static partial class GameHudBuilder {
         hit.color = Transparent;
         Center(hit.rectTransform, 0f, 0f, RadarDiameter, RadarDiameter);
 
-        // Di celah bawah antara busur HP dan O2, sedikit turun supaya tidak menutupi ujung busur;
-        // tetap di atas tombol chat / mic (16 px di bawah minimap).
-        Image badge = MapCircle("Expand Badge", rect, MapGlass);
-        Center(badge.rectTransform, 0f, -HudLayout.MinimapSize * 0.5f + 10f, MapBadgeSize, MapBadgeSize);
-        Image ring = NewRect("Ring", badge.rectTransform).gameObject.AddComponent<Image>();
-        ring.sprite = MapSprite("ui_ring.png");
-        ring.color = new Color(1f, 1f, 1f, 0.85f);
-        ring.raycastTarget = false;
-        Stretch(ring.rectTransform);
-        MapIcon("Icon", badge.rectTransform, "icon_expand.png", Color.white, 20f);
-
-        Button button = PlainButton(hit);
-        hit.gameObject.AddComponent<UiPressScale>().Configure(badge.rectTransform, 0.85f);
-        return button;
+        // Lencana "perbesar" di bawah radar dihapus (2026-11-18); radar tetap bisa diketuk untuk membuka peta.
+        return PlainButton(hit);
     }
 
     // ------------------------------------------------------------ Pembantu peta penuh
