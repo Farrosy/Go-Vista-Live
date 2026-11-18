@@ -28,7 +28,7 @@ Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 - Slider `IrisSize` dan `EyeLidHeight` maksimal 50. `Stern` hanya untuk template cowok.
 - Slider badan yang ikut muncul di kepala (BodyType, Weight, Muscle, NeckThickness) disembunyikan.
 - Pakaian dalam bawah wajib dipakai. Pakaian dalam atas wajib untuk cewek, boleh kosong untuk cowok.
-- Semua outfit universal; batasan Anime/Stylized bawaan BoZo (`requiredTags`) tetap berlaku.
+- Semua outfit universal; batasan Anime/Basic bawaan BoZo (`requiredTags`) mengikuti **kepala yang dipakai** (FaceStyleRules): item wajah yang tidak cocok tampil abu-abu + toast, dan ganti kepala Anime ↔ Basic ikut mengganti mata/pupil.
 - Bagian warna tanpa nama di data BoZo ditampilkan sebagai "Warna N".
 - Data dari luar (Cloud Save, nanti jaringan) **selalu** lewat `CustomCharacterValidator`.
 
@@ -39,7 +39,7 @@ Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 | 0 / 0b | Scene ukur bake runtime + optimasi (pemanasan, antrean, tekstur 512/1024, buang outfit) | Selesai |
 | 1a | Data, aturan, validator, Cloud Save, jembatan BoZo | Selesai |
 | 1b | Layar Pilih Karakter + preview live | Selesai |
-| 1c | Editor outfit + semua bagian warna (HSV picker, URUNGKAN, ACAK, SIMPAN, Samakan dengan, dialog Buang perubahan) | Selesai |
+| 1c | Editor outfit + semua bagian warna (HSV picker, URUNGKAN, SIMPAN, Samakan dengan, dialog Buang perubahan) | Selesai |
 | 1d | Wajah, kulit, stiker + motif (pattern), kamera Wajah, thumbnail slot | Selesai |
 | 3 | Sinkronisasi ke room: bake avatar sendiri + pemain lain (opsi A) | Dikerjakan (`feat/customizer-3`) |
 
@@ -47,7 +47,7 @@ Editor 1c: `CustomizerEditor` (pengendali) + `CustomizerEditorView` (tata letak)
 ada di Core dan dites EditMode: `CustomizationSession` (record kerja, URUNGKAN maks 50 langkah, status "Belum
 disimpan"), `RecordEdits` (ganti/lepas outfit, warna per bagian; selalu record baru), `EditorCategories` (rail +
 sub-tab → tipe outfit BoZo). Ganti baju = instance outfit BoZo di bawah avatar (BoZo mengganti slot sendiri);
-ganti warna = `Outfit.SetColor` (tanpa merge); URUNGKAN/ACAK = avatar dirakit ulang dari record.
+ganti warna = `Outfit.SetColor` (tanpa merge); URUNGKAN = avatar dirakit ulang dari record.
 
 Editor 1d: `CustomizerFaceShapes` (Wajah · Bentuk: slider dari blendshape kepala lewat `FaceShapeCatalog`; IrisSize,
 EyeLidHeight, Stern selalu tampil, nonaktif kalau kepala tidak punya), `CustomizerStickers` (maks 5 stiker, posisi
@@ -57,7 +57,7 @@ otomatis memakai kamera Wajah (`CharacterPreviewStage.SetFaceFocus`). Update ava
 `LiveAvatarEdits`. Kartu "Karakter kamu" memakai foto karakter (`SlotThumbnails`, PNG lokal per isi record, tidak
 ikut Cloud Save), dibuat saat SIMPAN atau saat slot pertama kali dipreview di perangkat ini.
 
-Ganti atau lepas baju (manual maupun ACAK) membuang stiker yang menempel di baju itu, termasuk stiker bawaan template
+Ganti atau lepas baju membuang stiker yang menempel di baju itu, termasuk stiker bawaan template
 dan stiker di kulit yang akan pindah ke baju baru (`CharacterRecordConverter.WithOutfitClearingDecals`). Ganti
 kepala/badan tidak membuang stiker. Di editor karakter tidak berputar sendiri (`CharacterPreviewStage.AutoRotate`),
 hanya kalau digeser; layar pilih karakter dan profil tetap berputar otomatis.

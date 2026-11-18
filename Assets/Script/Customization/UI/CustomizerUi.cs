@@ -161,9 +161,33 @@ public static class CustomizerUi {
                                                      FriendsTheme.BodySize, 56f, FriendsTheme.Teal);
         pill.anchorMin = pill.anchorMax = pill.pivot = new Vector2(0.5f, 0f);
         pill.anchoredPosition = new Vector2(0f, 60f);
-        pill.sizeDelta = new Vector2(620f, 56f);
+        pill.sizeDelta = new Vector2(ToastMinWidth, ToastHeight);
         pill.gameObject.SetActive(false);
-        return pill.GetComponentInChildren<TextMeshProUGUI>(true);
+        TextMeshProUGUI label = pill.GetComponentInChildren<TextMeshProUGUI>(true);
+        ChatUiKit.Stretch(label.rectTransform, ToastPadX, ToastPadY, ToastPadX, ToastPadY);
+        return label;
+    }
+
+    private const float ToastMinWidth = 620f;
+    private const float ToastMaxWidth = 960f;
+    private const float ToastHeight = 56f;
+    private const float ToastPadX = 32f;
+    private const float ToastPadY = 12f;
+
+    /// <summary>
+    /// Isi toast dan ubah ukuran pill-nya: lebar ikut teks (dengan padding, tidak mepet tepi); teks yang lebih
+    /// panjang dari lebar maksimal turun ke baris berikutnya dan pill ikut meninggi.
+    /// </summary>
+    public static void SetToastText(TextMeshProUGUI toast, string message) {
+        toast.text = message;
+        float innerMax = ToastMaxWidth - ToastPadX * 2f;
+        Vector2 single = toast.GetPreferredValues(message, Mathf.Infinity, Mathf.Infinity);
+        bool wraps = single.x > innerMax;
+        toast.textWrappingMode = wraps ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+        float width = wraps ? ToastMaxWidth : Mathf.Max(ToastMinWidth, single.x + ToastPadX * 2f);
+        float textHeight = wraps ? toast.GetPreferredValues(message, innerMax, Mathf.Infinity).y : single.y;
+        float height = Mathf.Max(ToastHeight, textHeight + ToastPadY * 2f);
+        ((RectTransform)toast.transform.parent).sizeDelta = new Vector2(width, height);
     }
 
     public static ConfirmDialog CreateConfirmDialog(RectTransform root, ChatUiAssets a, string title, string body,

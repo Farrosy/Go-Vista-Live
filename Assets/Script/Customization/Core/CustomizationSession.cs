@@ -35,7 +35,7 @@ public sealed class CustomizationSession {
         Push(next);
     }
 
-    /// <summary>Ganti seluruh record (mis. ACAK), tetap satu langkah urungkan.</summary>
+    /// <summary>Ganti seluruh record sekaligus, tetap satu langkah urungkan.</summary>
     public void Replace(CustomCharacterRecord record) {
         if (record == null) return;
         Push(record.Clone());

@@ -15,7 +15,6 @@ public sealed class CustomizerEditorRefs {
     public GameObject Root;
     public Button BackButton;
     public Button UndoButton;
-    public Button RandomButton;
     public Button SaveButton;
     public TextMeshProUGUI NameText;
     public GameObject DirtyPill;
@@ -63,7 +62,7 @@ public sealed class CustomizerEditorRefs {
 
 /// <summary>
 /// Layar editor karakter (mockup v2 layar 2), layar penuh di scene KARAKTER: bar atas (KEMBALI, judul,
-/// URUNGKAN · ACAK · SIMPAN), rail kategori kiri, karakter 3D di tengah, panel kanan (sub-tab, grid
+/// URUNGKAN · SIMPAN), rail kategori kiri, karakter 3D di tengah, panel kanan (sub-tab, grid
 /// item, semua bagian warna + HSV picker). Isi dinamis (chip, item, bagian warna) dibuat controller
 /// lewat fungsi Create* di bawah.
 /// </summary>
@@ -147,12 +146,9 @@ public static class CustomizerEditorView {
         refs.SaveButton = FriendsUiKit.CreateSolidButton("Save Button", parent, a, "SIMPAN", FriendsTheme.GreenTop,
                                                          FriendsTheme.GreenBottom, FriendsTheme.GreenLip, a.checkIcon, 24);
         ChatUiKit.PlaceTopRight((RectTransform)refs.SaveButton.transform, Edge, TopBarY, 210f, TopBarHeight);
-        refs.RandomButton = FriendsUiKit.CreateOutlineButton("Random Button", parent, a, "ACAK", Color.white,
-                                                             FriendsTheme.NeutralFill, ProfileMenuBuilder.LoadIcon("icon-dice"), 24);
-        ChatUiKit.PlaceTopRight((RectTransform)refs.RandomButton.transform, Edge + 224f, TopBarY, 180f, TopBarHeight);
         refs.UndoButton = FriendsUiKit.CreateOutlineButton("Undo Button", parent, a, "URUNGKAN", Color.white,
                                                            FriendsTheme.NeutralFill, ProfileMenuBuilder.LoadIcon("icon-undo"), 24);
-        ChatUiKit.PlaceTopRight((RectTransform)refs.UndoButton.transform, Edge + 418f, TopBarY, 250f, TopBarHeight);
+        ChatUiKit.PlaceTopRight((RectTransform)refs.UndoButton.transform, Edge + 224f, TopBarY, 250f, TopBarHeight);
     }
 
     // ---------------------------------------------------------------- Rail kategori
@@ -593,6 +589,17 @@ public static class CustomizerEditorView {
         Button button = rect.gameObject.AddComponent<Button>();
         button.targetGraphic = bg;
         return button;
+    }
+
+    private const float DimmedItemAlpha = 0.35f;
+
+    /// <summary>
+    /// Item yang tidak bisa dipakai (mis. mata anime di kepala Basic): tampil abu-abu tapi tetap bisa diketuk,
+    /// supaya editor bisa menjelaskan alasannya lewat toast.
+    /// </summary>
+    public static void DimItem(Button item) {
+        if (!item.TryGetComponent(out CanvasGroup group)) group = item.gameObject.AddComponent<CanvasGroup>();
+        group.alpha = DimmedItemAlpha;
     }
 
     /// <summary>Satu baris bagian warna: bulatan warna + nama bagian ("Base", "Warna 2", ...).</summary>
