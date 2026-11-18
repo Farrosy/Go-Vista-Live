@@ -72,6 +72,7 @@ public sealed class LoginUIController : MonoBehaviour {
         usernameInput.text = AuthService.LastUsername;
         SetMode(false);
         if (_alreadySignedIn) {
+            AccountSession.Remember(AuthService.PlayerId);
             AccountChanged?.Invoke();
             onSignedIn.Invoke();
             return;
@@ -145,6 +146,16 @@ public sealed class LoginUIController : MonoBehaviour {
 
     /// <summary>Setelah akun masuk: load progres dulu, baru buka lobby.</summary>
     private async Task FinishSignInAsync() {
+        // Akun lain sudah pernah masuk di proses ini: jangan buka lobby dengan sisa data akun lama, minta restart.
+        // Sesi akun baru sudah tersimpan, jadi setelah restart langsung masuk otomatis.
+        if (AccountSession.IsDifferentAccount(AuthService.PlayerId)) {
+            SetBusy(true);
+            SetStatus("", InfoColor);
+            AccountRestartPrompt.Show(AuthService.DisplayName);
+            return;
+        }
+        AccountSession.Remember(AuthService.PlayerId);
+
         SetBusy(true);
         SetStatus("Memuat progres...", InfoColor);
         ServiceResult load = await ProgressService.LoadAsync();
