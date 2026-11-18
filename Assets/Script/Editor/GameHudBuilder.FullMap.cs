@@ -22,6 +22,9 @@ public static partial class GameHudBuilder {
     private const float MapRowHeight = 80f;
     private const float MapControlSize = 84f;
     private const float MapBadgeSize = 40f;
+    // Tombol peta (radar + lencana panah) di depan semua UI HUD lain: HUD/koin (25) dan tombol mic (26).
+    // Tetap di bawah panel modal: pause (51), chat (52), peta penuh / quest (53), layar mati (55).
+    private const int MapOpenSortingOrder = 27;
 
     private static readonly Color MapGlass = new Color32(14, 24, 42, 252); // hampir pejal: peta di belakang panel tidak membayang
     private static readonly Color MapGlassLight = new Color32(14, 24, 42, 214);
@@ -279,14 +282,15 @@ public static partial class GameHudBuilder {
         return side;
     }
 
-    /// Area ketuk transparan di atas lingkaran radar (minimap kiri atas), plus lencana "perbesar" di celah bawah
-    /// radar supaya pemain tahu radar bisa diketuk. Punya Canvas sendiri karena grup minimap tidak menerima sentuhan.
+    /// Area ketuk transparan di atas lingkaran radar (minimap kiri atas), plus lencana panah "perbesar" di celah
+    /// bawah radar supaya pemain tahu radar bisa diketuk. Punya Canvas sendiri karena grup minimap tidak menerima
+    /// sentuhan; urutannya di atas UI HUD lain supaya lencana tidak tertimpa.
     private static Button BuildMapOpenButton(RectTransform safeArea, out Canvas canvas) {
         RectTransform rect = TopLeft(NewRect("Map Open Button", safeArea), HudLayout.MinimapLeft, HudLayout.MinimapTop,
             HudLayout.MinimapSize, HudLayout.MinimapSize);
         canvas = rect.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true;
-        canvas.sortingOrder = HudSortingOrder;
+        canvas.sortingOrder = MapOpenSortingOrder;
         rect.gameObject.AddComponent<GraphicRaycaster>();
 
         var hit = NewRect("Hit Area", rect).gameObject.AddComponent<Image>();

@@ -285,10 +285,8 @@ public static partial class GameHudBuilder {
 
     private static Canvas BuildCoin(RectTransform parent, Fonts fonts) {
         const float pillWidth = 240f;
-        RectTransform group = NewRect("Coin", parent);
-        group.anchorMin = group.anchorMax = group.pivot = new Vector2(1f, 1f);
-        group.anchoredPosition = new Vector2(-193f, -34f);
-        group.sizeDelta = new Vector2(pillWidth + 37f, 130f);
+        RectTransform group = TopLeft(NewRect("Coin", parent), HudLayout.CoinLeft, HudLayout.CoinTop,
+            pillWidth + 37f, 130f);
         var canvas = group.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true;
         canvas.sortingOrder = HudSortingOrder;
