@@ -72,6 +72,7 @@ public static partial class GameHudBuilder {
         var route = NewRect("Route", overlay).gameObject.AddComponent<UiPolyline>();
         route.raycastTarget = false;
         Stretch(route.rectTransform);
+        VenueMapOverlay venueOverlay = BuildVenueOverlay(overlay, fonts); // di bawah ikon pemain
         RectTransform icons = Stretch(NewRect("Icons", overlay));
 
         var template = NewRect("Icon Template", icons).gameObject.AddComponent<Image>();
@@ -114,8 +115,8 @@ public static partial class GameHudBuilder {
         hintLayout.childControlWidth = hintLayout.childControlHeight = true;
         var hintFit = hintChip.gameObject.AddComponent<ContentSizeFitter>();
         hintFit.horizontalFit = hintFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        Text("Hint", hintRect, fonts.Medium, "Seret: geser     Cubit / scroll: zoom     Ketuk: pasang tujuan", 24f, MapHint,
-            TextAlignmentOptions.MidlineLeft);
+        TextMeshProUGUI gestureHint = Text("Hint", hintRect, fonts.Medium,
+            "Seret: geser     Cubit / scroll: zoom     Ketuk: pasang tujuan", 24f, MapHint, TextAlignmentOptions.MidlineLeft);
 
         var view = viewport.gameObject.AddComponent<GoVistaFullMap>();
         Bind(view, ("panelCanvas", panelCanvas), ("panelGroup", panelGroup), ("seaBackground", sea), ("mapImage", map),
@@ -128,13 +129,15 @@ public static partial class GameHudBuilder {
             ("legendContent", parts.LegendContent), ("legendRowTemplate", parts.RowTemplate),
             ("openButtonCanvas", openCanvas), ("openButton", openButton), ("closeButton", parts.Close),
             ("clearButton", parts.Clear), ("centerButton", center), ("zoomInButton", zoomIn), ("zoomOutButton", zoomOut),
-            ("shore", shore));
+            ("shore", shore), ("venueOverlay", venueOverlay), ("panelTitle", parts.PanelTitle),
+            ("sectionLabel", parts.Section), ("gestureHint", gestureHint), ("areaSprite", MapSprite("ui_circle.png")),
+            ("hereSprite", MapSprite("icon_locate.png")));
         panelCanvas.enabled = false;
     }
 
     private struct SidePanelParts {
         public Image IconBackground, Icon;
-        public TextMeshProUGUI Caption, Title, Hint;
+        public TextMeshProUGUI Caption, Title, Hint, PanelTitle, Section;
         public RectTransform LegendContent;
         public Button RowTemplate, Close, Clear;
     }
@@ -163,6 +166,11 @@ public static partial class GameHudBuilder {
         TopLeft(kicker.rectTransform, MapPanelPadding, 26f, 300f, 30f);
         TextMeshProUGUI title = Text("Title", side, fonts.Bold, "Peta Kota", 50f, Color.white, TextAlignmentOptions.TopLeft);
         TopLeft(title.rectTransform, MapPanelPadding, 56f, 360f, 64f);
+        title.overflowMode = TextOverflowModes.Ellipsis; // "KPOP Community" juga muat
+        title.enableAutoSizing = true;
+        title.fontSizeMin = 36f;
+        title.fontSizeMax = 50f;
+        parts.PanelTitle = title;
 
         Image closeBg = MapCircle("Close Button", side, MapSurface);
         RectTransform closeRect = closeBg.rectTransform;
@@ -221,6 +229,7 @@ public static partial class GameHudBuilder {
             TextAlignmentOptions.BottomLeft);
         section.characterSpacing = 8f;
         TopLeft(section.rectTransform, MapPanelPadding, listTop, inner, 30f);
+        parts.Section = section;
 
         RectTransform scrollRect = Stretch(NewRect("Places", side), MapPanelPadding, listTop + 44f, MapPanelPadding - 8f,
             MapPanelPadding - 8f);
@@ -371,6 +380,7 @@ public static partial class GameHudBuilder {
         if (AssetImporter.GetAtPath(path) is TextureImporter importer) {
             Vector4 border = file == "ui_shadow.png" ? new Vector4(52f, 52f, 52f, 52f)
                 : file.StartsWith("ui_rounded") ? new Vector4(28f, 28f, 28f, 28f)
+                : file.StartsWith("ui_dashed") ? new Vector4(8f, 8f, 8f, 8f)
                 : Vector4.zero;
             if (importer.textureType != TextureImporterType.Sprite || importer.spriteBorder != border ||
                 importer.mipmapEnabled) {

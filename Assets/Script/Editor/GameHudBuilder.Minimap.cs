@@ -11,7 +11,7 @@ public static partial class GameHudBuilder {
     // Lingkaran di minimap_mask.png: diameter 282 px pada gambar 372 px.
     private const float RadarDiameter = HudLayout.MinimapSize * 282f / 372f;
 
-    private static void BuildRadar(RectTransform minimap, GameObject placeholder) {
+    private static void BuildRadar(RectTransform minimap, GameObject placeholder, Fonts fonts) {
         RectTransform rect = Center(NewRect("Radar", minimap), 0f, 0f, RadarDiameter, RadarDiameter);
         rect.SetSiblingIndex(placeholder.transform.parent.GetSiblingIndex() + 1);
         var group = rect.gameObject.AddComponent<CanvasGroup>();
@@ -35,6 +35,7 @@ public static partial class GameHudBuilder {
             ("localArrowSprite", LoadSpriteAt(RadarArtRoot + "radar_player_arrow.png", ensureSpriteImport: true)),
             ("remotePlayerSprite", LoadSpriteAt(RadarArtRoot + "radar_blip_square.png", ensureSpriteImport: true)));
         SetFloat(radar, "edgeRadiusPixels", RadarDiameter * 0.5f);
+        Bind(radar, ("levelBadge", BuildRadarLevelBadge(rect, fonts)));
     }
 
     private static Sprite LoadSpriteAt(string path, bool ensureSpriteImport = false) {
