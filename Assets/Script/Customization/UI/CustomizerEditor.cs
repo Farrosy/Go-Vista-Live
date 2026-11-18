@@ -11,7 +11,7 @@ using UnityEngine.UI;
 ///  - ganti baju  → instance outfit BoZo di bawah avatar (BoZo mengganti slot + merge), lalu warna record;
 ///  - ganti warna → Outfit.SetColor (tanpa merge); kulit ikut tersalin ke kepala lewat LinkedColorSets;
 ///  - motif, stiker, wajah → update tekstur/blendshape BoZo;
-///  - URUNGKAN / ACAK → avatar dirakit ulang dari record.
+///  - URUNGKAN → avatar dirakit ulang dari record.
 /// Wajah · Bentuk ada di CustomizerFaceShapes, Stiker di CustomizerStickers.
 /// </summary>
 public sealed class CustomizerEditor : MonoBehaviour {
@@ -20,6 +20,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private const int DefaultCategory = 3; // Atasan, seperti mockup layar 2
     private const int ThumbnailWidth = 240;
     private const int ThumbnailHeight = 360;
+    private const string HeadType = "Head";
 
     private static readonly Dictionary<string, string> TypeLabels = new Dictionary<string, string> {
         { "Eyes", "Mata" }, { "Pupil", "Pupil" }, { "EyeShine", "Kilau Mata" },
@@ -34,6 +35,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private CharacterTemplate _template;
     /// Record template asli (cache per sesi editor) untuk warna alis/bulu mata.
     private CustomCharacterRecord _templateRecord;
+    /// Alis/bulu mata terakhir di kepala anime (sesi editor ini), dipasang lagi saat kembali dari kepala Basic.
+    private IReadOnlyDictionary<string, OutfitRecord> _animeFaceMemory;
     private CustomizerFaceShapes _faces;
     private CustomizerStickers _stickers;
     private Action _closed;
@@ -80,7 +83,6 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _stickers = new CustomizerStickers(this, ui.Stickers, ui.ColorPopup, assets);
         _ui.BackButton.onClick.AddListener(Back);
         _ui.UndoButton.onClick.AddListener(Undo);
-        _ui.RandomButton.onClick.AddListener(Randomize);
         _ui.SaveButton.onClick.AddListener(Save);
         _ui.KeepColorsButton.onClick.AddListener(() => {
             _keepColors = !_keepColors;
@@ -113,6 +115,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
         }
         _session = new CustomizationSession(record, slot);
         _templateRecord = null;
+        _animeFaceMemory = null;
         _closed = closed;
         _ui.Root.SetActive(true);
         _ui.Discard.Overlay.SetActive(false);
@@ -169,12 +172,6 @@ public sealed class CustomizerEditor : MonoBehaviour {
 
     private void Undo() {
         if (!_session.Undo()) return;
-        RebuildLive();
-        RefreshPanel();
-    }
-
-    private void Randomize() {
-        _session.Replace(CustomizerRandomizer.Randomize(_session.Current, _template));
         RebuildLive();
         RefreshPanel();
     }
@@ -263,7 +260,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _ui.GridScroll.verticalNormalizedPosition = 1f;
     }
 
-    /// Panel aktif mengikuti record saat ini (setelah URUNGKAN / ACAK).
+    /// Panel aktif mengikuti record saat ini (setelah URUNGKAN).
     private void RefreshPanel() {
         switch (CurrentSubTab.Panel) {
             case EditorPanelKind.FaceShapes: _faces.Refresh(); break;
@@ -290,29 +287,53 @@ public sealed class CustomizerEditor : MonoBehaviour {
             return;
         }
         IReadOnlyList<string> types = CurrentSubTab.OutfitTypes;
+        bool animeHead = OutfitCatalog.IsAnimeHead(_session.Current);
         foreach (string type in types) {
-            IReadOnlyList<Outfit> outfits = OutfitCatalog.ForType(type, _template.IsAnime);
+            IReadOnlyList<Outfit> outfits = OutfitCatalog.ForType(type);
             bool canBeEmpty = CustomizationRules.CanBeEmpty(type, _template.IsMale);
             if (outfits.Count == 0 && types.Count > 1) continue;
             string title = types.Count > 1 && TypeLabels.TryGetValue(type, out string label) ? label : null;
             RectTransform grid = CustomizerEditorView.CreateItemSection(_ui.GridContent, _a, title);
-            if (canBeEmpty) AddEmptyItem(grid, type);
-            foreach (Outfit outfit in outfits) AddOutfitItem(grid, type, outfit);
+            if (canBeEmpty) AddEmptyItem(grid, type, SectionBlockedMessage(type, title, outfits, animeHead));
+            foreach (Outfit outfit in outfits) AddOutfitItem(grid, type, outfit, animeHead);
         }
         RefreshItemSelection();
     }
 
-    private void AddEmptyItem(RectTransform grid, string type) {
+    /// Bagian yang semua itemnya tidak cocok dengan kepala (mis. Kilau Mata di kepala Basic): "Kosong" ikut
+    /// disabled + toast, karena tidak ada pilihan lain. null = bagian ini bisa dipakai.
+    private static string SectionBlockedMessage(string type, string title, IReadOnlyList<Outfit> outfits, bool animeHead) {
+        if (outfits.Count == 0) return null;
+        foreach (Outfit outfit in outfits) {
+            if (FaceStyleRules.Fits(OutfitCatalog.RequiredStyle(type, outfit), animeHead)) return null;
+        }
+        return FaceStyleRules.IncompatibleMessage(title ?? type, OutfitCatalog.RequiredStyle(type, outfits[0]));
+    }
+
+    private void AddEmptyItem(RectTransform grid, string type, string blockedMessage) {
         Button empty = CustomizerEditorView.CreateItem(grid, _a, ProfileMenuBuilder.LoadIcon("icon-none"), "Kosong",
                                                        out GameObject selected);
-        empty.onClick.AddListener(() => RemoveOutfit(type));
+        if (blockedMessage != null) {
+            CustomizerEditorView.DimItem(empty);
+            empty.onClick.AddListener(() => ShowToast(blockedMessage));
+        } else {
+            empty.onClick.AddListener(() => RemoveOutfit(type));
+        }
         _items.Add((type, "", selected));
     }
 
-    private void AddOutfitItem(RectTransform grid, string type, Outfit outfit) {
+    /// Item yang tidak cocok dengan kepala tetap tampil (abu-abu); diketuk = toast alasannya, bukan dipakai.
+    private void AddOutfitItem(RectTransform grid, string type, Outfit outfit, bool animeHead) {
         string label = string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName;
         Button item = CustomizerEditorView.CreateItem(grid, _a, outfit.OutfitIcon, label, out GameObject selected);
-        item.onClick.AddListener(() => WearOutfit(type, outfit));
+        FaceStyle required = OutfitCatalog.RequiredStyle(type, outfit);
+        if (FaceStyleRules.Fits(required, animeHead)) {
+            item.onClick.AddListener(() => WearOutfit(type, outfit));
+        } else {
+            CustomizerEditorView.DimItem(item);
+            string message = FaceStyleRules.IncompatibleMessage(label, required);
+            item.onClick.AddListener(() => ShowToast(message));
+        }
         _items.Add((type, OutfitCatalog.PathOf(type, outfit), selected));
     }
 
@@ -381,11 +402,33 @@ public sealed class CustomizerEditor : MonoBehaviour {
         }
         if (CustomizationRules.UsesTemplateColors(type)) CopyTemplateColors(type, next);
         CopyLinkedColors(outfit, next);
-        _session.Apply(r => CharacterRecordConverter.WithOutfitClearingDecals(r, next));
-        StartCoroutine(AttachLive(outfit, next));
+        bool wasAnime = OutfitCatalog.IsAnimeHead(_session.Current);
+        bool styleChanged = type == HeadType && OutfitCatalog.IsAnimeHead(next.path) != wasAnime;
+        if (styleChanged) {
+            WearHeadOfOtherStyle(next, !wasAnime);
+        } else {
+            _session.Apply(r => CharacterRecordConverter.WithOutfitClearingDecals(r, next));
+            StartCoroutine(AttachLive(outfit, next));
+        }
         _channel = 0;
         _patternMode = false;
         RefreshPanel();
+    }
+
+    /// Ganti kepala Anime ↔ Basic dalam satu langkah URUNGKAN: mata + pupil ikut gaya baru (tidak melotot/juling),
+    /// bagian wajah yang tidak cocok dilepas, alis/bulu mata anime terakhir dipasang lagi saat kembali ke anime.
+    private void WearHeadOfOtherStyle(OutfitRecord head, bool animeHead) {
+        IReadOnlyDictionary<string, OutfitRecord> restore = null;
+        if (animeHead) {
+            _templateRecord ??= CharacterRecordConverter.FromTemplate(_template);
+            restore = _animeFaceMemory ?? FaceStyleRules.RememberRestorable(_templateRecord);
+        } else {
+            _animeFaceMemory = FaceStyleRules.RememberRestorable(_session.Current);
+        }
+        _session.Apply(r => FaceStyleRules.ForHeadStyle(CharacterRecordConverter.WithOutfitClearingDecals(r, head), animeHead,
+                                                        path => OutfitCatalog.Fits(path, animeHead),
+                                                        OutfitCatalog.DefaultRecord, restore));
+        RebuildLive(); // banyak bagian wajah berubah sekaligus
     }
 
     /// Alis/bulu mata baru memakai warna dari template (mis. alis cokelat template), bukan item sebelumnya.
@@ -551,7 +594,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     /// "Motif hanya untuk: Casual Jacket, Dress Shirt" (baju bertipe sama yang mendukung motif BoZo).
     private string PatternHint() {
         var names = new List<string>();
-        foreach (Outfit outfit in OutfitCatalog.ForType(_focusType, _template.IsAnime)) {
+        foreach (Outfit outfit in OutfitCatalog.ForType(_focusType, OutfitCatalog.IsAnimeHead(_session.Current))) {
             if (outfit.supportPatterns) names.Add(string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName);
         }
         return names.Count == 0 ? "Bagian ini tidak punya motif" : "Motif hanya untuk: " + string.Join(", ", names);
@@ -667,7 +710,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     }
 
     private IEnumerator ToastRoutine(string message) {
-        _ui.Toast.text = message;
+        CustomizerUi.SetToastText(_ui.Toast, message);
         GameObject pill = _ui.Toast.transform.parent.gameObject;
         pill.SetActive(true);
         yield return new WaitForSecondsRealtime(ToastSeconds);

@@ -335,7 +335,7 @@ public class CharacterSceneUI : MonoBehaviour {
     }
 
     private IEnumerator ToastRoutine(string message) {
-        ui.Toast.text = message;
+        CustomizerUi.SetToastText(ui.Toast, message);
         GameObject pill = ui.Toast.transform.parent.gameObject;
         pill.SetActive(true);
         yield return new WaitForSecondsRealtime(toastSeconds);
