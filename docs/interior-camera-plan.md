@@ -46,6 +46,35 @@ placeholder (no scan in the interior scene). NPCs and cars pause their authority
 5. In WorldScene, at the facade: `EnterDoor` (Interactable(EnterBuilding) + DoorTravelPoint) and a `PlayerSpawnPoint` (World/front slot).
 6. Add the scene to Build Settings.
 
+## Clothing Shop (v1, 2026-11-19)
+- Door: `ClothingShop_Entrance` in WorldScene, in front of `supermarket_001` (x ≈ 235.1, z ≈ 259.8, facing +x).
+  `EnterDoor` → `TravelTo(ClothingShop, InteriorEntrance)`; leaving the shop spawns you at `Spawn_ClothingShopFront`.
+- Code: `VenueId.ClothingShop = 4` (scene `Interior_ClothingShop`, `IsInterior`), `SpawnSlot.ClothingShopFront = 5`.
+- Scene `Interior_ClothingShop` (in Build Settings): the full upstairs clothing store from the PolygonShops `Demo.unity`
+  (Demo x 10–22.5, z −20…−10, y 6), centred on the root at y = −200. Room is 12.5 × 10 m, shopfront/glass door at local x = −6.25.
+  Includes the roof (with rooftop AC and ducts) and the balcony in front of the shop (floor, railings, flags, facade sign).
+  Hierarchy: `Shop/Structure/{Floor,Walls,Shopfront,FittingRooms,Ceiling,Roof}`, `Shop/Props/{Displays,Mannequins,WallRacks,Checkout,FittingRooms,Signs}`, `Shop/Front`,
+  `Lighting` (key + 4 ceiling point lights), `Gameplay` (`Spawn_InteriorEntrance`, `ExitDoor`).
+- Every renderer is on (full copy, nothing hidden).
+- Camera: **normal third-person orbit, as on the main map** (owner, 2026-11-19). The `InteriorCameraZone` on the root is
+  **disabled**, so `InteriorCameraZone.Active` stays null and `CameraOrbit` orbits with wall collision (distance 4 m).
+  To go back to the fixed diorama view, enable the component and hide `Roof`/`Ceiling` plus the camera-side walls.
+
+## Entrance markers (2026-11-19)
+Every enterable door in WorldScene (`*_Entrance` with a `DoorTravelPoint` to an interior) gets a **Doormat**:
+- a teal floor mat (`Assets/Art/Entrance/Doormat.mat`, arrows point at the door), sized to the flat floor in front of the
+  door so it never runs over a curb;
+- a short glow (1.1 m, fades upward, `DoormatGlow.mat`) along its front and side edges, so the entrance reads from about
+  20 m and never pokes into the building from any angle;
+- `BuildingEntranceMarker` on the entrance root: always visible (no distance fade), pulses, and turns **brighter and
+  faster** while the local player stands on the mat.
+The door's `Interactable.promptOffset` is moved to just above the door opening, in front of the facade.
+(A floating name sign was tried first and dropped because, seen from the side, it clipped into the building.)
+Run **Go Vista > Interior > Pasang Penanda Pintu Gedung** after adding an entrance. It probes the facade and the floor
+with raycasts and can be re-run safely. The same menu rebuilds `InteractPrompt.prefab`, which **every** Interactable uses
+(navy glass, gold verb badge, fade + pop, always drawn on top via `WorldUiOnTop`). Art in `Assets/Art/Entrance` is
+code-drawn placeholder art: replace the PNGs to restyle.
+
 ## TODO / open
 - [ ] **Play-test** the full loop with one client, then two (both inside; one inside, one outside).
 - [ ] **Exit cost:** leaving reloads the whole WorldScene. If that's too slow on mobile, keep WorldScene loaded for

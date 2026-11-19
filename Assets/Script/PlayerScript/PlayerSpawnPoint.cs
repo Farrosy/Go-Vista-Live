@@ -12,6 +12,8 @@ public enum SpawnSlot
     BarberFront = 3,
     /// Scene interior: tepat di dalam pintu masuk (tempat muncul saat masuk bangunan).
     InteriorEntrance = 4,
+    /// WorldScene: di depan pintu supermarket_001 (tempat muncul saat keluar dari interior ClothingShop).
+    ClothingShopFront = 5,
 }
 
 /// Taruh di scene venue (WorldScene, Demo_DanceClub_01, Demo_RooftopBar_01). Setiap titik menandai

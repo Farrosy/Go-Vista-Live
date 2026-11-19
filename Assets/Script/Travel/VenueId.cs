@@ -11,6 +11,7 @@ public enum VenueId
     DanceClub = 1,
     RooftopBar = 2,
     Barber = 3,
+    ClothingShop = 4,
 }
 
 /// <summary>
@@ -24,12 +25,13 @@ public static class VenueMap
     public const string DanceClubSceneName = "Demo_DanceClub_01";
     public const string RooftopBarSceneName = "Demo_RooftopBar_01";
     public const string BarberSceneName = "Interior_Barber";
+    public const string ClothingShopSceneName = "Interior_ClothingShop";
 
     /// <summary>
     /// True for building interiors (fixed top-down camera via InteriorCameraZone, avatar keeps world scale).
     /// False for the World island and the big KPOP venues.
     /// </summary>
-    public static bool IsInterior(VenueId venue) => venue == VenueId.Barber;
+    public static bool IsInterior(VenueId venue) => venue == VenueId.Barber || venue == VenueId.ClothingShop;
 
     /// <summary>Scene name to load additively for the given venue.</summary>
     public static string SceneName(VenueId venue)
@@ -40,6 +42,7 @@ public static class VenueMap
             case VenueId.DanceClub:  return DanceClubSceneName;
             case VenueId.RooftopBar: return RooftopBarSceneName;
             case VenueId.Barber:     return BarberSceneName;
+            case VenueId.ClothingShop: return ClothingShopSceneName;
             default:
                 throw new ArgumentOutOfRangeException(nameof(venue), venue, "Unknown VenueId.");
         }
@@ -66,6 +69,7 @@ public static class VenueMap
         if (string.Equals(name, DanceClubSceneName, StringComparison.Ordinal))  return VenueId.DanceClub;
         if (string.Equals(name, RooftopBarSceneName, StringComparison.Ordinal)) return VenueId.RooftopBar;
         if (string.Equals(name, BarberSceneName, StringComparison.Ordinal))     return VenueId.Barber;
+        if (string.Equals(name, ClothingShopSceneName, StringComparison.Ordinal)) return VenueId.ClothingShop;
         return null;
     }
 }
