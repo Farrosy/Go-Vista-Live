@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// Latar mode ATUR KONTROL (gelap tipis + grid) yang diletakkan DI BELAKANG tombol layar, supaya tombolnya
@@ -11,7 +12,24 @@ using UnityEngine;
 public sealed class EditModeBackdrop : MonoBehaviour {
     [SerializeField] private GameObject backdrop;
 
+    private Image _dim;
+    private Color _dimColor;
+
     public void Init(GameObject backdropObject) => backdrop = backdropObject;
+
+    /// Lobby: latar hitam pekat supaya tampilan lobby Go Vista di belakang tidak terlihat.
+    /// In-game: gelap tipis seperti biasa, supaya dunia game tetap terlihat.
+    public void SetOpaque(bool opaque) {
+        if (backdrop == null)
+            return;
+        if (_dim == null) {
+            _dim = backdrop.GetComponent<Image>();
+            if (_dim == null)
+                return;
+            _dimColor = _dim.color;
+        }
+        _dim.color = opaque ? Color.black : _dimColor;
+    }
 
     private void OnEnable() {
         if (backdrop == null)

@@ -49,6 +49,10 @@ public class PlayerProgress {
     /// <summary>Saldo Go Vista Coin. Save lama tanpa field ini otomatis mulai dari saldo awal (100).</summary>
     public int coins = CoinRules.StartingBalance;
 
+    // ---------------------------------------------------------------- Hadiah login harian (lihat DailyLoginService)
+    /// <summary>Siklus 7 hari, hari yang sudah login, dan hari yang sudah diklaim. Ubah lewat DailyLoginRules.</summary>
+    public DailyLoginProgress dailyLogin = new DailyLoginProgress();
+
     // ---------------------------------------------------------------- Posisi terakhir (TIDAK DIPAKAI)
     // Dulu dipakai untuk spawn di posisi terakhir. Sekarang pemain selalu spawn di PlayerSpawnPoint,
     // dan ProgressService.Migrate() mengosongkan field ini. Dibiarkan supaya save lama tetap terbaca.

@@ -13,6 +13,7 @@ public sealed class MobileControls : MonoBehaviour
     private static CanvasGroup[] dimGroups = new CanvasGroup[0];
     private static bool dimmed;
     private static bool driving;
+    private static bool editing;
     private static RectTransform controlsRoot;
 
     /// Parent joystick & tombol (GameplayHUD). HUD menyetir dipasang di sini supaya ikut disembunyikan bersama
@@ -49,14 +50,24 @@ public sealed class MobileControls : MonoBehaviour
         ApplyGroups();
     }
 
+    /// Mode ATUR KONTROL tab Karakter: joystick, lompat, dan lari tampil penuh walau sedang menyetir/di-grey out,
+    /// supaya bisa diatur. Status menyetir/grey out kembali seperti semula saat mode ditutup.
+    public static void SetEditing(bool value)
+    {
+        editing = value;
+        ApplyGroups();
+    }
+
     private static void ApplyGroups()
     {
+        bool hidden = driving && !editing;
+        bool faded = dimmed && !editing;
         foreach (CanvasGroup group in dimGroups)
         {
             if (!group) continue;
-            group.alpha = driving ? 0f : dimmed ? DimmedAlpha : 1f;
-            group.interactable = !driving && !dimmed;
-            group.blocksRaycasts = !driving && !dimmed;
+            group.alpha = hidden ? 0f : faded ? DimmedAlpha : 1f;
+            group.interactable = !hidden && !faded;
+            group.blocksRaycasts = !hidden && !faded;
         }
     }
 

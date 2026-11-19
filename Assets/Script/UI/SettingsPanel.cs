@@ -27,15 +27,7 @@ public sealed class SettingsPanel : MonoBehaviour {
     [SerializeField] private Text accountLabel;
     [SerializeField] private string accountPrefix = "Masuk sebagai  ";
 
-    [Header("Mobil")]
-    [Tooltip("Pilihan kontrol belok: roda setir.")]
-    [SerializeField] private Button driveWheelButton;
-    [Tooltip("Pilihan kontrol belok: tombol kiri/kanan.")]
-    [SerializeField] private Button driveButtonsButton;
-
-    // Sama dengan RedesignUiKit.BlueColor / GhostColor (Editor-only, jadi disalin di sini).
-    private static readonly Color SelectedColor = new Color32(79, 140, 255, 255);
-    private static readonly Color UnselectedColor = new Color32(28, 37, 64, 255);
+    // Pilihan kontrol belok mobil (roda setir / tombol) pindah ke ATUR KONTROL > Kendaraan.
 
     [Header("Tombol")]
     [SerializeField] private Button controlsButton;
@@ -58,17 +50,7 @@ public sealed class SettingsPanel : MonoBehaviour {
         closeButton = close;
     }
 
-    /// <summary>Dipakai pembuat prefab (Editor) untuk baris "Kontrol mobil".</summary>
-    public void InitDriveControls(Button wheel, Button buttons) {
-        driveWheelButton = wheel;
-        driveButtonsButton = buttons;
-    }
-
     private void Awake() {
-        if (driveWheelButton != null)
-            driveWheelButton.onClick.AddListener(() => SetDriveControl(DriveControlMode.SteeringWheel));
-        if (driveButtonsButton != null)
-            driveButtonsButton.onClick.AddListener(() => SetDriveControl(DriveControlMode.Buttons));
         if (sensitivitySlider != null) {
             sensitivitySlider.minValue = GameSettings.MinCameraSensitivity;
             sensitivitySlider.maxValue = GameSettings.MaxCameraSensitivity;
@@ -121,25 +103,7 @@ public sealed class SettingsPanel : MonoBehaviour {
         if (sensitivitySlider != null)
             sensitivitySlider.SetValueWithoutNotify(GameSettings.CameraSensitivity);
         UpdateSensitivityLabel();
-        RefreshDriveControl();
         RefreshAccount();
-    }
-
-    private void SetDriveControl(DriveControlMode mode) {
-        GameSettings.DriveControl = mode;
-        RefreshDriveControl();
-    }
-
-    private void RefreshDriveControl() {
-        bool wheel = GameSettings.DriveControl == DriveControlMode.SteeringWheel;
-        Highlight(driveWheelButton, wheel);
-        Highlight(driveButtonsButton, !wheel);
-    }
-
-    private static void Highlight(Button button, bool selected) {
-        if (button == null || button.targetGraphic == null)
-            return;
-        button.targetGraphic.color = selected ? SelectedColor : UnselectedColor;
     }
 
     private void RequestControls() {

@@ -44,7 +44,7 @@ public static class VehicleSetup {
         CreateActions(log);
         PatchAnimator(log);
         log.Add(BuildPrefab(AllStarPrefabFolder + "Matador.prefab", overwrite: false));
-        log.Add("SettingsPanel: " + SettingsPanelRedesign.AddDriveRow());
+        log.Add("SettingsPanel: " + SettingsPanelRedesign.RemoveDriveRow());
         AssetDatabase.SaveAssets();
         Debug.Log("[Mobil] Setup selesai:\n- " + string.Join("\n- ", log));
     }
