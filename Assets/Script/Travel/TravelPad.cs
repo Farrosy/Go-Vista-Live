@@ -120,6 +120,7 @@ public class TravelPad : MonoBehaviour
             case VenueId.DanceClub:  return "KPOP Arena";
             case VenueId.RooftopBar: return "KPOP Community";
             case VenueId.World:      return "Pulau Utama";
+            case VenueId.Barber:     return "Barbershop";
             default:                 return v.ToString();
         }
     }

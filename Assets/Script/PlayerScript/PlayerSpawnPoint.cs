@@ -8,6 +8,10 @@ public enum SpawnSlot
     CentralPlaza = 0,
     Docks = 1,
     VenueCube = 2,
+    /// WorldScene: di depan pintu barbershop (tempat muncul saat keluar dari interior Barber).
+    BarberFront = 3,
+    /// Scene interior: tepat di dalam pintu masuk (tempat muncul saat masuk bangunan).
+    InteriorEntrance = 4,
 }
 
 /// Taruh di scene venue (WorldScene, Demo_DanceClub_01, Demo_RooftopBar_01). Setiap titik menandai
