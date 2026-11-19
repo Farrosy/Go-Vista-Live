@@ -11,9 +11,10 @@ public static partial class GameHudBuilder {
     private const int QuestPanelSortingOrder = 53;
     private const string QuestFolder = "Quest/";
 
-    // Tombol pause di RoomWaitingCanvas: 96x96, 30 px dari kanan atas.
+    // Tombol pause di RoomWaitingCanvas: 96x96, 30 px dari kanan atas (bawahnya di 126 px).
+    // Quest 30 px di bawah pause (dulu 14 px, terlalu mepet). Di bawah Quest ada tombol Hadiah (DailyLogin).
     private const float QuestButtonRight = 30f;
-    private const float QuestButtonTop = 140f;
+    private const float QuestButtonTop = 30f + 96f + 30f;
     private const float QuestButtonWidth = 200f;
     private const float QuestButtonHeight = 72f;
     private const float QuestBadgeSize = 40f;

@@ -10,7 +10,8 @@ using UnityEngine.UI;
 /// (dibangun Go Vista > Desain Baru > Hadiah Login Harian; tampilannya boleh diedit langsung di prefab).
 ///
 /// Muncul setiap pemain masuk room (LobyUISceneController memanggil ShowIfAvailable) selama masih ada
-/// hadiah di tabungan. Satu tombol mengklaim semua tabungan. Aturannya: DailyLoginRules.
+/// hadiah di tabungan, dan bisa dibuka lagi kapan saja lewat tombol Hadiah di HUD (DailyLoginHudButton).
+/// Satu tombol mengklaim semua tabungan. Aturannya: DailyLoginRules.
 /// Selama terbuka, gerak pemain dikunci (PlayerInputHub.SetPanelLocked), sama seperti panel Quest.
 /// </summary>
 public sealed class DailyLoginPopup : MonoBehaviour {
@@ -66,18 +67,31 @@ public sealed class DailyLoginPopup : MonoBehaviour {
         if (!ProgressService.IsLoaded) return;
         DailyLoginService.RegisterToday();
         if (DailyLoginService.SavedGold <= 0) return;
-        if (_instance == null) {
-            GameObject prefab = Resources.Load<GameObject>(ResourcePath);
-            if (prefab == null) {
-                Debug.LogWarning($"[DailyLogin] Resources/{ResourcePath}.prefab tidak ada. " +
-                                 "Jalankan Go Vista > Desain Baru > Hadiah Login Harian.");
-                return;
-            }
-            _instance = Instantiate(prefab).GetComponent<DailyLoginPopup>();
-            _instance.name = prefab.name;
-            DontDestroyOnLoad(_instance.gameObject);
+        if (EnsureInstance()) _instance.Open();
+    }
+
+    /// <summary>
+    /// Tombol Hadiah di HUD: buka popup walau tabungan kosong (semua sudah diklaim), supaya pemain bisa melihat
+    /// progres minggu ini. Login hari ini juga dicatat dulu, misalnya kalau hari sudah berganti selama bermain.
+    /// </summary>
+    public static void Show() {
+        if (!ProgressService.IsLoaded || IsOpen) return;
+        DailyLoginService.RegisterToday();
+        if (EnsureInstance()) _instance.Open();
+    }
+
+    private static bool EnsureInstance() {
+        if (_instance != null) return true;
+        GameObject prefab = Resources.Load<GameObject>(ResourcePath);
+        if (prefab == null) {
+            Debug.LogWarning($"[DailyLogin] Resources/{ResourcePath}.prefab tidak ada. " +
+                             "Jalankan Go Vista > Desain Baru > Hadiah Login Harian.");
+            return false;
         }
-        _instance.Open();
+        _instance = Instantiate(prefab).GetComponent<DailyLoginPopup>();
+        _instance.name = prefab.name;
+        DontDestroyOnLoad(_instance.gameObject);
+        return true;
     }
 
     public static bool IsOpen => _instance != null && _instance._open;
@@ -157,7 +171,7 @@ public sealed class DailyLoginPopup : MonoBehaviour {
             bannerText.text = check.LostGold > 0
                 ? $"Tabungan {CoinRules.FormatBalance(check.LostGold)} G hangus karena belum diklaim. Mulai lagi dari Hari 1."
                 : savedGold > 0
-                    ? $"Tabungan hadiah: {CoinRules.FormatBalance(savedGold)} G. Klaim sebelum Hari 8, setelah itu hangus."
+                    ? $"Tabungan hadiah: {CoinRules.FormatBalance(savedGold)} G. Klaim sebelum hari ke-8, setelah itu hangus."
                     : "Semua hadiah sudah diklaim. Login lagi besok untuk menabung hadiah!";
         }
 

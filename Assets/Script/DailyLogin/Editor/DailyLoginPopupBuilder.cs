@@ -98,7 +98,7 @@ public static class DailyLoginPopupBuilder {
         Picture("Header Icon", panel, "dl_header_icon", Pad, 30f, 92f, 92f);
         Text("Title", panel, "HADIAH LOGIN HARIAN", 50f, _bold, Color.white, TextAlignmentOptions.Left,
              156f, 28f, 1150f, 58f);
-        TMP_Text subtitle = Text("Subtitle", panel, "Login tiap hari untuk menabung hadiah. Klaim sebelum Hari 8!",
+        TMP_Text subtitle = Text("Subtitle", panel, "Login tiap hari untuk menabung hadiah. Klaim sebelum hari ke-8!",
                                  27f, _medium, SubtitleColor, TextAlignmentOptions.Left, 156f, 88f, 1150f, 38f);
         subtitle.enableAutoSizing = true;
         subtitle.fontSizeMin = 20f;
@@ -116,7 +116,7 @@ public static class DailyLoginPopupBuilder {
         RectTransform banner = Place(NewRect("Banner", panel), Pad, 148f, PanelWidth - Pad * 2f, 76f);
         Sliced(banner.gameObject, "dl_banner_reset");
         Picture("Banner Icon", banner, "icon_reset", 24f, 18f, 40f, 40f);
-        TMP_Text text = Text("Banner Text", banner, "Tabungan hadiah: 50 G. Klaim sebelum Hari 8, setelah itu hangus.",
+        TMP_Text text = Text("Banner Text", banner, "Tabungan hadiah: 50 G. Klaim sebelum hari ke-8, setelah itu hangus.",
                              27f, _bold, BannerColor, TextAlignmentOptions.Left, 82f, 0f, PanelWidth - Pad * 2f - 106f, 76f);
         text.enableAutoSizing = true;
         text.fontSizeMin = 18f;
