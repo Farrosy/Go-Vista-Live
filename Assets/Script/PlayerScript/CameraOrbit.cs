@@ -30,8 +30,18 @@ public class CameraOrbit : MonoBehaviour
     private float currentDistance = -1f;   // jarak kamera aktual dari pivot (setelah collision)
     private Camera cam;
 
+    private const float DefaultPitch = 15f;
     private float yaw;
-    private float pitch = 15f;
+    private float pitch = DefaultPitch;
+
+    // ---- Interior (InteriorCameraZone): sudut tetap, ikuti pemain, latar void ----
+    private bool interiorActive;
+    private InteriorCameraZone appliedZone;
+    private Vector3 interiorFocus;
+    private bool interiorSnap;
+    private float savedFov;
+    private CameraClearFlags savedClearFlags;
+    private Color savedBackground;
 
     private bool focusing;
     private Transform focusPoint;
@@ -84,6 +94,15 @@ public class CameraOrbit : MonoBehaviour
         if (target) yaw = transform.eulerAngles.y;
     }
 
+    /// Taruh kamera orbit tepat di belakang target dengan pitch default (dipakai saat keluar/masuk interior).
+    public void SnapBehindTarget()
+    {
+        if (!target) return;
+        yaw = target.eulerAngles.y;
+        pitch = DefaultPitch;
+        currentDistance = -1f;
+    }
+
     void Start()
     {
         yaw = transform.eulerAngles.y;
@@ -106,7 +125,8 @@ public class CameraOrbit : MonoBehaviour
         if (!target) return;
 
         Vector2 look = PlayerInputHub.Instance ? PlayerInputHub.Instance.ConsumeLook() : Vector2.zero;
-        if (!focusing)
+        bool interior = UpdateInteriorZone();
+        if (!focusing && !interior)   // di interior sudut kamera terkunci: geser layar diabaikan
         {
             float lookSpeed = sensitivity * GameSettings.CameraSensitivity; // pengali dari menu Pengaturan
             yaw += look.x * lookSpeed;
@@ -124,6 +144,19 @@ public class CameraOrbit : MonoBehaviour
             pivot = vehicle.position + Vector3.up * vehicleHeight;
             orbitPos = pivot - orbitRot * Vector3.forward * (vehicleDistance * DistanceScale);
         }
+        else if (interior)
+        {
+            // Rotasi tetap dari zona; titik fokus menyusul pemain secara halus dan dijepit ke dalam ruangan.
+            orbitRot = appliedZone.Rotation;
+            float avatarScale = Mathf.Max(0.05f, target.localScale.y);
+            Vector3 desired = appliedZone.FocusFor(target.position, avatarScale);
+            interiorFocus = interiorSnap
+                ? desired
+                : Vector3.Lerp(interiorFocus, desired, 1f - Mathf.Exp(-appliedZone.FollowSharpness * Time.deltaTime));
+            interiorSnap = false;
+            pivot = interiorFocus;
+            orbitPos = pivot - orbitRot * Vector3.forward * (appliedZone.Distance * DistanceScale);
+        }
         else
         {
             // Ikuti skala avatar (mis. dikecilkan di venue) supaya framing kamera sama seperti di World.
@@ -136,7 +169,8 @@ public class CameraOrbit : MonoBehaviour
 
         if (blend <= 0f || !focusPoint)
         {
-            ApplyPose(ResolveCollision(pivot, orbitPos), orbitRot);
+            // Di interior kamera sengaja berada di luar tembok (yang disembunyikan), jadi tanpa collision.
+            ApplyPose(interior ? orbitPos : ResolveCollision(pivot, orbitPos), orbitRot);
             return;
         }
 
@@ -152,9 +186,49 @@ public class CameraOrbit : MonoBehaviour
         Quaternion focusRot = Quaternion.LookRotation(fp - focusPos);
 
         float t = Mathf.SmoothStep(0f, 1f, blend);
+        Vector3 blendedPos = Vector3.Lerp(orbitPos, focusPos, t);
         ApplyPose(
-            ResolveCollision(pivot, Vector3.Lerp(orbitPos, focusPos, t)),
+            interior ? blendedPos : ResolveCollision(pivot, blendedPos),
             Quaternion.Slerp(orbitRot, focusRot, t));
+    }
+
+    /// Masuk/keluar mode interior mengikuti InteriorCameraZone.Active. Saat masuk: simpan lensa & latar kamera,
+    /// pasang FOV + warna void zona, dan snap ke pose interior (travel terjadi di balik layar hitam).
+    /// Saat keluar: kembalikan semuanya. Return true selama mode interior aktif.
+    private bool UpdateInteriorZone()
+    {
+        InteriorCameraZone zone = vehicle ? null : InteriorCameraZone.Active;
+        bool want = zone != null;
+        // ReferenceEquals: zona yang ter-unload "== null" di Unity, tapi tetap harus memicu restore di bawah.
+        if (want == interiorActive && ReferenceEquals(zone, appliedZone)) return want;
+
+        if (want)
+        {
+            if (!interiorActive && cam)
+            {
+                savedFov = cam.fieldOfView;
+                savedClearFlags = cam.clearFlags;
+                savedBackground = cam.backgroundColor;
+            }
+            if (cam)
+            {
+                cam.fieldOfView = zone.FieldOfView;
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = zone.VoidColor;
+            }
+            interiorSnap = true;
+        }
+        else if (cam)
+        {
+            cam.fieldOfView = savedFov;
+            cam.clearFlags = savedClearFlags;
+            cam.backgroundColor = savedBackground;
+        }
+
+        interiorActive = want;
+        appliedZone = want ? zone : null;
+        currentDistance = -1f;
+        return want;
     }
 
     /// Setelah pemain berhenti menggeser layar, kamera pelan-pelan kembali ke belakang mobil (searah laju,

@@ -247,7 +247,9 @@ public class VenueTravelManager : MonoBehaviour
             if (cc != null) cc.enabled = false;
             // Skala avatar sesuai venue (World = 1, venue = lebih kecil) selagi CharacterController mati.
             // RealtimeTransform menyinkronkan skala, jadi pemain se-venue melihat ukuran yang sama.
-            float scale = target == VenueId.World ? 1f : Mathf.Clamp(_venueAvatarScale, 0.05f, 1f);
+            // Interior bangunan (Synty Shops) skalanya sama dengan dunia, jadi avatar tetap 1.
+            bool fullScale = target == VenueId.World || VenueMap.IsInterior(target);
+            float scale = fullScale ? 1f : Mathf.Clamp(_venueAvatarScale, 0.05f, 1f);
             avatar.localScale = new Vector3(scale, scale, scale);
             avatar.SetPositionAndRotation(position, rotation);
             Physics.SyncTransforms();
@@ -260,7 +262,14 @@ public class VenueTravelManager : MonoBehaviour
 
             // 9. Pastikan kamera tetap mengikuti avatar yang sama.
             var orbit = FindAnyObjectByType<CameraOrbit>();
-            if (orbit != null) orbit.SetTarget(avatar);
+            if (orbit != null)
+            {
+                orbit.SetTarget(avatar);
+                // Keluar/masuk interior: yaw kamera interior tidak ada hubungannya dengan arah hadap spawn,
+                // jadi taruh kamera orbit tepat di belakang avatar (selagi layar masih hitam).
+                if (VenueMap.IsInterior(previous) || VenueMap.IsInterior(target))
+                    orbit.SnapBehindTarget();
+            }
         }
         else
         {

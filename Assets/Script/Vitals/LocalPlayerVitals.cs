@@ -7,7 +7,7 @@ using UnityEngine;
 /// tahu avatar ini tersembunyi atau tidak (lihat PlayerVenueSync).
 public sealed class LocalPlayerVitals : MonoBehaviour {
     // World memakai CentralPlaza, venue memakai VenueCube. Docks hanya cadangan.
-    private static readonly SpawnSlot[] RespawnSlots = { SpawnSlot.CentralPlaza, SpawnSlot.VenueCube, SpawnSlot.Docks };
+    private static readonly SpawnSlot[] RespawnSlots = { SpawnSlot.CentralPlaza, SpawnSlot.VenueCube, SpawnSlot.InteriorEntrance, SpawnSlot.Docks };
 
     public VitalsState State { get; private set; } = VitalsState.Full;
     public bool HeadUnderWater { get; private set; }
