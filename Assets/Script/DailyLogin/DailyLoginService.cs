@@ -13,6 +13,15 @@ public static class DailyLoginService {
 
     public static DailyLoginProgress Progress => Data;
 
+    /// <summary>Dipicu saat tabungan berubah (login hari baru tercatat / klaim). Dipakai badge tombol Hadiah.</summary>
+    public static event Action Changed;
+
+    [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() {
+        Changed = null;
+        LastCheck = default;
+    }
+
     /// <summary>Catat login hari ini (tanggal HP) dan simpan kalau ada perubahan.</summary>
     public static DailyLoginCheck RegisterToday() {
         DailyLoginCheck check = DailyLoginRules.RegisterLogin(Data, DateTime.Now);
@@ -20,6 +29,7 @@ public static class DailyLoginService {
         if (check.Changed) {
             ProgressService.MarkDirty();
             _ = ProgressService.SaveAsync();
+            Changed?.Invoke();
         }
         return check;
     }
@@ -33,6 +43,7 @@ public static class DailyLoginService {
         PlayerCoins.Add(gold, saveNow: false);
         ProgressService.MarkDirty();
         _ = ProgressService.SaveAsync();
+        Changed?.Invoke();
         return gold;
     }
 }

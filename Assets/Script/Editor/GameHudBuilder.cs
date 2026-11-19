@@ -198,6 +198,7 @@ public static partial class GameHudBuilder {
             Canvas coinCanvas = BuildCoin(safeArea, fonts);
             DeathScreenView death = BuildDeathScreen(root.transform, fonts);
             BuildQuest(root.transform, safeArea, fonts);
+            BuildDailyLoginButton(root.transform, safeArea, fonts);
             BuildFullMap(root.transform, safeArea, fonts);
             BuildQuestToast(safeArea, fonts);
 
