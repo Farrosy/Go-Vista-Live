@@ -233,6 +233,8 @@ public static class ProgressService {
         p.completedQuests ??= new List<string>();
         p.pinnedQuestId ??= "";
         p.coins = CoinRules.Sanitize(p.coins);
+        p.dailyLogin ??= new DailyLoginProgress();
+        DailyLoginRules.Sanitize(p.dailyLogin);
         p.playerName = PlayerNameRules.Sanitize(p.playerName);
         // Posisi terakhir tidak dipakai lagi (spawn selalu di PlayerSpawnPoint). Kosongkan data
         // lama supaya ikut terhapus dari cloud di save berikutnya.

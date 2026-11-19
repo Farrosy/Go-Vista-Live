@@ -13,4 +13,6 @@ public partial class PlayerAnimSyncModel {
     [RealtimeProperty(4, true, true)] private int _knockdownCount;
     // True selama rebahan karena tertabrak sampai mati (tidak bangkit, masuk ke tanah) sampai pemain bangkit lagi.
     [RealtimeProperty(5, true, true)] private bool _knockedDownDead;
+    // True selama animasi tenggelam (mati karena O₂ habis) sampai pemain bangkit lagi.
+    [RealtimeProperty(6, true, true)] private bool _drowning;
 }

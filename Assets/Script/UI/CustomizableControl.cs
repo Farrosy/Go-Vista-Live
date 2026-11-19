@@ -1,5 +1,13 @@
 using UnityEngine;
 
+/// <summary>Tab di mode ATUR KONTROL tempat kontrol ini diatur.</summary>
+public enum ControlCategory {
+    /// <summary>Joystick, lompat, lari, interaksi.</summary>
+    Character = 0,
+    /// <summary>HUD menyetir: setir/panah, gas, rem (VehicleDriveHud).</summary>
+    Vehicle = 1,
+}
+
 /// <summary>
 /// Pasang di tombol/joystick mobile yang boleh dipindah & diubah ukurannya oleh pemain
 /// (mode ATUR KONTROL, lihat ControlLayoutEditor). Posisi & ukuran di prefab = layout default.
@@ -14,9 +22,12 @@ public class CustomizableControl : MonoBehaviour {
     [SerializeField] private string id;
     [Tooltip("Nama yang tampil di mode ATUR KONTROL. Kosong = nama GameObject.")]
     [SerializeField] private string displayName;
+    [Tooltip("Tab ATUR KONTROL tempat kontrol ini muncul.")]
+    [SerializeField] private ControlCategory category = ControlCategory.Character;
 
     public string Id => string.IsNullOrEmpty(id) ? name : id;
     public string DisplayName => string.IsNullOrEmpty(displayName) ? name : displayName;
+    public ControlCategory Category => category;
     public RectTransform Rect { get; private set; }
     public float Scale { get; private set; } = 1f;
 
@@ -43,6 +54,14 @@ public class CustomizableControl : MonoBehaviour {
             defaultSizes[i] = parts[i].sizeDelta;
             defaultPartPositions[i] = parts[i].anchoredPosition;
         }
+    }
+
+    /// Dipakai kontrol yang dibuat dari kode (VehicleDriveHud). Panggil setelah semua child-nya dibuat.
+    public void Init(string controlId, string controlName, ControlCategory controlCategory) {
+        id = controlId;
+        displayName = controlName;
+        category = controlCategory;
+        ApplySaved();
     }
 
     /// Terapkan layout yang tersimpan (atau default kalau belum pernah diatur).
