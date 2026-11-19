@@ -180,6 +180,11 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (!Application.isPlaying || !_gameplayStarted || _leaveRoomPending ||
             !Input.GetKeyDown(KeyCode.Escape))
             return;
+        // Tombol Back HP saat HADIAH LOGIN HARIAN terbuka = tutup (tabungan tetap ada).
+        if (DailyLoginPopup.IsOpen) {
+            DailyLoginPopup.HideIfOpen();
+            return;
+        }
 
         switch (_inGameMenuPage) {
             case InGameMenuPage.Closed:
@@ -1469,7 +1474,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (_lobbyCanvas != null)
             _lobbyCanvas.enabled = false;
         MobileControls.SetVisible(true);
-        editor.Open(OnLobbyControlLayoutEditorClosed);
+        // Latar hitam pekat: tampilan lobby Go Vista di belakang tidak ikut terlihat.
+        editor.Open(OnLobbyControlLayoutEditorClosed, opaqueBackground: true);
     }
 
     private void OnLobbyControlLayoutEditorClosed() {
@@ -1823,6 +1829,8 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         if (_panel != null)
             _panel.SetActive(false);
         ChatPanel.SetContext(ChatContext.InGame);
+        // Hadiah login harian: muncul tiap masuk room selama masih ada tabungan.
+        DailyLoginPopup.ShowIfAvailable();
     }
 
     private void ToggleWaitingRoster() {
@@ -1954,6 +1962,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         ChatPanel.SetSuppressed(false);
         if (ControlLayoutEditor.IsOpen)
             FindControlLayoutEditor()?.Cancel();
+        DailyLoginPopup.HideIfOpen();
         _inGameMenuPage = InGameMenuPage.Closed;
         _leaveRoomPending = false;
         if (_pauseOverlay != null)

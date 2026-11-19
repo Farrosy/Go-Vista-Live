@@ -55,6 +55,10 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Lama model masuk ke tanah (detik).")]
     [SerializeField] private float deathSinkSeconds = 2f;
 
+    [Header("Tenggelam")]
+    [Tooltip("Panjang animasi Drowning (detik). Avatar baru disembunyikan setelah animasinya selesai.")]
+    [SerializeField] private float drowningSeconds = 5.6f;
+
     /// Avatar yang dikendalikan client ini. Null sebelum spawn / setelah keluar world.
     public static PlayerController Local { get; private set; }
 
@@ -74,6 +78,10 @@ public class PlayerController : MonoBehaviour
         IsKnockedDownDead ? Mathf.Max(0f, deathSinkDelay + deathSinkSeconds - knockdownTimer) : 0f;
     /// Dipanggil saat tertabrak mobil (argumen: mematikan atau tidak). Dipakai PlayerAnimSync.
     public event Action<bool> KnockedDown;
+    /// True sejak mulai animasi tenggelam (mati karena O₂ habis) sampai bangkit lagi.
+    public bool IsDrowning { get; private set; }
+    /// Sisa detik animasi tenggelam. 0 kalau tidak sedang tenggelam.
+    public float DrowningRemaining => IsDrowning ? Mathf.Max(0f, drowningStartTime + drowningSeconds - Time.time) : 0f;
     /// Dipanggil saat lompat dimulai (dipakai PlayerAnimSync supaya pemain lain ikut melihat).
     public event Action Jumped;
 
@@ -84,6 +92,7 @@ public class PlayerController : MonoBehaviour
     private static readonly int JumpHash = Animator.StringToHash("Jump");
     private static readonly int KnockdownHash = Animator.StringToHash("Knockdown");
     private static readonly int IsDeadHash = Animator.StringToHash("IsDead");
+    private static readonly int DrownHash = Animator.StringToHash("Drown");
     /// Tag di state Hit Knockback dan LayToIdle. Selama Animator ada di state ber-tag ini, pemain belum berdiri.
     public const string KnockdownTag = "Knockdown";
 
@@ -108,6 +117,7 @@ public class PlayerController : MonoBehaviour
     private float knockdownTimer;
     private Vector3 modelBaseLocalPos;
     private float appliedSink;
+    private float drowningStartTime;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
@@ -271,11 +281,21 @@ public class PlayerController : MonoBehaviour
         KnockedDown?.Invoke(fatal);
     }
 
+    /// Mati karena O₂ habis di air: putar animasi Drowning sampai ClearKnockdown dipanggil saat bangkit.
+    public void PlayDrowning()
+    {
+        if (!IsLocal || InVehicle || IsDrowning) return;
+        IsDrowning = true;
+        drowningStartTime = Time.time;
+        TriggerDrown(animator);
+    }
+
     /// Dipanggil saat bangkit setelah mati: model kembali ke permukaan dan Animator kembali ke idle.
     public void ClearKnockdown()
     {
         bool wasDown = IsKnockedDown;
         IsKnockedDown = false;
+        IsDrowning = false;
         knockdownFatal = false;
         ApplyModelSink(0f);
         ResetKnockdown(animator);
@@ -455,6 +475,12 @@ public class PlayerController : MonoBehaviour
         if (!anim) return;
         anim.SetBool(IsDeadHash, fatal);
         anim.SetTrigger(KnockdownHash);
+    }
+
+    /// Dipakai juga oleh PlayerAnimSync untuk avatar pemain lain.
+    public static void TriggerDrown(Animator anim)
+    {
+        if (anim) anim.SetTrigger(DrownHash);
     }
 
     public static void SetKnockdownDead(Animator anim, bool dead)

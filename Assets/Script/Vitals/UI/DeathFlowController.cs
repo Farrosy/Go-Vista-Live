@@ -23,6 +23,7 @@ public sealed class DeathFlowController : MonoBehaviour {
     private PlayerController _player;
     private PlayerVenueSync _venueSync;
     private CameraOrbit _orbit;
+    private Coroutine _hideAvatar;
 
     private void Awake() => screen.Hide();
 
@@ -67,10 +68,12 @@ public sealed class DeathFlowController : MonoBehaviour {
         LockPlayer();
         int coinsLost = PlayerCoins.ApplyDeathPenalty();
         DeathScreenContent content = screen.Prepare(coinsLost, vitals.State.Cause);
+        if (vitals.State.Cause == DeathCause.Drowned) _player.PlayDrowning();
         if (content.impactEffects) PlayImpactEffects();
         StartCoroutine(ZoomCamera());
-        // Tertabrak sampai mati: tunggu animasi rebahan dan masuk ke tanah selesai baru avatar disembunyikan.
-        StartCoroutine(HideAvatarAfterDelay(Mathf.Max(content.hideAvatarAfterSeconds, _player.DeathSinkRemaining)));
+        // Tertabrak sampai mati / tenggelam: tunggu animasinya selesai baru avatar disembunyikan.
+        float hideAfter = Mathf.Max(content.hideAvatarAfterSeconds, _player.DeathSinkRemaining, _player.DrowningRemaining);
+        _hideAvatar = StartCoroutine(HideAvatarAfterDelay(hideAfter));
         StartCoroutine(HideHudAfterDelay(content.hideHudAfterSeconds));
 
         yield return screen.PlayIntro();
@@ -121,6 +124,17 @@ public sealed class DeathFlowController : MonoBehaviour {
 
     private IEnumerator HideAvatarAfterDelay(float seconds) {
         yield return new WaitForSeconds(seconds);
+        _hideAvatar = null;
+        if (_venueSync != null) _venueSync.SetHidden(true);
+    }
+
+    /// Bangkit sebelum animasi tenggelam/masuk tanah selesai: batalkan jeda sembunyi, lalu sembunyikan sekarang.
+    /// Tanpa ini, jeda yang tertinggal menyembunyikan avatar lagi SETELAH bangkit di titik spawn.
+    private void HideAvatarNow() {
+        if (_hideAvatar != null) {
+            StopCoroutine(_hideAvatar);
+            _hideAvatar = null;
+        }
         if (_venueSync != null) _venueSync.SetHidden(true);
     }
 
@@ -149,6 +163,7 @@ public sealed class DeathFlowController : MonoBehaviour {
         }
 
         screen.Hide();
+        HideAvatarNow();   // tetap tersembunyi selama pindah ke titik bangkit
         vitals.GetRespawnPose(out Vector3 position, out Quaternion rotation);
         _player.TeleportTo(position, rotation);
         vitals.Revive();
@@ -180,6 +195,7 @@ public sealed class DeathFlowController : MonoBehaviour {
 
     private void Abort() {
         StopAllCoroutines();
+        _hideAvatar = null;
         _active = false;
         screen.Hide();
         fallFx.Stop();

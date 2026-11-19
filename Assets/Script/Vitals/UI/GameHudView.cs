@@ -19,16 +19,16 @@ public sealed class GameHudView : MonoBehaviour {
     [SerializeField] private Canvas coinCanvas;
     [SerializeField] private Image redVignette;
     [SerializeField] private Image underwaterOverlay;
-    [SerializeField] private int coinSortingNormal = 25;
-    [SerializeField] private int coinSortingOnDeathScreen = 56;
-
     private Camera _camera;
     private float _underwaterAlpha;
+    private bool _deathScreen;
 
     private void Update() {
         bool hasPlayer = PlayerController.Local != null;
-        rootCanvas.enabled = hasPlayer;
-        coinCanvas.enabled = hasPlayer;
+        // Selama ATUR KONTROL, HUD (minimap, HP/O₂, koin) disembunyikan supaya hanya tombol yang diatur terlihat.
+        bool visible = hasPlayer && !ControlLayoutEditor.IsOpen;
+        rootCanvas.enabled = visible;
+        coinCanvas.enabled = visible && !_deathScreen;
         if (!hasPlayer) return;
 
         VitalsState state = vitals.State;
@@ -41,10 +41,11 @@ public sealed class GameHudView : MonoBehaviour {
         UpdateUnderwaterOverlay(delta);
     }
 
-    /// Selama layar mati hanya koin yang tetap terlihat, di atas layar mati.
+    /// Selama layar mati HUD disembunyikan, termasuk koin (semua jenis mati).
     public void SetDeathScreenMode(bool active) {
+        _deathScreen = active;
         vitalsGroup.alpha = active ? 0f : 1f;
-        coinCanvas.sortingOrder = active ? coinSortingOnDeathScreen : coinSortingNormal;
+        coinCanvas.enabled = !active && PlayerController.Local != null && !ControlLayoutEditor.IsOpen;
         if (active) redVignette.enabled = false;
     }
 

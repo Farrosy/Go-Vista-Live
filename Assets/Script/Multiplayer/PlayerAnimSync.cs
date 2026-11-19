@@ -35,12 +35,14 @@ public class PlayerAnimSync : RealtimeComponent<PlayerAnimSyncModel>
             previousModel.jumpCountDidChange -= OnJumpCountChanged;
             previousModel.knockdownCountDidChange -= OnKnockdownCountChanged;
             previousModel.knockedDownDeadDidChange -= OnKnockedDownDeadChanged;
+            previousModel.drowningDidChange -= OnDrowningChanged;
         }
         if (currentModel != null)
         {
             currentModel.jumpCountDidChange += OnJumpCountChanged;
             currentModel.knockdownCountDidChange += OnKnockdownCountChanged;
             currentModel.knockedDownDeadDidChange += OnKnockedDownDeadChanged;
+            currentModel.drowningDidChange += OnDrowningChanged;
             // Masuk room saat pemain ini sudah rebahan mati: langsung tampil sudah di dalam tanah.
             remoteDeadSince = float.NegativeInfinity;
         }
@@ -57,6 +59,8 @@ public class PlayerAnimSync : RealtimeComponent<PlayerAnimSyncModel>
             if (model.grounded != grounded) model.grounded = grounded;
             bool dead = controller.IsKnockedDownDead;
             if (model.knockedDownDead != dead) model.knockedDownDead = dead;
+            bool drowning = controller.IsDrowning;
+            if (model.drowning != drowning) model.drowning = drowning;
         }
         else
         {
@@ -92,6 +96,13 @@ public class PlayerAnimSync : RealtimeComponent<PlayerAnimSyncModel>
     private void OnKnockdownCountChanged(PlayerAnimSyncModel m, int value)
     {
         if (!isOwnedLocallyInHierarchy) PlayerController.TriggerKnockdown(controller.Animator, m.knockedDownDead);
+    }
+
+    private void OnDrowningChanged(PlayerAnimSyncModel m, bool drowning)
+    {
+        if (isOwnedLocallyInHierarchy) return;
+        if (drowning) PlayerController.TriggerDrown(controller.Animator);
+        else PlayerController.ResetKnockdown(controller.Animator);   // bangkit: kembali ke idle
     }
 
     private void OnKnockedDownDeadChanged(PlayerAnimSyncModel m, bool dead)

@@ -32,6 +32,10 @@ public sealed class ControlEditRings : MonoBehaviour {
     private void Awake() {
         if (ringSprite == null)
             ringSprite = Resources.Load<Sprite>("UI/ui-dashed-ring");
+    }
+
+    // Dikumpulkan ulang tiap mode dibuka, karena HUD menyetir (tab Kendaraan) dibuat dari kode belakangan.
+    private void OnEnable() {
         Canvas canvas = GetComponentInParent<Canvas>();
         if (canvas != null)
             canvas.rootCanvas.GetComponentsInChildren(true, _controls);
