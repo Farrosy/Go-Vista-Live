@@ -17,7 +17,7 @@ using UnityEngine.UI;
 public sealed class CustomizerEditor : MonoBehaviour {
     private const float ToastSeconds = 2.2f;
     private const float IdleTimeout = 5f;
-    private const int DefaultCategory = 3; // Atasan, seperti mockup layar 2
+    private const string DefaultCategory = "Atasan"; // seperti mockup layar 2
     private const int ThumbnailWidth = 240;
     private const int ThumbnailHeight = 360;
     private const string HeadType = "Head";
@@ -41,6 +41,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private CustomizerStickers _stickers;
     private Action _closed;
     private Coroutine _toast;
+    private IReadOnlyList<EditorCategory> _categories = EditorCategories.All;
 
     private int _category = -1;
     private int _subTab;
@@ -58,6 +59,15 @@ public sealed class CustomizerEditor : MonoBehaviour {
 
     public bool IsOpen => _ui != null && _ui.Root.activeSelf;
 
+    /// <summary>Record berhasil disimpan ke slot ini (indeks slot).</summary>
+    public event Action<int> Saved;
+
+    /// <summary>
+    /// true = karakter baru yang tidak muat (slot penuh) boleh menimpa slot yang ada: SIMPAN menampilkan
+    /// pilihan Karakter 1/2. Dipakai ruang ganti, karena pemain yang memakai template tidak bisa ke layar pilih.
+    /// </summary>
+    public bool OfferOverwriteWhenFull { get; set; }
+
     // ---------------------------------------------------------------- Untuk panel Wajah/Stiker
 
     public CustomizationSession Session => _session;
@@ -70,13 +80,16 @@ public sealed class CustomizerEditor : MonoBehaviour {
     /// <summary>Pasang ulang stiker record SAAT INI ke avatar begitu BoZo selesai update (dipanggil setelah commit).</summary>
     public void ApplyDecalsWhenIdle() => StartCoroutine(WhenIdle(() => LiveAvatarEdits.ApplyDecals(Avatar, _session?.Current)));
 
-    private EditorCategory CurrentCategory => EditorCategories.All[_category];
+    private EditorCategory CurrentCategory => _categories[_category];
     private EditorSubTab CurrentSubTab => CurrentCategory.SubTabs[_subTab];
     private bool ShowsOutfits => CurrentSubTab.Panel == EditorPanelKind.Outfits || CurrentSubTab.Panel == EditorPanelKind.Skin ||
                                  CurrentSubTab.Panel == EditorPanelKind.Expressions;
 
-    public void Init(CustomizerEditorRefs ui, ChatUiAssets assets, CharacterPreviewStage stage) {
+    /// <param name="categories">Tab yang sama dengan yang dipakai CustomizerEditorView.Build; null = semua.</param>
+    public void Init(CustomizerEditorRefs ui, ChatUiAssets assets, CharacterPreviewStage stage,
+                     IReadOnlyList<EditorCategory> categories = null) {
         _ui = ui;
+        _categories = categories ?? EditorCategories.All;
         _a = assets;
         _stage = stage;
         _faces = new CustomizerFaceShapes(this, ui.Shapes, assets);
@@ -95,6 +108,9 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _ui.FaceCamButton.onClick.AddListener(() => SetFaceCamera(true));
         _ui.Discard.Cancel.onClick.AddListener(() => _ui.Discard.Overlay.SetActive(false));
         _ui.Discard.Confirm.onClick.AddListener(Close);
+        _ui.Overwrite.Cancel.onClick.AddListener(() => SaveOver(0));
+        _ui.Overwrite.Confirm.onClick.AddListener(() => SaveOver(1));
+        _ui.OverwriteClose.onClick.AddListener(() => _ui.Overwrite.Overlay.SetActive(false));
         _ui.Picker.Changed += OnColorDragged;
         _ui.Picker.Committed += OnColorCommitted;
         _ui.Pattern.Scale.Slider.onValueChanged.AddListener(OnPatternScaleDragged);
@@ -119,6 +135,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _closed = closed;
         _ui.Root.SetActive(true);
         _ui.Discard.Overlay.SetActive(false);
+        _ui.Overwrite.Overlay.SetActive(false);
         _ui.MatchPopup.SetActive(false);
         _stickers.CloseColor();
         _ui.KeepColorsOn.SetActive(_keepColors);
@@ -127,7 +144,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
             _stage.AutoRotate = false; // karakter diam saat diedit; tetap bisa digeser
         }
         if (!previewReady) RebuildLive();
-        SelectCategory(DefaultCategory);
+        SelectCategory(EditorCategories.IndexOf(_categories, DefaultCategory));
         RefreshTopBar();
     }
 
@@ -141,6 +158,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
         if (!Input.GetKeyDown(KeyCode.Escape)) return;
         if (_stickers.IsColorOpen) _stickers.CloseColor();
         else if (_ui.MatchPopup.activeSelf) _ui.MatchPopup.SetActive(false);
+        else if (_ui.Overwrite.Overlay.activeSelf) _ui.Overwrite.Overlay.SetActive(false);
         else if (_ui.Discard.Overlay.activeSelf) _ui.Discard.Overlay.SetActive(false);
         else Back();
     }
@@ -177,7 +195,21 @@ public sealed class CustomizerEditor : MonoBehaviour {
     }
 
     private void Save() {
-        int slot = CustomCharacterStore.Save(_session.Slot, _session.Current);
+        if (_session.Slot < 0 && !CustomCharacterStore.CanCreate && OfferOverwriteWhenFull) {
+            _ui.Overwrite.Overlay.SetActive(true);
+            return;
+        }
+        SaveTo(_session.Slot);
+    }
+
+    /// Pilihan di dialog "Slot karakter penuh": timpa slot itu dengan penampilan ini.
+    private void SaveOver(int slot) {
+        _ui.Overwrite.Overlay.SetActive(false);
+        SaveTo(slot);
+    }
+
+    private void SaveTo(int target) {
+        int slot = CustomCharacterStore.Save(target, _session.Current);
         if (slot < 0) {
             ShowToast("Gagal menyimpan karakter");
             return;
@@ -187,6 +219,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
         ShowToast("Penampilan tersimpan");
         // Kunci thumbnail = record bersih seperti yang dibaca layar Pilih Karakter.
         StartCoroutine(CaptureThumbnail(CustomCharacterStore.Get(slot)));
+        Saved?.Invoke(slot);
     }
 
     /// Foto untuk kartu slot di layar Pilih Karakter, diambil setelah BoZo selesai update tekstur.
@@ -294,20 +327,30 @@ public sealed class CustomizerEditor : MonoBehaviour {
             if (outfits.Count == 0 && types.Count > 1) continue;
             string title = types.Count > 1 && TypeLabels.TryGetValue(type, out string label) ? label : null;
             RectTransform grid = CustomizerEditorView.CreateItemSection(_ui.GridContent, _a, title);
-            if (canBeEmpty) AddEmptyItem(grid, type, SectionBlockedMessage(type, title, outfits, animeHead));
+            string sectionLabel = title ?? CurrentSubTab.Label;
+            if (canBeEmpty) AddEmptyItem(grid, type, SectionBlockedMessage(type, sectionLabel, outfits, animeHead));
             foreach (Outfit outfit in outfits) AddOutfitItem(grid, type, outfit, animeHead);
         }
         RefreshItemSelection();
     }
 
-    /// Bagian yang semua itemnya tidak cocok dengan kepala (mis. Kilau Mata di kepala Basic): "Kosong" ikut
-    /// disabled + toast, karena tidak ada pilihan lain. null = bagian ini bisa dipakai.
-    private static string SectionBlockedMessage(string type, string title, IReadOnlyList<Outfit> outfits, bool animeHead) {
+    /// Bagian yang semua itemnya tidak bisa dipakai (mis. Kilau Mata di kepala Basic, Jenggot di karakter cewek):
+    /// "Kosong" ikut disabled + toast, karena tidak ada pilihan lain. null = bagian ini bisa dipakai.
+    private string SectionBlockedMessage(string type, string sectionLabel, IReadOnlyList<Outfit> outfits, bool animeHead) {
         if (outfits.Count == 0) return null;
         foreach (Outfit outfit in outfits) {
-            if (FaceStyleRules.Fits(OutfitCatalog.RequiredStyle(type, outfit), animeHead)) return null;
+            if (BlockedReason(type, outfit, sectionLabel, animeHead) == null) return null;
         }
-        return FaceStyleRules.IncompatibleMessage(title ?? type, OutfitCatalog.RequiredStyle(type, outfits[0]));
+        return BlockedReason(type, outfits[0], sectionLabel, animeHead);
+    }
+
+    /// Alasan outfit ini tidak bisa dipakai karakter sekarang (isi toast), atau null kalau bisa.
+    /// Gender template dicek dulu (GenderRules), lalu gaya kepala yang dipakai (FaceStyleRules).
+    private string BlockedReason(string type, Outfit outfit, string label, bool animeHead) {
+        string path = OutfitCatalog.PathOf(type, outfit);
+        if (!GenderRules.Fits(path, _template.IsMale)) return GenderRules.BlockedMessage(label, GenderRules.GenderOf(path));
+        FaceStyle required = OutfitCatalog.RequiredStyle(type, outfit);
+        return FaceStyleRules.Fits(required, animeHead) ? null : FaceStyleRules.IncompatibleMessage(label, required);
     }
 
     private void AddEmptyItem(RectTransform grid, string type, string blockedMessage) {
@@ -322,17 +365,17 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _items.Add((type, "", selected));
     }
 
-    /// Item yang tidak cocok dengan kepala tetap tampil (abu-abu); diketuk = toast alasannya, bukan dipakai.
+    /// Item yang tidak bisa dipakai (gender lain / tidak cocok dengan kepala) tetap tampil abu-abu;
+    /// diketuk = toast alasannya, bukan dipakai.
     private void AddOutfitItem(RectTransform grid, string type, Outfit outfit, bool animeHead) {
         string label = string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName;
         Button item = CustomizerEditorView.CreateItem(grid, _a, outfit.OutfitIcon, label, out GameObject selected);
-        FaceStyle required = OutfitCatalog.RequiredStyle(type, outfit);
-        if (FaceStyleRules.Fits(required, animeHead)) {
+        string blocked = BlockedReason(type, outfit, label, animeHead);
+        if (blocked == null) {
             item.onClick.AddListener(() => WearOutfit(type, outfit));
         } else {
             CustomizerEditorView.DimItem(item);
-            string message = FaceStyleRules.IncompatibleMessage(label, required);
-            item.onClick.AddListener(() => ShowToast(message));
+            item.onClick.AddListener(() => ShowToast(blocked));
         }
         _items.Add((type, OutfitCatalog.PathOf(type, outfit), selected));
     }
@@ -595,7 +638,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private string PatternHint() {
         var names = new List<string>();
         foreach (Outfit outfit in OutfitCatalog.ForType(_focusType, OutfitCatalog.IsAnimeHead(_session.Current))) {
-            if (outfit.supportPatterns) names.Add(string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName);
+            if (!outfit.supportPatterns || !GenderRules.Fits(OutfitCatalog.PathOf(_focusType, outfit), _template.IsMale)) continue;
+            names.Add(string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName);
         }
         return names.Count == 0 ? "Bagian ini tidak punya motif" : "Motif hanya untuk: " + string.Join(", ", names);
     }

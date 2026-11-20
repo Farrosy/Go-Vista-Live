@@ -1,5 +1,6 @@
 using Bozo.ModularCharacters;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// "Panggung" preview karakter: kamera + lampu + meja putar, diletakkan jauh dari dunia. Dipakai di dua
@@ -21,6 +22,8 @@ public class CharacterPreviewStage : MonoBehaviour {
     [Tooltip("Jarak kamera ke wajah (meter) saat mode Wajah.")]
     [SerializeField] private float faceDistance = 1.15f;
     [SerializeField] private float faceFieldOfView = 24f;
+    [Tooltip("FOV preset Wajah di ruang ganti (layar penuh, bukan kotak preview), supaya wajah tidak terlalu besar.")]
+    [SerializeField] private float worldFaceFieldOfView = 32f;
     [Tooltip("Titik bidik di atas tulang kepala (meter): kira-kira tengah wajah.")]
     [SerializeField] private float faceAimAbove = 0.09f;
     [Tooltip("Waktu (detik) kamera berpindah antara Seluruh Badan dan Wajah.")]
@@ -55,6 +58,13 @@ public class CharacterPreviewStage : MonoBehaviour {
     private float cameraBlendVelocity;
     private Transform headBone;
 
+    // Mode dunia (ruang ganti): panggung berdiri di bilik toko, kamera merender langsung ke layar.
+    private bool worldMode;
+    private float screenCenterX;
+    private float screenCenterY;
+    // Layer sementara saat memotret thumbnail di mode dunia, supaya latar toko tidak ikut terfoto.
+    private const int ThumbnailLayer = 31;
+
     /// <summary>Kamera sedang (menuju) preset Wajah.</summary>
     public bool FaceFocus => faceFocus;
 
@@ -78,8 +88,10 @@ public class CharacterPreviewStage : MonoBehaviour {
     /// <summary>Karakter live yang sedang tampil (untuk diedit di customizer), atau null.</summary>
     public OutfitSystem LiveAvatar => liveAvatar;
 
+    /// <summary>Mode dunia: tidak ada RenderTexture (kamera merender ke layar), jadi null.</summary>
     public RenderTexture Texture {
         get {
+            if (worldMode) return null;
             if (!texture) {
                 texture = new RenderTexture(textureSize.x, textureSize.y, 24, RenderTextureFormat.ARGB32) {
                     name = "Character Preview",
@@ -98,6 +110,67 @@ public class CharacterPreviewStage : MonoBehaviour {
         if (!previewCamera) return;
         previewCamera.clearFlags = CameraClearFlags.SolidColor;
         previewCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+    }
+
+    /// <summary>
+    /// Ruang ganti: panggung dipindah ke bilik di toko (kaki karakter di <paramref name="subject"/>, wajah
+    /// menghadap ke depan pose itu) dan kamera ke <paramref name="view"/>. Alas & lampu panggung dimatikan
+    /// supaya karakter memakai lantai dan cahaya toko. Kamera merender LANGSUNG ke layar di atas
+    /// <paramref name="reference"/> (kamera utama), dengan pengaturan render yang sama.
+    /// </summary>
+    /// <param name="cullingMask">Layer dunia yang dirender (masker kamera utama sebelum dimatikan).</param>
+    public void EnterWorldMode(Pose subject, Pose view, float fieldOfView, Camera reference, int cullingMask) {
+        if (!previewCamera || !turntable) return;
+        worldMode = true;
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true)) {
+            if (!renderer.transform.IsChildOf(turntable)) renderer.enabled = false;
+        }
+        foreach (Light stageLight in GetComponentsInChildren<Light>(true)) stageLight.enabled = false;
+
+        transform.SetPositionAndRotation(subject.position - subject.rotation * turntable.localPosition, subject.rotation);
+        turntable.localRotation = Quaternion.identity;
+        previewCamera.transform.SetPositionAndRotation(view.position, view.rotation);
+        previewCamera.fieldOfView = fieldOfView;
+        previewCamera.targetTexture = null;
+        if (reference) CopyRenderSettings(reference, previewCamera);
+        previewCamera.cullingMask = cullingMask;
+        cameraBaseCaptured = false;
+        cameraBlend = 0f;
+        faceFocus = false;
+        CaptureCameraBase();
+    }
+
+    /// <summary>
+    /// Mode dunia: posisi horizontal sumbu karakter di layar, -1 (kiri) .. 1 (kanan). Dipakai supaya karakter
+    /// berdiri di tengah ruang kosong antara rail dan panel kanan, tanpa memutar kamera (lens shift).
+    /// </summary>
+    public float ScreenCenterX {
+        get => screenCenterX;
+        set => screenCenterX = Mathf.Clamp(value, -0.9f, 0.9f);
+    }
+
+    /// <summary>Sama dengan ScreenCenterX untuk sumbu vertikal (-1 bawah .. 1 atas), supaya karakter tidak
+    /// tertutup bar atas editor.</summary>
+    public float ScreenCenterY {
+        get => screenCenterY;
+        set => screenCenterY = Mathf.Clamp(value, -0.9f, 0.9f);
+    }
+
+    private static void CopyRenderSettings(Camera from, Camera to) {
+        to.clearFlags = from.clearFlags;
+        to.backgroundColor = from.backgroundColor;
+        to.nearClipPlane = Mathf.Min(0.1f, from.nearClipPlane);
+        to.farClipPlane = Mathf.Max(50f, from.farClipPlane);
+        to.depth = from.depth + 1f;
+        to.allowHDR = from.allowHDR;
+        UniversalAdditionalCameraData source = from.GetUniversalAdditionalCameraData();
+        UniversalAdditionalCameraData target = to.GetUniversalAdditionalCameraData();
+        if (!source || !target) return;
+        target.renderPostProcessing = source.renderPostProcessing;
+        target.antialiasing = source.antialiasing;
+        target.antialiasingQuality = source.antialiasingQuality;
+        target.renderShadows = source.renderShadows;
+        target.volumeLayerMask = source.volumeLayerMask;
     }
 
     public void Show(CharacterDatabase.Entry character) {
@@ -222,6 +295,19 @@ public class CharacterPreviewStage : MonoBehaviour {
 
     void LateUpdate() {
         if (cameraBlend > 0f) ApplyCamera(cameraBlend);
+        ApplyLensShift();
+    }
+
+    /// Geser proyeksi (bukan kamera) supaya sumbu karakter jatuh di ScreenCenterX. Dihitung ulang tiap frame
+    /// karena FOV berubah saat zoom Wajah dan rasio layar bisa berubah.
+    private void ApplyLensShift() {
+        if (!worldMode || !previewCamera) return;
+        previewCamera.ResetProjectionMatrix();
+        if (Mathf.Approximately(screenCenterX, 0f) && Mathf.Approximately(screenCenterY, 0f)) return;
+        Matrix4x4 projection = previewCamera.projectionMatrix;
+        projection[0, 2] = -screenCenterX; // titik di sumbu kamera jatuh di NDC (-m02, -m12)
+        projection[1, 2] = -screenCenterY;
+        previewCamera.projectionMatrix = projection;
     }
 
     private void UpdateTurntable() {
@@ -253,7 +339,7 @@ public class CharacterPreviewStage : MonoBehaviour {
         Pose face = FramePose(faceDistance, faceAimAbove);
         previewCamera.transform.SetPositionAndRotation(Vector3.Lerp(baseCameraPosition, face.position, blend),
                                                        Quaternion.Slerp(baseCameraRotation, face.rotation, blend));
-        previewCamera.fieldOfView = Mathf.Lerp(baseFieldOfView, faceFieldOfView, blend);
+        previewCamera.fieldOfView = Mathf.Lerp(baseFieldOfView, worldMode ? worldFaceFieldOfView : faceFieldOfView, blend);
     }
 
     private Pose FramePose(float distance, float aimAbove) {
@@ -306,8 +392,19 @@ public class CharacterPreviewStage : MonoBehaviour {
         CameraClearFlags oldClear = previewCamera.clearFlags;
         Color oldBackground = previewCamera.backgroundColor;
         RenderTexture oldActive = RenderTexture.active;
+        int oldMask = previewCamera.cullingMask;
+        // Mode dunia: hanya karakter yang dipotret (latar transparan), bukan dinding/rak toko di belakangnya.
+        var oldLayers = worldMode ? new System.Collections.Generic.List<(Transform, int)>() : null;
         RenderTexture shot = RenderTexture.GetTemporary(width, height, 24, RenderTextureFormat.ARGB32);
         try {
+            if (worldMode) {
+                foreach (Transform part in model.GetComponentsInChildren<Transform>(true)) {
+                    oldLayers.Add((part, part.gameObject.layer));
+                    part.gameObject.layer = ThumbnailLayer;
+                }
+                previewCamera.cullingMask = 1 << ThumbnailLayer;
+                previewCamera.ResetProjectionMatrix();
+            }
             turntable.localRotation = Quaternion.identity;
             Pose pose = FramePose(thumbnailDistance, faceAimAbove - thumbnailAimBelow);
             cam.SetPositionAndRotation(pose.position, pose.rotation);
@@ -323,6 +420,12 @@ public class CharacterPreviewStage : MonoBehaviour {
             return result;
         } finally {
             RenderTexture.active = oldActive;
+            if (oldLayers != null) {
+                foreach ((Transform part, int layer) in oldLayers) {
+                    if (part) part.gameObject.layer = layer;
+                }
+            }
+            previewCamera.cullingMask = oldMask;
             previewCamera.targetTexture = oldTarget;
             previewCamera.clearFlags = oldClear;
             previewCamera.backgroundColor = oldBackground;

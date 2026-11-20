@@ -17,14 +17,37 @@ public static class CharacterSceneLoader {
     private static Action _onOpened;
     private static Action _onClosed;
     private static bool _busy;
+    // Close() dipanggil saat scene masih dimuat: tutup begitu selesai dimuat (tanpa memanggil "opened").
+    private static bool _loading;
+    private static bool _closeWhenLoaded;
 
     public static bool IsOpen => SceneManager.GetSceneByName(SceneName).isLoaded;
+
+    /// <summary>
+    /// Scene dibuka dari ruang ganti di toko (bukan dari lobby): langsung ke editor karakter aktif, karakter
+    /// berdiri di bilik itu. null = dibuka dari tile KARAKTER di lobby.
+    /// </summary>
+    public static FittingRoomView FittingRoom { get; private set; }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() {
         _onOpened = null;
         _onClosed = null;
         _busy = false;
+        _loading = false;
+        _closeWhenLoaded = false;
+        FittingRoom = null;
+    }
+
+    /// <summary>Buka editor ruang ganti: karakter tampil di <paramref name="view"/>, bukan di panggung lobby.</summary>
+    public static void OpenFittingRoom(FittingRoomView view, Action opened, Action closed) {
+        if (_busy || IsOpen || view == null) return;
+        FittingRoom = view;
+        Open(opened, () => {
+            FittingRoom = null;
+            closed?.Invoke();
+        });
+        if (!_busy) FittingRoom = null; // gagal dimuat (scene tidak terdaftar)
     }
 
     /// <param name="opened">Dipanggil setelah scene selesai dimuat (sembunyikan menu lobby di sini).</param>
@@ -38,10 +61,18 @@ public static class CharacterSceneLoader {
             return;
         }
         _busy = true;
+        _loading = true;
         _onOpened = opened;
         _onClosed = closed;
         load.completed += _ => {
             _busy = false;
+            _loading = false;
+            if (_closeWhenLoaded) {
+                _closeWhenLoaded = false;
+                _onOpened = null;
+                Close();
+                return;
+            }
             Action callback = _onOpened;
             _onOpened = null;
             callback?.Invoke();
@@ -50,6 +81,10 @@ public static class CharacterSceneLoader {
 
     /// <summary>Dipanggil tombol KEMBALI / Back Android di scene karakter.</summary>
     public static void Close() {
+        if (_loading) {
+            _closeWhenLoaded = true;
+            return;
+        }
         Scene scene = SceneManager.GetSceneByName(SceneName);
         if (_busy || !scene.isLoaded) return;
         if (SceneManager.sceneCount <= 1) {

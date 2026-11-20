@@ -23,7 +23,24 @@ public sealed class PlayerAppearanceSync : RealtimeComponent<PlayerAppearanceMod
     private string _appliedPayload;
     private bool _sent;
     private float _templateAt = -1f;
+    // Sudah pernah tampil (template atau custom). Ganti baju di tengah room (ruang ganti) TIDAK menyembunyikan
+    // avatar lagi: wujud lama tetap terlihat sampai hasil bake baru siap, lalu langsung ditukar.
+    private bool _hasAppearance;
     private readonly List<GameObject> _hiddenTemplateParts = new List<GameObject>();
+
+    /// <summary>Avatar milik pemain lokal di room ini, atau null.</summary>
+    public static PlayerAppearanceSync Local { get; private set; }
+
+    /// <summary>
+    /// Slot aktif pemain lokal berubah di tengah room (SIMPAN di ruang ganti): kirim ulang ke pemain lain dan
+    /// bake ulang avatar sendiri. Tidak melakukan apa-apa di luar room.
+    /// </summary>
+    public static void RefreshLocal() {
+        if (Local) Local.SendLocal();
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => Local = null;
 
     /// <summary>Renderer avatar berganti atau status tersembunyi berubah (VenueVisibilityFilter menghitung ulang).</summary>
     public event Action VisualChanged;
@@ -43,6 +60,7 @@ public sealed class PlayerAppearanceSync : RealtimeComponent<PlayerAppearanceMod
     }
 
     void OnDestroy() {
+        if (Local == this) Local = null;
         if (AvatarBakeService.Exists) AvatarBakeService.Instance.Forget(Key);
     }
 
@@ -52,6 +70,7 @@ public sealed class PlayerAppearanceSync : RealtimeComponent<PlayerAppearanceMod
         currentModel.recordDidChange += OnRecordChanged;
         _sent = false;
         _appliedPayload = null;
+        _hasAppearance = false;
         SendLocalIfOwner();
         string payload = currentModel.record ?? "";
         if (payload.Length == 0 && !isOwnedLocallyInHierarchy) {
@@ -75,6 +94,12 @@ public sealed class PlayerAppearanceSync : RealtimeComponent<PlayerAppearanceMod
     private void SendLocalIfOwner() {
         if (model == null || !isOwnedLocallyInHierarchy) return;
         _sent = true;
+        Local = this;
+        SendLocal();
+    }
+
+    private void SendLocal() {
+        if (model == null || !isOwnedLocallyInHierarchy) return;
         string payload = AppearanceCodec.EncodeLocal();
         if (model.record != payload) model.record = payload;
         Apply(payload); // tidak bergantung pada callback perubahan lokal; Apply mengabaikan data yang sama
@@ -98,9 +123,14 @@ public sealed class PlayerAppearanceSync : RealtimeComponent<PlayerAppearanceMod
             UseBaked(prebaked);
             return;
         }
-        SetHidden(!local); // avatar sendiri: template dulu kalau hasil lobby belum ada (jarang, lobby menunggu)
+        // Avatar sendiri: template dulu kalau hasil lobby belum ada (jarang, lobby menunggu). Avatar yang sudah
+        // pernah tampil tetap memakai wujud lamanya sampai bake baru selesai.
+        SetHidden(!local && !_hasAppearance);
+        // Bake gagal: avatar yang belum pernah tampil memakai template; yang sudah tampil (ganti baju di ruang
+        // ganti) tetap memakai wujud lamanya.
+        Action failed = _hasAppearance ? (Action)KeepCurrentLook : ShowTemplate;
         AvatarBakeService.Instance.Request(Key, record,
-            local ? AvatarBakeService.LocalTextureSize : AvatarBakeService.RemoteTextureSize, UseBaked, ShowTemplate);
+            local ? AvatarBakeService.LocalTextureSize : AvatarBakeService.RemoteTextureSize, UseBaked, failed);
     }
 
     // ---------------------------------------------------------------- Tampilan
@@ -120,6 +150,11 @@ public sealed class PlayerAppearanceSync : RealtimeComponent<PlayerAppearanceMod
         }
         SetTemplateVisible(false);
         SetHidden(false);
+        _hasAppearance = true;
+    }
+
+    private void KeepCurrentLook() {
+        if (this) SetHidden(false);
     }
 
     private void ShowTemplate() {
@@ -127,6 +162,7 @@ public sealed class PlayerAppearanceSync : RealtimeComponent<PlayerAppearanceMod
         RemoveCustom();
         SetTemplateVisible(true);
         SetHidden(false);
+        _hasAppearance = true;
     }
 
     private void RemoveCustom() {

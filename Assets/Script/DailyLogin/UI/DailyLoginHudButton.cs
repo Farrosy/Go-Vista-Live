@@ -34,7 +34,7 @@ public sealed class DailyLoginHudButton : MonoBehaviour {
 
     private void Update() {
         bool visible = PlayerController.Local != null && ProgressService.IsLoaded &&
-                       !PlayerInputHub.IsDeathLocked && !ControlLayoutEditor.IsOpen;
+                       !PlayerInputHub.IsDeathLocked && !ControlLayoutEditor.IsOpen && !GameplayHud.Hidden;
         buttonCanvas.enabled = visible;
         if (!visible || !_badgeDirty) return;
         _badgeDirty = false;

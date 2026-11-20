@@ -15,6 +15,8 @@ internal static class BuildingEntranceArt
     public const string DoormatMaterialPath = Folder + "/Doormat.mat";
     public const string GlowTexturePath = Folder + "/doormat-glow.png";
     public const string GlowMaterialPath = Folder + "/DoormatGlow.mat";
+    public const string RingTexturePath = Folder + "/fitting-ring.png";
+    public const string RingMaterialPath = Folder + "/FittingRing.mat";
     private const string ParticleMaterialPath =
         "Packages/com.unity.render-pipelines.universal/Runtime/Materials/ParticlesUnlit.mat";
 
@@ -63,7 +65,44 @@ internal static class BuildingEntranceArt
         return material;
     }
 
+    /// Lingkaran cahaya ruang ganti: material karpet yang sama, tekstur cincin bulat (FittingRoomBuilder).
+    public static Material RingMaterial()
+    {
+        if (!File.Exists(RingTexturePath)) WritePng(RingTexturePath, DrawRing(256));
+        ImportAsTexture(RingTexturePath);
+        var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(RingTexturePath);
+
+        var material = AssetDatabase.LoadAssetAtPath<Material>(RingMaterialPath);
+        if (material == null)
+        {
+            material = new Material(DoormatMaterial()) { name = "FittingRing" };
+            AssetDatabase.CreateAsset(material, RingMaterialPath);
+        }
+        material.SetTexture("_BaseMap", texture);
+        material.SetColor("_BaseColor", Color.white);
+        EditorUtility.SetDirty(material);
+        return material;
+    }
+
     // ------------------------------------------------------------------ gambar
+
+    /// Cincin tebal + isi lembut yang makin terang ke tepi (seperti sorot lampu di lantai).
+    private static Texture2D DrawRing(int size)
+    {
+        var pixels = new Color[size * size];
+        float c = (size - 1) * 0.5f;
+        float outer = size * 0.47f;
+        float stroke = size * 0.045f;
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            float r = new Vector2(x - c, y - c).magnitude;
+            float ring = Mathf.Clamp01(stroke * 0.5f + 0.5f - Mathf.Abs(r - (outer - stroke * 0.5f)));
+            float fill = r < outer ? Mathf.Lerp(0.18f, 0.45f, Mathf.SmoothStep(0f, 1f, r / outer)) : 0f;
+            pixels[y * size + x] = new Color(1, 1, 1, Mathf.Clamp01(Mathf.Max(ring, fill)));
+        }
+        return ToTexture(pixels, size, size);
+    }
 
     private static Texture2D DrawGlow(int width, int height)
     {

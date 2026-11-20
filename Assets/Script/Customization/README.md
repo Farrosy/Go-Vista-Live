@@ -28,7 +28,7 @@ Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 - Slider `IrisSize` dan `EyeLidHeight` maksimal 50. `Stern` hanya untuk template cowok.
 - Slider badan yang ikut muncul di kepala (BodyType, Weight, Muscle, NeckThickness) disembunyikan.
 - Pakaian dalam bawah wajib dipakai. Pakaian dalam atas wajib untuk cewek, boleh kosong untuk cowok.
-- Semua outfit universal; batasan Anime/Basic bawaan BoZo (`requiredTags`) mengikuti **kepala yang dipakai** (FaceStyleRules): item wajah yang tidak cocok tampil abu-abu + toast, dan ganti kepala Anime ↔ Basic ikut mengganti mata/pupil.
+- Outfit khusus cowok/cewek ada di `GenderRules` (tahap 1e; sisanya universal): item gender lain tampil abu-abu + toast, hanya di editor (validator tidak ikut). Batasan Anime/Basic bawaan BoZo (`requiredTags`) mengikuti **kepala yang dipakai** (FaceStyleRules): item wajah yang tidak cocok tampil abu-abu + toast, dan ganti kepala Anime ↔ Basic ikut mengganti mata/pupil.
 - Bagian warna tanpa nama di data BoZo ditampilkan sebagai "Warna N".
 - Data dari luar (Cloud Save, nanti jaringan) **selalu** lewat `CustomCharacterValidator`.
 
@@ -41,6 +41,7 @@ Mockup: https://claude.ai/artifact/9ErgUPTp5styqLjHNeQExu
 | 1b | Layar Pilih Karakter + preview live | Selesai |
 | 1c | Editor outfit + semua bagian warna (HSV picker, URUNGKAN, SIMPAN, Samakan dengan, dialog Buang perubahan) | Selesai |
 | 1d | Wajah, kulit, stiker + motif (pattern), kamera Wajah, thumbnail slot | Selesai |
+| 1e | Outfit/rambut khusus cowok/cewek (`GenderRules`), item gender lain abu-abu + toast | Dikerjakan (`feat/customizer-1e`) |
 | 3 | Sinkronisasi ke room: bake avatar sendiri + pemain lain (opsi A) | Dikerjakan (`feat/customizer-3`) |
 
 Editor 1c: `CustomizerEditor` (pengendali) + `CustomizerEditorView` (tata letak) + `HsvColorPicker`. Logika murni

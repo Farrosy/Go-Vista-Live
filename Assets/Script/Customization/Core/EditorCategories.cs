@@ -89,6 +89,33 @@ public static class EditorCategories {
                            new EditorSubTab("Stiker", EditorPanelKind.Stickers)),
     };
 
+    /// <summary>
+    /// Tab editor RUANG GANTI di clothing shop (bukan lobby): hanya yang "dipakai", bukan identitas tubuh.
+    /// Tidak ada Rambut (barbershop), Kulit, Wajah·Bentuk, Wajah·Kepala, Jenggot, dan Stiker.
+    /// </summary>
+    public static readonly IReadOnlyList<EditorCategory> FittingRoom = new[] {
+        new EditorCategory("Wajah", "icon-face", EditorCategoryKind.Face, true,
+                           new EditorSubTab("Ekspresi", EditorPanelKind.Expressions),
+                           new EditorSubTab("Mata", "Eyes", "Pupil", "EyeShine"),
+                           new EditorSubTab("Alis & Bulu Mata", "EyeBrows", "EyeLashes"),
+                           new EditorSubTab("Make-up", "MakeUpLips", "MakeUpCheeks", "MakeUpEyes", "FaceDetails")),
+        Get("Atasan"),
+        Get("Bawahan"),
+        Get("Kaki"),
+        new EditorCategory("Aksesori", "icon-hat", EditorCategoryKind.Outfits, false,
+                           new EditorSubTab("Topi", "Hat"), new EditorSubTab("Kacamata", "UpperFace"),
+                           new EditorSubTab("Sarung Tangan", "Gloves"), new EditorSubTab("Kepala", "HeadAcc")),
+        Get("Dalaman"),
+    };
+
+    /// <summary>Indeks kategori berlabel <paramref name="label"/> di <paramref name="categories"/>, atau 0.</summary>
+    public static int IndexOf(IReadOnlyList<EditorCategory> categories, string label) {
+        for (int i = 0; i < categories.Count; i++) {
+            if (categories[i].Label == label) return i;
+        }
+        return 0;
+    }
+
     /// <returns>Kategori dengan label ini, atau null.</returns>
     public static EditorCategory Get(string label) {
         foreach (EditorCategory category in All) {
