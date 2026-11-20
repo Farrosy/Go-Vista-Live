@@ -54,7 +54,8 @@ public sealed class QuestHudView : MonoBehaviour {
     private void Update() {
         bool hasPlayer = PlayerController.Local != null;
         // Disembunyikan selama layar mati (semua penyebab), muncul lagi setelah bangkit.
-        buttonCanvas.enabled = hasPlayer && !PlayerInputHub.IsDeathLocked && !ControlLayoutEditor.IsOpen;
+        buttonCanvas.enabled = hasPlayer && !PlayerInputHub.IsDeathLocked && !ControlLayoutEditor.IsOpen &&
+                               !GameplayHud.Hidden;
         if (_open && (!hasPlayer || OverlayActive())) Close();
         UpdateBadge();
         if (_open && _dirty) Rebuild();

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -37,6 +38,10 @@ public class CharacterSceneUI : MonoBehaviour {
     private int slotsBeforeCreate = -1;
     private float previewIdleSince = -1f;
     private int thumbnailCheckedKey = int.MinValue;
+    // Dibuka dari ruang ganti di toko (CharacterSceneLoader.FittingRoom); null = dari lobby.
+    private FittingRoomView fittingRoom;
+    private CustomizerEditorRefs editorUi;
+    private readonly Vector3[] stageCorners = new Vector3[4];
 
     private bool IsOpen => ui != null && ui.Root.activeSelf;
 
@@ -48,16 +53,72 @@ public class CharacterSceneUI : MonoBehaviour {
             return;
         }
         EnsureEventSystem();
+        fittingRoom = CharacterSceneLoader.FittingRoom;
         ui = CustomizerPickView.Build(canvas.transform, assets);
         WireButtons();
         editor = gameObject.AddComponent<CustomizerEditor>();
-        editor.Init(CustomizerEditorView.Build(canvas.transform, assets), assets, stage);
+        IReadOnlyList<EditorCategory> categories = fittingRoom != null ? EditorCategories.FittingRoom : EditorCategories.All;
+        editorUi = CustomizerEditorView.Build(canvas.transform, assets, categories, fittingRoom != null);
+        editor.Init(editorUi, assets, stage, categories);
         CharacterPreviewDrag drag = ui.Preview.gameObject.AddComponent<CharacterPreviewDrag>();
         drag.SetStage(stage);
-        if (stage) stage.UseTransparentBackground();
+        if (stage && fittingRoom == null) stage.UseTransparentBackground();
     }
 
-    void Start() => Show();
+    void Start() {
+        if (fittingRoom != null) OpenFittingRoom();
+        else Show();
+    }
+
+    void LateUpdate() {
+        if (fittingRoom != null && stage && editor.IsOpen) CenterOnStageArea();
+    }
+
+    // ---------------------------------------------------------------- Ruang ganti
+
+    /// <summary>
+    /// Ruang ganti: langsung ke editor karakter yang sedang dipakai, karakter berdiri di bilik toko. Pemain
+    /// yang memakai template mengedit salinannya; SIMPAN membuat slot baru (atau menimpa kalau penuh).
+    /// Tidak ada layar Pilih Karakter: ganti template tetap di lobby.
+    /// </summary>
+    private void OpenFittingRoom() {
+        int slot = CustomCharacterStore.ActiveSlot;
+        CustomCharacterRecord record = CustomCharacterStore.Get(slot);
+        if (record == null) {
+            slot = -1;
+            record = CharacterTemplates.TryGet(CurrentTemplateId, out CharacterTemplate template)
+                ? CharacterRecordConverter.FromTemplate(template)
+                : null;
+        }
+        if (record == null || !stage) {
+            Debug.LogWarning("[CharacterScene] Ruang ganti: karakter aktif tidak dikenal, editor tidak dibuka.");
+            CharacterSceneLoader.Close();
+            return;
+        }
+        stage.EnterWorldMode(fittingRoom.Subject, fittingRoom.View, fittingRoom.FieldOfView, Camera.main,
+                             fittingRoom.CullingMask);
+        CenterOnStageArea();
+        editorUi.Preview.color = new Color(1f, 1f, 1f, 0f); // tetap jadi area geser, gambarnya = toko di belakang UI
+        editor.OfferOverwriteWhenFull = true;
+        editor.Saved += OnFittingRoomSaved;
+        editor.Open(record, slot, false, CharacterSceneLoader.Close);
+    }
+
+    /// Penampilan baru langsung dipakai: slot itu jadi aktif, pemain lain menerima data barunya.
+    private static void OnFittingRoomSaved(int slot) {
+        CustomCharacterStore.Activate(slot);
+        PlayerAppearanceSync.RefreshLocal();
+    }
+
+    /// Sumbu karakter ke tengah area kosong di antara rail, bar atas, dan panel kanan (koordinat NDC).
+    private void CenterOnStageArea() {
+        RectTransform area = editorUi?.StageArea;
+        if (!area || Screen.width <= 0 || Screen.height <= 0) return;
+        Vector3[] corners = stageCorners;
+        area.GetWorldCorners(corners); // canvas Screen Space Overlay: world = piksel layar
+        stage.ScreenCenterX = (corners[0].x + corners[2].x) * 0.5f / Screen.width * 2f - 1f;
+        stage.ScreenCenterY = (corners[0].y + corners[2].y) * 0.5f / Screen.height * 2f - 1f;
+    }
 
     /// Scene ini tidak membawa EventSystem (lobby sudah punya). Saat scene dibuka sendiri untuk dites
     /// di editor, buat sementara supaya tombol tetap bisa ditekan.

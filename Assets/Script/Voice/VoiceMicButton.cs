@@ -58,7 +58,7 @@ public sealed class VoiceMicButton : MonoBehaviour {
             _deniedForThisAvatar = false;
         }
         _canvas.enabled = local != null && !ChatPanel.IsPanelOpen && !PlayerInputHub.IsDeathLocked &&
-                          !ControlLayoutEditor.IsOpen;
+                          !ControlLayoutEditor.IsOpen && !GameplayHud.Hidden;
         if (!_canvas.enabled) {
             _hintUntil = 0f;
             return;

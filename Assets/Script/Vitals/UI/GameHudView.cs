@@ -26,7 +26,7 @@ public sealed class GameHudView : MonoBehaviour {
     private void Update() {
         bool hasPlayer = PlayerController.Local != null;
         // Selama ATUR KONTROL, HUD (minimap, HP/O₂, koin) disembunyikan supaya hanya tombol yang diatur terlihat.
-        bool visible = hasPlayer && !ControlLayoutEditor.IsOpen;
+        bool visible = hasPlayer && !ControlLayoutEditor.IsOpen && !GameplayHud.Hidden;
         rootCanvas.enabled = visible;
         coinCanvas.enabled = visible && !_deathScreen;
         if (!hasPlayer) return;
@@ -45,7 +45,8 @@ public sealed class GameHudView : MonoBehaviour {
     public void SetDeathScreenMode(bool active) {
         _deathScreen = active;
         vitalsGroup.alpha = active ? 0f : 1f;
-        coinCanvas.enabled = !active && PlayerController.Local != null && !ControlLayoutEditor.IsOpen;
+        coinCanvas.enabled = !active && PlayerController.Local != null && !ControlLayoutEditor.IsOpen &&
+                             !GameplayHud.Hidden;
         if (active) redVignette.enabled = false;
     }
 

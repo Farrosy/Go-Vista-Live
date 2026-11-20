@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,6 +20,8 @@ public sealed class CustomizerEditorRefs {
     public TextMeshProUGUI NameText;
     public GameObject DirtyPill;
     public RawImage Preview;
+    /// <summary>Area tengah di antara rail dan panel kanan (mode ruang ganti: karakter dibidik ke tengah area ini).</summary>
+    public RectTransform StageArea;
     public GameObject Loading;
     public Button BodyCamButton;
     public GameObject BodyCamOn;
@@ -57,6 +60,9 @@ public sealed class CustomizerEditorRefs {
     public RectTransform MatchList;
     public ColorPopupRefs ColorPopup;
     public CustomizerUi.ConfirmDialog Discard;
+    /// <summary>Pilih slot yang ditimpa saat slot penuh (ruang ganti): Cancel = Karakter 1, Confirm = Karakter 2.</summary>
+    public CustomizerUi.ConfirmDialog Overwrite;
+    public Button OverwriteClose;
     public TextMeshProUGUI Toast;
 }
 
@@ -98,20 +104,32 @@ public static class CustomizerEditorView {
 
     private static readonly Color DirtyFill = new Color32(0x2E, 0x26, 0x0E, 0xFF);
 
-    public static CustomizerEditorRefs Build(Transform canvas, ChatUiAssets a) {
+    /// <param name="categories">Tab rail kiri; null = EditorCategories.All (editor lobby).</param>
+    /// <param name="inWorld">Mode ruang ganti: tanpa latar gradasi, karakter tampil di dalam toko (kamera
+    /// panggung merender langsung ke layar di belakang UI ini).</param>
+    public static CustomizerEditorRefs Build(Transform canvas, ChatUiAssets a, IReadOnlyList<EditorCategory> categories = null,
+                                             bool inWorld = false) {
+        categories ??= EditorCategories.All;
         var refs = new CustomizerEditorRefs();
         RectTransform root = ChatUiKit.Stretch(ChatUiKit.CreateRect("Customizer Editor View", canvas), 0f, 0f, 0f, 0f);
         refs.Root = root.gameObject;
-        CustomizerUi.CreateStageBackground(root, a);
+        if (inWorld) CreateClickBlocker(root);
+        else CustomizerUi.CreateStageBackground(root, a);
         RectTransform safe = ChatUiKit.Stretch(ChatUiKit.CreateRect("Safe Area", root), 0f, 0f, 0f, 0f);
         safe.gameObject.AddComponent<SafeAreaFitter>();
 
-        BuildTopBar(safe, a, refs);
-        BuildRail(safe, a, refs);
+        BuildTopBar(safe, a, refs, inWorld ? "RUANG GANTI" : "UBAH KARAKTER");
+        BuildRail(safe, a, refs, categories);
         BuildStage(safe, a, refs);
         BuildSidePanel(safe, a, refs);
         refs.Discard = CustomizerUi.CreateConfirmDialog(root, a, "Buang perubahan?",
             "Perubahan yang belum disimpan akan hilang.", "BATAL", "BUANG");
+        refs.Overwrite = CustomizerUi.CreateConfirmDialog(root, a, "Slot karakter penuh",
+            "Pilih karakter yang ditimpa dengan penampilan ini.", CustomSlotRules.SlotName(0).ToUpperInvariant(),
+            CustomSlotRules.SlotName(1).ToUpperInvariant());
+        refs.OverwriteClose = FriendsUiKit.CreateOutlineButton("Close", refs.Overwrite.Title.rectTransform.parent, a, "",
+                                                               Color.white, FriendsTheme.NeutralFill, a.closeIcon, 28);
+        ChatUiKit.PlaceTopRight((RectTransform)refs.OverwriteClose.transform, 24f, 24f, 64f, 64f);
         BuildMatchPopup(root, a, refs);
         refs.ColorPopup = CustomizerEditorPanels.BuildColorPopup(root, a);
         refs.Toast = CustomizerUi.CreateToast(root, a);
@@ -122,10 +140,16 @@ public static class CustomizerEditorView {
 
     // ---------------------------------------------------------------- Bar atas
 
-    private static void BuildTopBar(RectTransform parent, ChatUiAssets a, CustomizerEditorRefs refs) {
+    /// Latar transparan selebar layar: menahan klik ke HUD/dunia di belakang, tapi toko tetap terlihat.
+    private static void CreateClickBlocker(RectTransform root) {
+        RectTransform blocker = ChatUiKit.Stretch(ChatUiKit.CreateRect("Click Blocker", root), 0f, 0f, 0f, 0f);
+        blocker.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+    }
+
+    private static void BuildTopBar(RectTransform parent, ChatUiAssets a, CustomizerEditorRefs refs, string titleText) {
         refs.BackButton = CustomizerUi.CreateBackButton(parent, a, Edge, TopBarY, TopBarHeight);
         float x = Edge + TopBarHeight + 20f;
-        TextMeshProUGUI title = ChatUiKit.CreateText("Title", parent, a.font, "UBAH KARAKTER", FriendsTheme.TitleSize - 6,
+        TextMeshProUGUI title = ChatUiKit.CreateText("Title", parent, a.font, titleText, FriendsTheme.TitleSize - 6,
                                                      Color.white, FontStyles.Bold);
         ChatUiKit.Place(title.rectTransform, x, TopBarY + 6f, 420f, 64f);
 
@@ -153,7 +177,8 @@ public static class CustomizerEditorView {
 
     // ---------------------------------------------------------------- Rail kategori
 
-    private static void BuildRail(RectTransform parent, ChatUiAssets a, CustomizerEditorRefs refs) {
+    private static void BuildRail(RectTransform parent, ChatUiAssets a, CustomizerEditorRefs refs,
+                                  IReadOnlyList<EditorCategory> categories) {
         RectTransform rail = StretchColumn(parent, a, "Rail", Edge, RailWidth, fromRight: false);
         VerticalLayoutGroup layout = rail.gameObject.AddComponent<VerticalLayoutGroup>();
         layout.padding = new RectOffset(12, 12, 16, 16);
@@ -161,8 +186,8 @@ public static class CustomizerEditorView {
         layout.childControlWidth = layout.childControlHeight = true;
         layout.childForceExpandWidth = layout.childForceExpandHeight = true;
 
-        refs.Tabs = new EditorTabRefs[EditorCategories.All.Count];
-        for (int i = 0; i < refs.Tabs.Length; i++) refs.Tabs[i] = BuildTab(rail, a, EditorCategories.All[i]);
+        refs.Tabs = new EditorTabRefs[categories.Count];
+        for (int i = 0; i < refs.Tabs.Length; i++) refs.Tabs[i] = BuildTab(rail, a, categories[i]);
     }
 
     private static EditorTabRefs BuildTab(RectTransform rail, ChatUiAssets a, EditorCategory category) {
@@ -201,6 +226,7 @@ public static class CustomizerEditorView {
     private static void BuildStage(RectTransform parent, ChatUiAssets a, CustomizerEditorRefs refs) {
         RectTransform area = ChatUiKit.Stretch(ChatUiKit.CreateRect("Stage Area", parent), Edge + RailWidth + Gap,
                                                ContentTop, Edge + SideWidth + Gap, ContentBottom);
+        refs.StageArea = area;
         // AspectRatioFitter (FitInParent) mengukur dari PARENT dan mengabaikan offset rect-nya sendiri. Karena itu
         // gambar ditaruh di dalam kotak yang sudah dikurangi ruang toggle (atas) + petunjuk (bawah); kalau tidak,
         // alas karakter tertimpa tulisan "Geser untuk memutar".

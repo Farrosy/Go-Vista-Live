@@ -189,7 +189,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         }
         PlayerInputHub hub = PlayerInputHub.Instance;
         bool blocked = hub != null && hub.OverlayActive;
-        openButtonCanvas.enabled = _available && !PlayerInputHub.IsDeathLocked;
+        openButtonCanvas.enabled = _available && !PlayerInputHub.IsDeathLocked && !GameplayHud.Hidden;
 
         if (_open) {
             if (!_available || blocked || PlayerController.Local == null || Input.GetKeyDown(KeyCode.Escape) ||

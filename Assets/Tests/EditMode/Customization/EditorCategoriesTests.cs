@@ -71,4 +71,39 @@ public class EditorCategoriesTests {
         Assert.AreEqual("Wajah · Mata", EditorCategories.LabelOf("Pupil"));
         Assert.IsNull(EditorCategories.LabelOf("Decal"));
     }
+
+    // ---------------------------------------------------------------- Ruang ganti (clothing shop)
+
+    private static string[] FittingRoomTypes() =>
+        EditorCategories.FittingRoom.SelectMany(c => c.SubTabs).SelectMany(t => t.OutfitTypes).ToArray();
+
+    [Test]
+    public void Fitting_room_hides_hair_skin_head_shapes_beard_and_stickers() {
+        string[] labels = EditorCategories.FittingRoom.Select(c => c.Label).ToArray();
+        CollectionAssert.DoesNotContain(labels, "Rambut");
+        CollectionAssert.DoesNotContain(labels, "Kulit");
+        CollectionAssert.DoesNotContain(labels, "Stiker");
+        Assert.IsFalse(EditorCategories.FittingRoom.Any(c => c.Kind == EditorCategoryKind.Stickers));
+        string[] types = FittingRoomTypes();
+        foreach (string hidden in new[] { "HairFront", "HairBack", "Body", "Head", "LowerFace" })
+            CollectionAssert.DoesNotContain(types, hidden);
+        EditorCategory face = EditorCategories.FittingRoom.Single(c => c.Label == "Wajah");
+        Assert.IsFalse(face.SubTabs.Any(t => t.Panel == EditorPanelKind.FaceShapes));
+    }
+
+    [Test]
+    public void Fitting_room_keeps_clothes_accessories_and_makeup() {
+        string[] types = FittingRoomTypes();
+        foreach (string kept in new[] { "Top", "Overall", "Bottom", "Leggings", "Feet", "Socks", "Hat", "UpperFace",
+                                        "Gloves", "HeadAcc", "UnderUpper", "UnderLower", "Eyes", "Pupil", "EyeShine",
+                                        "EyeBrows", "EyeLashes", "MakeUpLips", "MakeUpCheeks", "MakeUpEyes", "FaceDetails" })
+            CollectionAssert.Contains(types, kept);
+        Assert.IsTrue(EditorCategories.FittingRoom.All(c => c != null));
+    }
+
+    [Test]
+    public void IndexOf_finds_a_label_or_falls_back_to_the_first_tab() {
+        Assert.AreEqual(1, EditorCategories.IndexOf(EditorCategories.FittingRoom, "Atasan"));
+        Assert.AreEqual(0, EditorCategories.IndexOf(EditorCategories.FittingRoom, "Rambut"));
+    }
 }
