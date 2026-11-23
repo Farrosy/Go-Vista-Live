@@ -45,8 +45,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float speedDampTime = 0.1f;
     [Tooltip("Kecepatan asli klip Walk (meter/detik, skala avatar 1) = seberapa cepat kaki menapak mundur di klip.")]
     [SerializeField] private float walkClipSpeed = 1.0f;
-    [Tooltip("Kecepatan asli klip lari (Jog Fwd Loop) di blend Speed = 1 (meter/detik, skala avatar 1).")]
-    [SerializeField] private float sprintClipSpeed = 2.85f;
+    [Tooltip("Kecepatan asli klip lari (Jog, jog_fwd_loop_unity_fit_anim_only.fbx) di blend Speed = 1 (meter/detik, skala avatar 1).")]
+    [SerializeField] private float sprintClipSpeed = 2.75f;
     [Tooltip("Toleransi 'masih dianggap menapak tanah' supaya animasi tidak berkedip di tanjakan/anak tangga.")]
     [SerializeField] private float groundedGrace = 0.1f;
 
