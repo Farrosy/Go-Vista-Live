@@ -12,16 +12,19 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     [Header("Gerak")]
-    [SerializeField] private float walkSpeed = 3f;
-    [SerializeField] private float sprintSpeed = 6f;
+    [Tooltip("Kecepatan jalan (meter/detik). Langkah animasi otomatis disesuaikan, jadi kaki tidak meluncur.")]
+    [SerializeField] private float walkSpeed = 1.4f;
+    [SerializeField] private float sprintSpeed = 3.5f;
     [SerializeField] private float turnSpeed = 720f;
+    [Tooltip("Percepatan dari diam ke kecepatan penuh (meter/detik²). Besar = makin responsif.")]
+    [SerializeField] private float acceleration = 15f;
+    [Tooltip("Perlambatan saat joystick dilepas (meter/detik²).")]
+    [SerializeField] private float deceleration = 22f;
     [SerializeField] private float gravity = -20f;
 
     [Header("Air")]
     [Tooltip("Kecepatan berjalan di air (meter/detik). Tidak bisa lari atau lompat.")]
-    [SerializeField] private float wadingSpeed = 1f;
-    [Tooltip("Nilai Speed animator saat berjalan di air. 0.5 = animasi jalan penuh.")]
-    [SerializeField] private float wadingAnimSpeed = 0.25f;
+    [SerializeField] private float wadingSpeed = 0.7f;
 
     [Header("Lompat")]
     [SerializeField] private float jumpHeight = 1.5f;
@@ -40,6 +43,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Animator animator;
     [Tooltip("Kehalusan perpindahan idle/walk/sprint. Makin besar makin lambat berubah.")]
     [SerializeField] private float speedDampTime = 0.1f;
+    [Tooltip("Kecepatan asli klip Walk (meter/detik, skala avatar 1) = seberapa cepat kaki menapak mundur di klip.")]
+    [SerializeField] private float walkClipSpeed = 1.0f;
+    [Tooltip("Kecepatan asli klip lari (Jog Fwd Loop) di blend Speed = 1 (meter/detik, skala avatar 1).")]
+    [SerializeField] private float sprintClipSpeed = 2.85f;
     [Tooltip("Toleransi 'masih dianggap menapak tanah' supaya animasi tidak berkedip di tanjakan/anak tangga.")]
     [SerializeField] private float groundedGrace = 0.1f;
 
@@ -86,6 +93,11 @@ public class PlayerController : MonoBehaviour
     public event Action Jumped;
 
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
+    // Pengali kecepatan state Locomotion (Animator: Locomotion > Speed Multiplier = MoveAnimSpeed).
+    private static readonly int MoveAnimSpeedHash = Animator.StringToHash("MoveAnimSpeed");
+    private const float IdleBlendFade = 0.15f;
+    private const float MinPlaybackRate = 0.5f;
+    private const float MaxPlaybackRate = 2f;
     private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
     /// Hash parameter IsGrounded (dibaca panggung preview karakter untuk menjaga pose idle).
     public static int IsGroundedParam => IsGroundedHash;
@@ -104,6 +116,8 @@ public class PlayerController : MonoBehaviour
 
     private CharacterController cc;
     private float verticalVel;
+    private Vector3 planarVelocity;   // kecepatan horizontal aktual (dengan akselerasi)
+    private Vector3? scriptedMove;    // arah gerak dari skrip (dunia), menggantikan joystick
     private float nextJumpTime;
     private bool launchPending;
     private float launchTimer;
@@ -212,6 +226,7 @@ public class PlayerController : MonoBehaviour
     {
         if (InVehicle && TryGetComponent(out VehicleOccupant occupant)) occupant.ExitImmediate();
         shoveTimer = 0f;
+        planarVelocity = Vector3.zero;
         cc.enabled = false;
         transform.SetPositionAndRotation(position, rotation);
         Physics.SyncTransforms();
@@ -306,6 +321,8 @@ public class PlayerController : MonoBehaviour
     {
         UpdateKnockdown();
 
+        if (InVehicle || frozen) planarVelocity = Vector3.zero;
+
         if (InVehicle)
         {
             // Diam di kursi. Speed 0 + menapak supaya kembali ke Locomotion idle setelah animasi keluar.
@@ -329,18 +346,30 @@ public class PlayerController : MonoBehaviour
         if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
 
         var input = PlayerInputHub.Instance;
-        Vector2 m = input && !IsKnockedDown ? input.Move : Vector2.zero;
-        Vector3 dir = new Vector3(m.x, 0f, m.y);
-
-        if (cameraRelative && cameraTransform)
-            dir = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f) * dir;
-
+        Vector3 dir;
+        if (scriptedMove.HasValue && !IsKnockedDown)
+        {
+            dir = scriptedMove.Value;   // gerak dari skrip (mis. ruang ganti), tetap jalan walau input terkunci
+        }
+        else
+        {
+            Vector2 m = input && !IsKnockedDown ? input.Move : Vector2.zero;
+            dir = new Vector3(m.x, 0f, m.y);
+            if (cameraRelative && cameraTransform)
+                dir = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f) * dir;
+        }
+        dir.y = 0f;
         dir = Vector3.ClampMagnitude(dir, 1f);
 
         bool moving = dir.sqrMagnitude > 0.0001f;
-        IsSprinting = input && input.Sprint && moving && !wading && !IsKnockedDown;
+        IsSprinting = input && input.Sprint && moving && !wading && !IsKnockedDown && !scriptedMove.HasValue;
         float speed = wading ? wadingSpeed : IsSprinting ? sprintSpeed : walkSpeed;
-        Speed01 = dir.magnitude * (wading ? wadingAnimSpeed : IsSprinting ? 1f : 0.5f);
+
+        // Akselerasi/deselerasi: kecepatan tidak langsung penuh / langsung nol, jadi badan dan langkah selaras.
+        Vector3 targetVelocity = dir * speed;
+        float rate = targetVelocity.sqrMagnitude >= planarVelocity.sqrMagnitude ? acceleration : deceleration;
+        planarVelocity = Vector3.MoveTowards(planarVelocity, targetVelocity, rate * Time.deltaTime);
+        Speed01 = SpeedToBlend(planarVelocity.magnitude);
 
         if (moving)
         {
@@ -367,7 +396,11 @@ public class PlayerController : MonoBehaviour
         // Dibatasi sisa waktu dorongan supaya jaraknya tetap sama saat FPS rendah.
         Vector3 shoveStep = shoveVelocity * Mathf.Min(Mathf.Max(0f, shoveTimer), Time.deltaTime);
         shoveTimer -= Time.deltaTime;
-        cc.Move((dir * speed + Vector3.up * verticalVel) * Time.deltaTime + shoveStep);
+        cc.Move((planarVelocity + Vector3.up * verticalVel) * Time.deltaTime + shoveStep);
+        // Tertahan tembok: kecepatan ikut turun, supaya animasi tidak terus berjalan di tempat.
+        Vector3 actual = cc.velocity;
+        actual.y = 0f;
+        if (actual.sqrMagnitude < planarVelocity.sqrMagnitude) planarVelocity = Vector3.ClampMagnitude(planarVelocity, actual.magnitude + 0.05f);
 
         if (cc.isGrounded) lastGroundedTime = Time.time;
         UpdateAnimator();
@@ -453,7 +486,66 @@ public class PlayerController : MonoBehaviour
 
     private void UpdateAnimator()
     {
-        ApplyAnimator(animator, Speed01, IsGroundedForAnim, speedDampTime);
+        ApplyLocomotion(Speed01, IsGroundedForAnim);
+    }
+
+    /// <summary>
+    /// Gerak dari skrip: arah dunia (panjang 0..1 = bagian dari kecepatan jalan) menggantikan joystick, tetap
+    /// berlaku walau input terkunci. Avatar berjalan dengan animasi, akselerasi, dan tabrakan biasa. null = selesai.
+    /// </summary>
+    public void SetScriptedMove(Vector3? worldDirection) => scriptedMove = worldDirection;
+
+    /// Kecepatan nyata (m/s) -> nilai blend Speed: 0 diam, 0.5 = kecepatan jalan, 1 = kecepatan sprint.
+    private float SpeedToBlend(float metersPerSecond)
+    {
+        if (metersPerSecond <= walkSpeed) return 0.5f * metersPerSecond / Mathf.Max(0.01f, walkSpeed);
+        return 0.5f + 0.5f * Mathf.Clamp01((metersPerSecond - walkSpeed) / Mathf.Max(0.01f, sprintSpeed - walkSpeed));
+    }
+
+    /// <summary>
+    /// Pasang Speed + IsGrounded, lalu atur kecepatan putar animasi jalan/sprint supaya langkah kaki sama dengan
+    /// kecepatan avatar (tidak meluncur). Dipakai avatar sendiri dan avatar pemain lain (PlayerAnimSync), jadi
+    /// hasilnya sama: pengalinya dihitung dari nilai Speed yang tersinkron.
+    /// </summary>
+    public void ApplyLocomotion(float speed01, bool grounded)
+    {
+        ApplyAnimator(animator, speed01, grounded, speedDampTime);
+        if (!animator || !HasMoveAnimSpeedParam) return;
+        animator.SetFloat(MoveAnimSpeedHash, LocomotionPlaybackRate(animator.GetFloat(SpeedHash)));
+    }
+
+    private RuntimeAnimatorController checkedController;
+    private bool hasMoveAnimSpeed;
+
+    // Controller lama tanpa parameter MoveAnimSpeed: lewati saja (tanpa warning tiap frame).
+    private bool HasMoveAnimSpeedParam
+    {
+        get
+        {
+            RuntimeAnimatorController current = animator.runtimeAnimatorController;
+            if (current == checkedController) return hasMoveAnimSpeed;
+            checkedController = current;
+            hasMoveAnimSpeed = false;
+            if (!current) return false;
+            foreach (AnimatorControllerParameter parameter in animator.parameters)
+                if (parameter.nameHash == MoveAnimSpeedHash && parameter.type == AnimatorControllerParameterType.Float)
+                    hasMoveAnimSpeed = true;
+            return hasMoveAnimSpeed;
+        }
+    }
+
+    /// Kecepatan avatar dibagi kecepatan asli klip pada posisi blend itu (klip ikut skala avatar).
+    private float LocomotionPlaybackRate(float blend)
+    {
+        float scale = Mathf.Max(0.05f, transform.localScale.y);
+        float walkRate = walkSpeed / Mathf.Max(0.01f, walkClipSpeed * scale);
+        if (blend <= 0.5f)
+            // Dekat diam animasi idle mendominasi: jangan ikut dipercepat.
+            return Mathf.Lerp(1f, walkRate, Mathf.Clamp01(blend / IdleBlendFade));
+        float t = Mathf.Clamp01((blend - 0.5f) * 2f);
+        float speed = Mathf.Lerp(walkSpeed, sprintSpeed, t);
+        float clip = Mathf.Lerp(walkClipSpeed, sprintClipSpeed, t) * scale;
+        return Mathf.Clamp(speed / Mathf.Max(0.01f, clip), MinPlaybackRate, MaxPlaybackRate);
     }
 
     /// Dipakai juga oleh PlayerAnimSync untuk avatar pemain lain, supaya parameternya sama persis.
