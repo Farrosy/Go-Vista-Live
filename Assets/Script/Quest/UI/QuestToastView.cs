@@ -17,16 +17,23 @@ public sealed class QuestToastView : MonoBehaviour {
     private readonly Queue<(string title, string detail)> _pending = new Queue<(string, string)>();
     private Coroutine _showing;
 
+    private static event System.Action<string, string> MessageRequested;
+
+    /// Notifikasi umum di luar quest (mis. "Ngobrol dulu dengan Mira"). Hanya di layar pemain ini.
+    public static void ShowMessage(string title, string detail) => MessageRequested?.Invoke(title, detail);
+
     private void Awake() => toast.alpha = 0f;
 
     private void OnEnable() {
         QuestService.QuestAccepted += OnAccepted;
         QuestService.QuestCompleted += OnCompleted;
+        MessageRequested += OnMessage;
     }
 
     private void OnDisable() {
         QuestService.QuestAccepted -= OnAccepted;
         QuestService.QuestCompleted -= OnCompleted;
+        MessageRequested -= OnMessage;
         _pending.Clear();
         _showing = null;
         toast.alpha = 0f;
@@ -37,6 +44,12 @@ public sealed class QuestToastView : MonoBehaviour {
     private void OnCompleted(QuestData quest) {
         string reward = quest.rewardCoins > 0 ? $"\n+{CoinRules.FormatBalance(quest.rewardCoins)} Go Vista Coin" : "";
         Enqueue("Quest selesai!", quest.title + reward);
+    }
+
+    private void OnMessage(string title, string detail) {
+        // Tombol yang ditekan berulang tidak menumpuk antrean dengan pesan yang sama.
+        if (_pending.Contains((title, detail)) || (_showing != null && titleLabel.text == title && detailLabel.text == detail)) return;
+        Enqueue(title, detail);
     }
 
     private void Enqueue(string title, string detail) {

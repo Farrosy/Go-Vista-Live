@@ -36,17 +36,25 @@ public class BuildingEntranceMarker : MonoBehaviour
     [Tooltip("Kecepatan transisi normal ↔ terang (per detik).")]
     [SerializeField] private float blendSpeed = 6f;
 
+    [Header("Sorotan (tutorial)")]
+    [Tooltip("Seberapa terang & cepat denyut saat disorot (0 = normal, 1 = seperti pemain berdiri di atasnya).")]
+    [Range(0f, 1f)] [SerializeField] private float highlightLevel = 0.6f;
+
     private MaterialPropertyBlock block;
+    private bool highlighted;
     private float active;   // 0 = normal, 1 = pemain di atas karpet
     private float phase;
 
     void Awake() => block = new MaterialPropertyBlock();
 
+    /// Sorot penanda ini (lebih terang + denyut lebih cepat), mis. petunjuk tutorial "masuk ke sini".
+    public void SetHighlighted(bool value) => highlighted = value;
+
     void LateUpdate()
     {
         if (!doormat) return;
 
-        float target = IsLocalPlayerOnMat() ? 1f : 0f;
+        float target = IsLocalPlayerOnMat() ? 1f : highlighted ? highlightLevel : 0f;
         active = Mathf.MoveTowards(active, target, Time.deltaTime * blendSpeed);
         phase += Time.deltaTime * Mathf.Lerp(idlePulseSpeed, activePulseSpeed, active);
 
