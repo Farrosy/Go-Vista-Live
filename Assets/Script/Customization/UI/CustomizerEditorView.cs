@@ -19,6 +19,8 @@ public sealed class CustomizerEditorRefs {
     public Button SaveButton;
     public TextMeshProUGUI NameText;
     public GameObject DirtyPill;
+    /// <summary>Saldo koin pemain di bar atas ("1.250"), supaya bisa mengira-ngira saat memilih item berharga.</summary>
+    public TextMeshProUGUI CoinText;
     public RawImage Preview;
     /// <summary>Area tengah di antara rail dan panel kanan (mode ruang ganti: karakter dibidik ke tengah area ini).</summary>
     public RectTransform StageArea;
@@ -62,6 +64,8 @@ public sealed class CustomizerEditorRefs {
     public CustomizerUi.ConfirmDialog Discard;
     /// <summary>Pilih slot yang ditimpa saat slot penuh (ruang ganti): Cancel = Karakter 1, Confirm = Karakter 2.</summary>
     public CustomizerUi.ConfirmDialog Overwrite;
+    /// <summary>SIMPAN dengan item yang belum dibeli: "Beli N item" + total + saldo.</summary>
+    public CustomizerUi.ConfirmDialog Purchase;
     public Button OverwriteClose;
     public TextMeshProUGUI Toast;
 }
@@ -130,6 +134,7 @@ public static class CustomizerEditorView {
         refs.OverwriteClose = FriendsUiKit.CreateOutlineButton("Close", refs.Overwrite.Title.rectTransform.parent, a, "",
                                                                Color.white, FriendsTheme.NeutralFill, a.closeIcon, 28);
         ChatUiKit.PlaceTopRight((RectTransform)refs.OverwriteClose.transform, 24f, 24f, 64f, 64f);
+        refs.Purchase = CustomizerUi.CreateConfirmDialog(root, a, "Beli item?", "", "BATAL", "BELI & SIMPAN");
         BuildMatchPopup(root, a, refs);
         refs.ColorPopup = CustomizerEditorPanels.BuildColorPopup(root, a);
         refs.Toast = CustomizerUi.CreateToast(root, a);
@@ -173,6 +178,33 @@ public static class CustomizerEditorView {
         refs.UndoButton = FriendsUiKit.CreateOutlineButton("Undo Button", parent, a, "URUNGKAN", Color.white,
                                                            FriendsTheme.NeutralFill, ProfileMenuBuilder.LoadIcon("icon-undo"), 24);
         ChatUiKit.PlaceTopRight((RectTransform)refs.UndoButton.transform, Edge + 224f, TopBarY, 250f, TopBarHeight);
+        refs.CoinText = BuildCoinPill(parent, a);
+    }
+
+    private const float CoinPillWidth = 190f;
+    private const float CoinPillHeight = 56f;
+
+    /// Saldo koin di kiri tombol URUNGKAN: ikon G + angka, gaya sama dengan koin HUD.
+    private static TextMeshProUGUI BuildCoinPill(RectTransform parent, ChatUiAssets a) {
+        RectTransform pill = ChatUiKit.CreateRect("Coin Balance", parent);
+        ChatUiKit.AddShape(pill.gameObject, a.rounded, FriendsTheme.Card, 2.2f).raycastTarget = false;
+        FriendsUiKit.AddBorder(pill, new Color(1f, 1f, 1f, 0.2f), 2.2f);
+        ChatUiKit.PlaceTopRight(pill, Edge + 224f + 250f + 16f, TopBarY + (TopBarHeight - CoinPillHeight) * 0.5f,
+                                CoinPillWidth, CoinPillHeight);
+        Image icon = ChatUiKit.AddIcon("Coin Icon", pill, ProfileMenuBuilder.LoadIcon("icon-coin"), Color.white);
+        icon.raycastTarget = false;
+        RectTransform iconRect = icon.rectTransform;
+        iconRect.anchorMin = iconRect.anchorMax = iconRect.pivot = new Vector2(0f, 0.5f);
+        iconRect.anchoredPosition = new Vector2(8f, 0f);
+        iconRect.sizeDelta = new Vector2(CoinPillHeight - 12f, CoinPillHeight - 12f);
+        TextMeshProUGUI text = ChatUiKit.CreateText("Balance", pill, a.font, "0", FriendsTheme.BodySize, Color.white,
+                                                    FontStyles.Bold, TextAlignmentOptions.Right);
+        text.raycastTarget = false;
+        ChatUiKit.Stretch(text.rectTransform, CoinPillHeight, 0f, 18f, 0f);
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 16f;
+        text.fontSizeMax = FriendsTheme.BodySize;
+        return text;
     }
 
     // ---------------------------------------------------------------- Rail kategori
@@ -618,6 +650,20 @@ public static class CustomizerEditorView {
     }
 
     private const float DimmedItemAlpha = 0.35f;
+    private const float PriceTagHeight = 26f;
+    private static readonly Color PriceFill = new Color32(0xF2, 0xB8, 0x2E, 0xFF);
+    private static readonly Color PriceText = new Color32(0x3A, 0x26, 0x00, 0xFF);
+
+    /// <summary>Label harga di pojok kiri atas item yang belum dimiliki ("125 G"). Tidak menghalangi ketukan.</summary>
+    public static GameObject AddPriceTag(Button item, ChatUiAssets a, int price) {
+        RectTransform tag = FriendsUiKit.CreatePill(item.transform, a, CoinRules.FormatBalance(price) + " G", PriceFill,
+                                                    PriceText, 12, PriceTagHeight);
+        tag.name = "Price Tag";
+        tag.anchorMin = tag.anchorMax = tag.pivot = new Vector2(0f, 1f);
+        tag.anchoredPosition = new Vector2(5f, -5f);
+        foreach (Graphic graphic in tag.GetComponentsInChildren<Graphic>(true)) graphic.raycastTarget = false;
+        return tag.gameObject;
+    }
 
     /// <summary>
     /// Item yang tidak bisa dipakai (mis. mata anime di kepala Basic): tampil abu-abu tapi tetap bisa diketuk,
