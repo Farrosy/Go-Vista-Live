@@ -40,6 +40,17 @@ public static class PlayerCoins {
         Notify();
     }
 
+    /// Belanja: potong 'amount' kalau saldo cukup. False (saldo tidak berubah) kalau kurang. Jumlah ≤ 0 = true.
+    public static bool TrySpend(int amount, bool saveNow = true) {
+        if (amount <= 0) return true;
+        if (Balance < amount) return false;
+        ProgressService.Current.coins = Balance - amount;
+        ProgressService.MarkDirty();
+        if (saveNow) _ = ProgressService.SaveAsync();
+        Notify();
+        return true;
+    }
+
     /// Memotong penalti mati dan mengembalikan jumlah yang benar-benar terpotong.
     public static int ApplyDeathPenalty() {
         int lost = CoinRules.DeathPenalty(Balance);

@@ -52,6 +52,10 @@ public partial class CarSyncModel {
     [RealtimeProperty(25, true, false)] private float _seat1Yaw;
     [RealtimeProperty(26, true, false)] private float _seat2Yaw;
     [RealtimeProperty(27, true, false)] private float _seat3Yaw;
+
+    // ---- Pemilik (pemain yang men-spawn lewat dealer), clientID + 1. 0 = tanpa pemilik (spawner versi lama).
+    // Satu mobil per pemain: Spawn lagi menghapus mobil lama; mobil pemain yang keluar room dihapus VehicleDirector.
+    [RealtimeProperty(28, true, false)] private int _ownerClient;
 }
 
 /// <summary>Fase pemain di kursi, disinkronkan supaya pemain lain memutar animasi yang sama.</summary>
