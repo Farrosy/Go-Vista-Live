@@ -22,6 +22,10 @@ public class PlayerProgress {
     /// <summary>Jawaban terakhir pemain untuk tiap pertanyaan dialog (lihat ProgressService.SetDialogueAnswer).</summary>
     public List<DialogueAnswer> dialogueAnswers = new List<DialogueAnswer>();
 
+    // ---------------------------------------------------------------- Tutorial (lihat ProgressService.MarkTutorialDone)
+    /// <summary>ID petunjuk tutorial yang sudah selesai (mis. "fitting-room-hint"). Save lama = kosong.</summary>
+    public List<string> completedTutorials = new List<string>();
+
     // ---------------------------------------------------------------- Karakter
     /// <summary>ID karakter pilihan (CharacterDatabase). Kosong = karakter pertama (default).</summary>
     public string characterId = "";

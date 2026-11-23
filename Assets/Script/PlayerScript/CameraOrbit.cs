@@ -81,6 +81,52 @@ public class CameraOrbit : MonoBehaviour
         currentDistance = -1f;
     }
 
+    // ---- Pose paksa (ruang ganti): kamera meluncur halus ke pose tetap, lalu kembali ke pose normal ----
+    private bool poseOverride;
+    private Pose overridePose;
+    private float overrideFov;
+    private float overrideBaseFov;
+    private float overrideBlend;   // 0 = pose normal, 1 = pose paksa penuh
+    private float overrideSeconds = 0.7f;
+
+    /// True kalau luncuran BlendToPose / ReleasePose terakhir sudah sampai.
+    public bool PoseBlendSettled => poseOverride ? overrideBlend >= 1f : overrideBlend <= 0f;
+
+    /// Kamera meluncur dari pose sekarang ke <paramref name="pose"/> (+ FOV) dalam <paramref name="seconds"/> detik
+    /// dan bertahan di sana sampai ReleasePose. Dipakai ruang ganti sebelum editor karakter dibuka.
+    public void BlendToPose(Pose pose, float fieldOfView, float seconds)
+    {
+        if (!poseOverride && overrideBlend <= 0f && cam) overrideBaseFov = cam.fieldOfView;
+        overridePose = pose;
+        overrideFov = fieldOfView;
+        overrideSeconds = Mathf.Max(0.01f, seconds);
+        poseOverride = true;
+    }
+
+    /// Kembali halus dari pose paksa ke pose normal (orbit / interior).
+    public void ReleasePose(float seconds)
+    {
+        poseOverride = false;
+        overrideSeconds = Mathf.Max(0.01f, seconds);
+    }
+
+    /// Kembali seketika (mis. interior di-unload saat editor masih terbuka).
+    public void ReleasePoseImmediate()
+    {
+        if (!poseOverride && overrideBlend <= 0f) return;
+        poseOverride = false;
+        overrideBlend = 0f;
+        if (cam) cam.fieldOfView = overrideBaseFov;
+    }
+
+    private void UpdatePoseOverride()
+    {
+        float before = overrideBlend;
+        overrideBlend = Mathf.MoveTowards(overrideBlend, poseOverride ? 1f : 0f, Time.deltaTime / overrideSeconds);
+        if (cam && (overrideBlend > 0f || before > 0f))
+            cam.fieldOfView = Mathf.Lerp(overrideBaseFov, overrideFov, Mathf.SmoothStep(0f, 1f, overrideBlend));
+    }
+
     /// Pengali jarak kamera. Di bawah 1 = zoom mendekat (dipakai saat layar mati).
     public float DistanceScale { get; set; } = 1f;
 
@@ -123,6 +169,7 @@ public class CameraOrbit : MonoBehaviour
     void LateUpdate()
     {
         if (!target) return;
+        UpdatePoseOverride();
 
         Vector2 look = PlayerInputHub.Instance ? PlayerInputHub.Instance.ConsumeLook() : Vector2.zero;
         bool interior = UpdateInteriorZone();
@@ -245,6 +292,12 @@ public class CameraOrbit : MonoBehaviour
 
     private void ApplyPose(Vector3 position, Quaternion rotation)
     {
+        if (overrideBlend > 0f)
+        {
+            float t = Mathf.SmoothStep(0f, 1f, overrideBlend);
+            position = Vector3.Lerp(position, overridePose.position, t);
+            rotation = Quaternion.Slerp(rotation, overridePose.rotation, t);
+        }
         transform.SetPositionAndRotation(position + rotation * (Vector3)ShakeOffset, rotation);
     }
 

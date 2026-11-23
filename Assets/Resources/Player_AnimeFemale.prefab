@@ -82,12 +82,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0d9ad8a87efd2c94694001bf497c4fb6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  walkSpeed: 3
-  sprintSpeed: 6
+  walkSpeed: 1.4
+  sprintSpeed: 3.5
   turnSpeed: 720
+  acceleration: 15
+  deceleration: 22
   gravity: -20
-  wadingSpeed: 1
-  wadingAnimSpeed: 0.25
+  wadingSpeed: 0.7
   jumpHeight: 1.5
   jumpCooldown: 0.5
   jumpLaunchDelay: 0.05
@@ -95,12 +96,15 @@ MonoBehaviour:
   cameraTransform: {fileID: 0}
   animator: {fileID: 0}
   speedDampTime: 0.1
+  walkClipSpeed: 1
+  sprintClipSpeed: 2.85
   groundedGrace: 0.1
   knockdownStartTimeout: 0.5
   knockdownMaxSeconds: 8
   deathSinkDelay: 1.5
   deathSinkDepth: 1.5
   deathSinkSeconds: 2
+  drowningSeconds: 5.6
 --- !u!114 &4364198858762878805
 MonoBehaviour:
   m_ObjectHideFlags: 0

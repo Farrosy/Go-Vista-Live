@@ -129,6 +129,20 @@ public static class ProgressService {
         _ = SaveAsync(); // momen penting, langsung simpan
     }
 
+    // ================================================================ Tutorial
+
+    public static bool IsTutorialDone(string tutorialId) {
+        return Current.completedTutorials != null && Current.completedTutorials.Contains(tutorialId);
+    }
+
+    public static void MarkTutorialDone(string tutorialId) {
+        if (string.IsNullOrEmpty(tutorialId) || IsTutorialDone(tutorialId)) return;
+        Current.completedTutorials ??= new List<string>();
+        Current.completedTutorials.Add(tutorialId);
+        MarkDirty();
+        _ = SaveAsync();
+    }
+
     private static void OnDialogueFinished(DialogueData dialogue) {
         if (ShouldAskAgain(dialogue)) return; // pemain memilih jawaban "tanya lagi nanti"
         MarkDialogueCompleted(dialogue.Id);
