@@ -22,6 +22,10 @@ public class PlayerProgress {
     /// <summary>Jawaban terakhir pemain untuk tiap pertanyaan dialog (lihat ProgressService.SetDialogueAnswer).</summary>
     public List<DialogueAnswer> dialogueAnswers = new List<DialogueAnswer>();
 
+    // ---------------------------------------------------------------- Tutorial (lihat ProgressService.MarkTutorialDone)
+    /// <summary>ID petunjuk tutorial yang sudah selesai (mis. "fitting-room-hint"). Save lama = kosong.</summary>
+    public List<string> completedTutorials = new List<string>();
+
     // ---------------------------------------------------------------- Karakter
     /// <summary>ID karakter pilihan (CharacterDatabase). Kosong = karakter pertama (default).</summary>
     public string characterId = "";
@@ -48,6 +52,13 @@ public class PlayerProgress {
     // ---------------------------------------------------------------- Koin (lihat PlayerCoins)
     /// <summary>Saldo Go Vista Coin. Save lama tanpa field ini otomatis mulai dari saldo awal (100).</summary>
     public int coins = CoinRules.StartingBalance;
+
+    // ---------------------------------------------------------------- Toko pakaian (lihat OutfitShop)
+    /// <summary>Item yang sudah dibeli: path outfit BoZo ("Top/BSMC_Top_Hoodie") atau "sticker:&lt;nama&gt;".
+    /// Item karakter default tidak dicatat di sini (selalu gratis).</summary>
+    public List<string> ownedItems = new List<string>();
+    /// <summary>Item yang sudah dipakai di slot custom saat toko pertama kali ada sudah dicatat sebagai milik.</summary>
+    public bool shopMigrated;
 
     // ---------------------------------------------------------------- Hadiah login harian (lihat DailyLoginService)
     /// <summary>Siklus 7 hari, hari yang sudah login, dan hari yang sudah diklaim. Ubah lewat DailyLoginRules.</summary>

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Kepemilikan mobil pemain lokal. Disimpan di PlayerProgress.ownedCars (Cloud Save), gold dipotong lewat PlayerCoins.
-/// Tutorial dealer (sekali saja) dicatat sebagai dialog selesai dengan ID TutorialId, sama seperti dialog NPC lain.
+/// Tutorial dealer (sekali saja) dicatat di PlayerProgress.completedTutorials dengan ID TutorialId (ProgressService.MarkTutorialDone).
 /// </summary>
 public static class CarDealerService {
     public const string TutorialId = "johnny_dealer_tutorial";
@@ -30,7 +30,7 @@ public static class CarDealerService {
         return true;
     }
 
-    public static bool TutorialDone => ProgressService.IsDialogueCompleted(TutorialId);
+    public static bool TutorialDone => ProgressService.IsTutorialDone(TutorialId);
 
-    public static void MarkTutorialDone() => ProgressService.MarkDialogueCompleted(TutorialId);
+    public static void MarkTutorialDone() => ProgressService.MarkTutorialDone(TutorialId);
 }

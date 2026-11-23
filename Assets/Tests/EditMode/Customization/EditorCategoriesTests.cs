@@ -78,12 +78,10 @@ public class EditorCategoriesTests {
         EditorCategories.FittingRoom.SelectMany(c => c.SubTabs).SelectMany(t => t.OutfitTypes).ToArray();
 
     [Test]
-    public void Fitting_room_hides_hair_skin_head_shapes_beard_and_stickers() {
+    public void Fitting_room_hides_hair_skin_head_shapes_and_beard() {
         string[] labels = EditorCategories.FittingRoom.Select(c => c.Label).ToArray();
         CollectionAssert.DoesNotContain(labels, "Rambut");
         CollectionAssert.DoesNotContain(labels, "Kulit");
-        CollectionAssert.DoesNotContain(labels, "Stiker");
-        Assert.IsFalse(EditorCategories.FittingRoom.Any(c => c.Kind == EditorCategoryKind.Stickers));
         string[] types = FittingRoomTypes();
         foreach (string hidden in new[] { "HairFront", "HairBack", "Body", "Head", "LowerFace" })
             CollectionAssert.DoesNotContain(types, hidden);
@@ -99,6 +97,11 @@ public class EditorCategoriesTests {
                                         "EyeBrows", "EyeLashes", "MakeUpLips", "MakeUpCheeks", "MakeUpEyes", "FaceDetails" })
             CollectionAssert.Contains(types, kept);
         Assert.IsTrue(EditorCategories.FittingRoom.All(c => c != null));
+    }
+
+    [Test]
+    public void Fitting_room_sells_stickers_too() {
+        Assert.IsTrue(EditorCategories.FittingRoom.Any(c => c.Kind == EditorCategoryKind.Stickers));
     }
 
     [Test]

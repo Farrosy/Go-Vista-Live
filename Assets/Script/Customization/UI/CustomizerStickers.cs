@@ -74,6 +74,7 @@ public sealed class CustomizerStickers {
         foreach (TexturePackageCatalog.Entry sticker in TexturePackageCatalog.Stickers) {
             Button item = CustomizerEditorView.CreateItem(_ui.StickerGrid, _a, sticker.Icon, sticker.Label, out GameObject selected);
             string id = sticker.Id;
+            _editor.Shop.Tag(item, OutfitShopRules.StickerId(id)); // belum dimiliki: label harga, dibayar saat SIMPAN
             item.onClick.AddListener(() => Add(id));
             _grid.Add((id, selected));
         }

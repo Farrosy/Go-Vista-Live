@@ -91,7 +91,7 @@ public static class EditorCategories {
 
     /// <summary>
     /// Tab editor RUANG GANTI di clothing shop (bukan lobby): hanya yang "dipakai", bukan identitas tubuh.
-    /// Tidak ada Rambut (barbershop), Kulit, Wajah·Bentuk, Wajah·Kepala, Jenggot, dan Stiker.
+    /// Tidak ada Rambut (barbershop), Kulit, Wajah·Bentuk, Wajah·Kepala, dan Jenggot. Stiker ada (bisa dibeli di sini).
     /// </summary>
     public static readonly IReadOnlyList<EditorCategory> FittingRoom = new[] {
         new EditorCategory("Wajah", "icon-face", EditorCategoryKind.Face, true,
@@ -106,6 +106,7 @@ public static class EditorCategories {
                            new EditorSubTab("Topi", "Hat"), new EditorSubTab("Kacamata", "UpperFace"),
                            new EditorSubTab("Sarung Tangan", "Gloves"), new EditorSubTab("Kepala", "HeadAcc")),
         Get("Dalaman"),
+        Get("Stiker"),
     };
 
     /// <summary>Indeks kategori berlabel <paramref name="label"/> di <paramref name="categories"/>, atau 0.</summary>

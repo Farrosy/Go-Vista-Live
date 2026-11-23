@@ -39,6 +39,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private IReadOnlyDictionary<string, OutfitRecord> _animeFaceMemory;
     private CustomizerFaceShapes _faces;
     private CustomizerStickers _stickers;
+    private CustomizerShop _shop;
     private Action _closed;
     private Coroutine _toast;
     private IReadOnlyList<EditorCategory> _categories = EditorCategories.All;
@@ -48,7 +49,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private string _focusType = "";
     private int _channel;
     private bool _patternMode;
-    private bool _keepColors = true;
+    private bool _keepColors; // default mati: item baru memakai warna aslinya kecuali pemain menyalakan "Simpan warna"
     private bool _wasBusy;
     private readonly List<GameObject> _subTabSelected = new List<GameObject>();
     private readonly List<(string type, string path, GameObject selected)> _items = new List<(string, string, GameObject)>();
@@ -76,6 +77,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
     public bool IsAvatarBusy => _stage && _stage.IsBusy;
     public void AfterEdit() => RefreshTopBar();
     public void Toast(string message) => ShowToast(message);
+    /// <summary>Label harga + dialog beli (dipakai juga oleh grid Stiker).</summary>
+    public CustomizerShop Shop => _shop;
 
     /// <summary>Pasang ulang stiker record SAAT INI ke avatar begitu BoZo selesai update (dipanggil setelah commit).</summary>
     public void ApplyDecalsWhenIdle() => StartCoroutine(WhenIdle(() => LiveAvatarEdits.ApplyDecals(Avatar, _session?.Current)));
@@ -92,6 +95,8 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _categories = categories ?? EditorCategories.All;
         _a = assets;
         _stage = stage;
+        _shop = new CustomizerShop(ui.Cart, assets);
+        _shop.Purchased += () => ShowToast("Item terbeli");
         _faces = new CustomizerFaceShapes(this, ui.Shapes, assets);
         _stickers = new CustomizerStickers(this, ui.Stickers, ui.ColorPopup, assets);
         _ui.BackButton.onClick.AddListener(Back);
@@ -137,8 +142,10 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _ui.Discard.Overlay.SetActive(false);
         _ui.Overwrite.Overlay.SetActive(false);
         _ui.MatchPopup.SetActive(false);
+        _shop.Close();
         _stickers.CloseColor();
         _ui.KeepColorsOn.SetActive(_keepColors);
+        RefreshCoins();
         if (_stage) {
             _ui.Preview.texture = _stage.Texture;
             _stage.AutoRotate = false; // karakter diam saat diedit; tetap bisa digeser
@@ -146,6 +153,17 @@ public sealed class CustomizerEditor : MonoBehaviour {
         if (!previewReady) RebuildLive();
         SelectCategory(EditorCategories.IndexOf(_categories, DefaultCategory));
         RefreshTopBar();
+    }
+
+    void OnEnable() => PlayerCoins.Changed += OnCoinsChanged;
+    void OnDisable() => PlayerCoins.Changed -= OnCoinsChanged;
+
+    private void OnCoinsChanged(int delta) {
+        if (IsOpen) RefreshCoins(); // mis. setelah membeli item
+    }
+
+    private void RefreshCoins() {
+        if (_ui?.CoinText) _ui.CoinText.text = CoinRules.FormatBalance(PlayerCoins.Balance);
     }
 
     void Update() {
@@ -158,6 +176,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
         if (!Input.GetKeyDown(KeyCode.Escape)) return;
         if (_stickers.IsColorOpen) _stickers.CloseColor();
         else if (_ui.MatchPopup.activeSelf) _ui.MatchPopup.SetActive(false);
+        else if (_shop.IsOpen) _shop.Close();
         else if (_ui.Overwrite.Overlay.activeSelf) _ui.Overwrite.Overlay.SetActive(false);
         else if (_ui.Discard.Overlay.activeSelf) _ui.Discard.Overlay.SetActive(false);
         else Back();
@@ -194,7 +213,26 @@ public sealed class CustomizerEditor : MonoBehaviour {
         RefreshPanel();
     }
 
+    /// Item yang belum dimiliki dibayar dulu (keranjang belanja), baru disimpan.
     private void Save() {
+        if (_shop.InterceptSave(_session.Current, _session.Saved, SaveAfterCheckout)) return;
+        SaveOwned();
+    }
+
+    /// <param name="final">Record tanpa item yang tidak dicentang di keranjang; null = tidak ada yang dilepas.</param>
+    private void SaveAfterCheckout(CustomCharacterRecord final) {
+        if (_session == null) return;
+        if (final != null) {
+            _session.Replace(final); // satu langkah URUNGKAN
+            RebuildLive();
+            RefreshPanel();
+            if (ShowsOutfits) BuildGrid();
+        }
+        SaveOwned();
+    }
+
+    private void SaveOwned() {
+        if (_session == null) return;
         if (_session.Slot < 0 && !CustomCharacterStore.CanCreate && OfferOverwriteWhenFull) {
             _ui.Overwrite.Overlay.SetActive(true);
             return;
@@ -311,6 +349,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private void BuildGrid() {
         ChatUiKit.DestroyChildren(_ui.GridContent);
         _items.Clear();
+        _shop.ForgetDestroyedTags();
         if (CurrentSubTab.Panel == EditorPanelKind.Skin) {
             BuildSkinTones();
             return;
@@ -370,6 +409,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private void AddOutfitItem(RectTransform grid, string type, Outfit outfit, bool animeHead) {
         string label = string.IsNullOrWhiteSpace(outfit.OutfitName) ? outfit.name : outfit.OutfitName;
         Button item = CustomizerEditorView.CreateItem(grid, _a, outfit.OutfitIcon, label, out GameObject selected);
+        _shop.Tag(item, OutfitCatalog.PathOf(type, outfit)); // belum dimiliki: label harga (tetap bisa dicoba)
         string blocked = BlockedReason(type, outfit, label, animeHead);
         if (blocked == null) {
             item.onClick.AddListener(() => WearOutfit(type, outfit));

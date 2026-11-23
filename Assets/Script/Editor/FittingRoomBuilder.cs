@@ -24,6 +24,7 @@ public static class FittingRoomBuilder {
     private const string MirrorName = "SM_Prop_Clothes_Mirror_01";
     private const string ActionPath = "Assets/NPCAction/ChangeClothes.asset";
     private const string ShirtIconPath = "Assets/Resources/UI/Icons/icon-shirt.png";
+    private const string HintArrowMaterialPath = "Assets/Art/Entrance/FittingHintArrow.mat";
 
     // Tata letak (meter). Kamera ±1,2 m tinggi seperti panggung CharacterScene.
     private const float SubjectDepth = 1.1f;     // dari dinding depan ke titik berdiri (tengah bilik)
@@ -203,6 +204,12 @@ public static class FittingRoomBuilder {
         hidden.arraySize = hiddenRenderers.Count;
         for (int i = 0; i < hiddenRenderers.Count; i++) hidden.GetArrayElementAtIndex(i).objectReferenceValue = hiddenRenderers[i];
         so.ApplyModifiedPropertiesWithoutUndo();
+
+        // Petunjuk tutorial setelah perkenalan kasir (Mira): sorot lingkaran + panah sampai pertama kali diinjak.
+        var hint = station.AddComponent<FittingRoomHint>();
+        var ho = new SerializedObject(hint);
+        ho.FindProperty("arrowMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>(HintArrowMaterialPath);
+        ho.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static MeshRenderer Panel(Transform parent, string name, Material material, Vector3 position,

@@ -64,7 +64,7 @@ public class PlayerAnimSync : RealtimeComponent<PlayerAnimSyncModel>
         }
         else
         {
-            PlayerController.ApplyAnimator(controller.Animator, model.speed, model.grounded, controller.SpeedDampTime);
+            controller.ApplyLocomotion(model.speed, model.grounded); // pengali langkah sama dengan pemiliknya
         }
     }
 

@@ -18,6 +18,10 @@ public class DialogueTrigger : MonoBehaviour
              "Kosong = stage terakhir diulang.")]
     [SerializeField] private DialogueData repeatDialogue;
 
+    [Tooltip("Basa-basi acak setelah semua stage selesai: tiap interaksi memilih SATU secara acak (tidak sama " +
+             "dengan pilihan sebelumnya). Kalau diisi, menggantikan Repeat Dialogue.")]
+    [SerializeField] private DialogueData[] repeatPool = new DialogueData[0];
+
     [Tooltip("Dialog yang hanya diputar sesuai status quest, mis. NPC tujuan quest: 'Oh my twin is here?' hanya " +
              "selama quest aktif. Diputar setelah stage yang belum selesai; kalau cocok, menggantikan Repeat Dialogue. " +
              "Yang paling atas dan cocok yang dipakai.")]
@@ -29,6 +33,8 @@ public class DialogueTrigger : MonoBehaviour
     [Tooltip("Titik yang difokuskan kamera (kepala NPC). Kosong = dibuat otomatis di atas pivot")]
     [SerializeField] private Transform focusPoint;
     [SerializeField] private Vector3 defaultFocusOffset = new Vector3(0f, 1.6f, 0f);
+
+    private int lastRepeatIndex = -1;
 
     /// Dipakai NpcController untuk animasi dan arah hadap.
     public event System.Action DialogueStarted;
@@ -45,6 +51,7 @@ public class DialogueTrigger : MonoBehaviour
     {
         var seen = new HashSet<string>();
         var all = new List<DialogueData>(stages ?? System.Array.Empty<DialogueData>()) { repeatDialogue };
+        all.AddRange(repeatPool ?? System.Array.Empty<DialogueData>());
         foreach (var s in all)
         {
             if (s && !seen.Add(s.Id))
@@ -87,10 +94,35 @@ public class DialogueTrigger : MonoBehaviour
         if (questDialogue && !result.Contains(questDialogue)) result.Add(questDialogue);
         if (result.Count == 0)
         {
-            if (repeatDialogue) result.Add(repeatDialogue);
+            DialogueData random = PickRepeat();
+            if (random) result.Add(random);
+            else if (repeatDialogue) result.Add(repeatDialogue);
             else if (last) result.Add(last);
         }
         return result;
+    }
+
+    /// Satu dialog acak dari repeatPool, tidak mengulang pilihan terakhir (kalau ada lebih dari satu).
+    private DialogueData PickRepeat()
+    {
+        var valid = new List<int>();
+        for (int i = 0; i < (repeatPool?.Length ?? 0); i++)
+            if (repeatPool[i]) valid.Add(i);
+        if (valid.Count == 0) return null;
+        if (valid.Count > 1) valid.Remove(lastRepeatIndex);
+        lastRepeatIndex = valid[Random.Range(0, valid.Count)];
+        return repeatPool[lastRepeatIndex];
+    }
+
+    /// True kalau semua stage cerita utama NPC ini sudah selesai (mis. perkenalan sudah didengar).
+    public bool StagesCompleted
+    {
+        get
+        {
+            foreach (var s in stages ?? System.Array.Empty<DialogueData>())
+                if (s && !ProgressService.IsDialogueCompleted(s.Id)) return false;
+            return true;
+        }
     }
 
     private DialogueData FindQuestDialogue()

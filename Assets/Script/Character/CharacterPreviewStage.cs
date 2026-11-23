@@ -83,6 +83,10 @@ public class CharacterPreviewStage : MonoBehaviour {
     private bool autoRotate = true;
 
     /// <summary>Karakter live (custom) sedang dirakit/digabung BoZo: tampilkan indikator "Memuat…".</summary>
+    /// Arah hadap karakter preview di dunia (ikut putaran meja putar). Mode dunia: avatar asli memakai arah ini
+    /// saat editor ditutup, supaya tidak tiba-tiba berbalik.
+    public Quaternion TurntableRotation => turntable ? turntable.rotation : transform.rotation;
+
     public bool IsBusy => liveAvatar && (liveAvatar.isloading || liveAvatar.isMerging || liveAvatar.isUpdatingTexture);
 
     /// <summary>Karakter live yang sedang tampil (untuk diedit di customizer), atau null.</summary>
