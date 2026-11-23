@@ -71,4 +71,35 @@ public class OutfitShopRulesTests {
         Assert.AreEqual("Heart", OutfitShopRules.StickerName(id));
         Assert.IsFalse(OutfitShopRules.IsSticker("Top/A"));
     }
+
+    [Test]
+    public void Unchecked_outfit_goes_back_to_the_saved_one() {
+        CustomCharacterRecord baseline = Record("Top/Old");
+        CustomCharacterRecord current = Record("Top/New", "Hat/Cap");
+
+        CustomCharacterRecord result = OutfitShopRules.Revert(current, baseline, new[] { "Top/New" }, out var types);
+
+        CollectionAssert.AreEquivalent(new[] { "Top/Old", "Hat/Cap" }, OutfitShopRules.ItemsOf(result));
+        CollectionAssert.AreEqual(new[] { "Top" }, types);
+        Assert.AreEqual("Top/New", current.outfits[0].path, "input record must not change");
+    }
+
+    [Test]
+    public void Unchecked_outfit_is_removed_when_slot_was_empty() {
+        CustomCharacterRecord result = OutfitShopRules.Revert(Record("Hat/Cap"), Record(), new[] { "Hat/Cap" }, out _);
+
+        Assert.IsEmpty(OutfitShopRules.ItemsOf(result));
+    }
+
+    [Test]
+    public void Unchecked_sticker_is_removed() {
+        CustomCharacterRecord current = Record("Top/A");
+        current.decals.Add(new DecalRecord { decal = "Star" });
+        current.decals.Add(new DecalRecord { decal = "Heart" });
+
+        CustomCharacterRecord result = OutfitShopRules.Revert(current, Record("Top/A"), new[] { "sticker:Star" }, out var types);
+
+        CollectionAssert.AreEquivalent(new[] { "Top/A", "sticker:Heart" }, OutfitShopRules.ItemsOf(result));
+        Assert.IsEmpty(types);
+    }
 }

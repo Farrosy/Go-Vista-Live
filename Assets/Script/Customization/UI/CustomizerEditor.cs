@@ -95,7 +95,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
         _categories = categories ?? EditorCategories.All;
         _a = assets;
         _stage = stage;
-        _shop = new CustomizerShop(ui.Purchase, assets);
+        _shop = new CustomizerShop(ui.Cart, assets);
         _shop.Purchased += () => ShowToast("Item terbeli");
         _faces = new CustomizerFaceShapes(this, ui.Shapes, assets);
         _stickers = new CustomizerStickers(this, ui.Stickers, ui.ColorPopup, assets);
@@ -213,9 +213,21 @@ public sealed class CustomizerEditor : MonoBehaviour {
         RefreshPanel();
     }
 
-    /// Item yang belum dimiliki dibayar dulu (dialog beli), baru disimpan.
+    /// Item yang belum dimiliki dibayar dulu (keranjang belanja), baru disimpan.
     private void Save() {
-        if (_shop.InterceptSave(_session.Current, SaveOwned)) return;
+        if (_shop.InterceptSave(_session.Current, _session.Saved, SaveAfterCheckout)) return;
+        SaveOwned();
+    }
+
+    /// <param name="final">Record tanpa item yang tidak dicentang di keranjang; null = tidak ada yang dilepas.</param>
+    private void SaveAfterCheckout(CustomCharacterRecord final) {
+        if (_session == null) return;
+        if (final != null) {
+            _session.Replace(final); // satu langkah URUNGKAN
+            RebuildLive();
+            RefreshPanel();
+            if (ShowsOutfits) BuildGrid();
+        }
         SaveOwned();
     }
 

@@ -64,8 +64,8 @@ public sealed class CustomizerEditorRefs {
     public CustomizerUi.ConfirmDialog Discard;
     /// <summary>Pilih slot yang ditimpa saat slot penuh (ruang ganti): Cancel = Karakter 1, Confirm = Karakter 2.</summary>
     public CustomizerUi.ConfirmDialog Overwrite;
-    /// <summary>SIMPAN dengan item yang belum dibeli: "Beli N item" + total + saldo.</summary>
-    public CustomizerUi.ConfirmDialog Purchase;
+    /// <summary>SIMPAN dengan item yang belum dibeli: keranjang belanja (centang item, total, saldo, sisa).</summary>
+    public CartRefs Cart;
     public Button OverwriteClose;
     public TextMeshProUGUI Toast;
 }
@@ -134,7 +134,7 @@ public static class CustomizerEditorView {
         refs.OverwriteClose = FriendsUiKit.CreateOutlineButton("Close", refs.Overwrite.Title.rectTransform.parent, a, "",
                                                                Color.white, FriendsTheme.NeutralFill, a.closeIcon, 28);
         ChatUiKit.PlaceTopRight((RectTransform)refs.OverwriteClose.transform, 24f, 24f, 64f, 64f);
-        refs.Purchase = CustomizerUi.CreateConfirmDialog(root, a, "Beli item?", "", "BATAL", "BELI & SIMPAN");
+        refs.Cart = CustomizerCartView.Build(root, a);
         BuildMatchPopup(root, a, refs);
         refs.ColorPopup = CustomizerEditorPanels.BuildColorPopup(root, a);
         refs.Toast = CustomizerUi.CreateToast(root, a);

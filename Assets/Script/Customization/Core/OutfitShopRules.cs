@@ -54,4 +54,30 @@ public static class OutfitShopRules {
     }
 
     public static bool CanAfford(int balance, int total) => balance >= total;
+
+    /// <summary>
+    /// Item keranjang yang tidak dicentang tidak dibeli: outfit-nya kembali ke yang dipakai di
+    /// <paramref name="baseline"/> (penampilan terakhir disimpan), atau dilepas kalau dulu kosong / sama;
+    /// stiker yang tidak dicentang dilepas. <paramref name="revertedTypes"/> = tipe outfit yang berubah.
+    /// </summary>
+    public static CustomCharacterRecord Revert(CustomCharacterRecord record, CustomCharacterRecord baseline,
+                                               IEnumerable<string> dropped, out List<string> revertedTypes) {
+        revertedTypes = new List<string>();
+        CustomCharacterRecord result = record;
+        foreach (string id in dropped ?? new string[0]) {
+            if (string.IsNullOrEmpty(id)) continue;
+            if (IsSticker(id)) {
+                string decal = StickerName(id);
+                result = RecordEdits.WithoutDecals(result, d => IdComparer.Equals(d.decal, decal));
+                continue;
+            }
+            string type = RecordEdits.TypeOf(id);
+            OutfitRecord previous = RecordEdits.Find(baseline, type);
+            result = previous != null && !IdComparer.Equals(previous.path, id)
+                ? RecordEdits.WithOutfit(result, previous)
+                : RecordEdits.WithoutOutfit(result, type);
+            if (!revertedTypes.Contains(type)) revertedTypes.Add(type);
+        }
+        return result;
+    }
 }
