@@ -48,7 +48,7 @@ public sealed class CustomizerEditor : MonoBehaviour {
     private string _focusType = "";
     private int _channel;
     private bool _patternMode;
-    private bool _keepColors = true;
+    private bool _keepColors; // default mati: item baru memakai warna aslinya kecuali pemain menyalakan "Simpan warna"
     private bool _wasBusy;
     private readonly List<GameObject> _subTabSelected = new List<GameObject>();
     private readonly List<(string type, string path, GameObject selected)> _items = new List<(string, string, GameObject)>();
