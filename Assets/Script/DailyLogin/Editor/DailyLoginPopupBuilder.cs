@@ -31,6 +31,9 @@ public static class DailyLoginPopupBuilder {
     private static readonly Color BigSubColor = new Color32(222, 200, 244, 255);
     private static readonly Color TagTextColor = new Color32(84, 52, 0, 255);
     private static readonly Color DimColor = new Color(0f, 0f, 0f, 0.6f);
+    // Huruf G pada koin, sama dengan logo di coin bar HUD (Icons/icon_coin_G.png): Fredoka Bold, cokelat.
+    private static readonly Color CoinLogoColor = new Color32(122, 67, 0, 255);
+    private const float CoinLogoSize = 52f;
 
     private static TMP_FontAsset _bold, _medium;
 
@@ -158,7 +161,8 @@ public static class DailyLoginPopupBuilder {
             } else {
                 Text("Day Label", tile, "Hari " + day, 30f, _bold, Color.white, TextAlignmentOptions.Center, 0f, 22f, w, 42f);
                 float icon = 88f;
-                Picture("Reward Icon", tile, "dl_icon_coin", (w - icon) * 0.5f, 76f, icon, icon);
+                Image coin = Picture("Reward Icon", tile, "dl_icon_coin", (w - icon) * 0.5f, 76f, icon, icon);
+                AddCoinLogo(coin.rectTransform);
                 badge = Picture("Check Badge", tile, "dl_check_badge", (w + icon) * 0.5f - 30f, 68f, 46f, 46f).gameObject;
                 amount = Text("Amount", tile, DailyLoginRules.Reward(day) + " G", 30f, _bold, Color.white,
                               TextAlignmentOptions.Center, 0f, 176f, w, 44f);
@@ -229,6 +233,35 @@ public static class DailyLoginPopupBuilder {
         toast.gameObject.SetActive(false);
         so.FindProperty("toast").objectReferenceValue = toast.gameObject;
         so.FindProperty("toastText").objectReferenceValue = text;
+    }
+
+    /// <summary>Logo "G" di tengah koin, sama seperti koin di coin bar HUD.</summary>
+    public static void AddCoinLogo(RectTransform coin) {
+        if (_bold == null) _bold = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(BoldFontPath);
+        TMP_Text logo = Text("Coin Logo", coin, "G", CoinLogoSize, _bold, CoinLogoColor, TextAlignmentOptions.Center,
+                             0f, 0f, coin.sizeDelta.x, coin.sizeDelta.y);
+        logo.textWrappingMode = TextWrappingModes.NoWrap;
+        logo.gameObject.layer = coin.gameObject.layer;
+    }
+
+    /// <summary>Tambahkan logo G ke koin Hari 1-6 di prefab yang sudah ada (bagian lain tidak berubah). Aman diulang.</summary>
+    [MenuItem("Go Vista/Desain Baru/Hadiah Login Harian - Logo G Koin")]
+    public static void AddCoinLogosToPrefab() {
+        GameObject root = PrefabUtility.LoadPrefabContents(PrefabPath);
+        try {
+            int added = 0;
+            foreach (Image image in root.GetComponentsInChildren<Image>(true)) {
+                if (image.name != "Reward Icon" || image.sprite == null || image.sprite.name != "dl_icon_coin") continue;
+                Transform old = image.transform.Find("Coin Logo");
+                if (old != null) Object.DestroyImmediate(old.gameObject);
+                AddCoinLogo(image.rectTransform);
+                added++;
+            }
+            PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+            Debug.Log($"[Hadiah Login] Logo G ditambahkan ke {added} koin.");
+        } finally {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
     }
 
     // ---------------------------------------------------------------- Helper

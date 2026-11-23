@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b92ea7cc248f7e14f85f065f76aaa278, type: 3}
+  m_Name: CarCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::CarCatalog
+  cars:
+  - id: matador
+    displayName: Matador
+    drivablePrefab: Vehicles/Matador_Drivable
+    price: 0
+    maxSpeedKmh: 60
+    thumbnail: {fileID: 21300000, guid: fddf6c39e57267e44ae1f84784674751, type: 3}
+    previewModel: {fileID: 7013401559216386201, guid: 1c61366472540bf4ebf36a39056b1156, type: 3}

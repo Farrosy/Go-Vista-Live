@@ -69,6 +69,7 @@ public class CarSync : RealtimeComponent<CarSyncModel> {
     private bool pendingSpawnInit;
     private Vector3 pendingSpawnPosition;
     private Quaternion pendingSpawnRotation;
+    private int pendingSpawnOwner;
     private float simulatorMissingSince = -1f;
     private readonly float[] seatMissingSince = { -1f, -1f, -1f, -1f };
     private readonly VehicleOccupant[] remoteOccupants = new VehicleOccupant[CarSyncModel.MaxSeats];
@@ -110,23 +111,40 @@ public class CarSync : RealtimeComponent<CarSyncModel> {
         lastStamp = double.NegativeInfinity;
         if (currentModel != null && pendingSpawnInit) {
             pendingSpawnInit = false;
-            WriteSpawn(pendingSpawnPosition, pendingSpawnRotation);
+            WriteSpawn(pendingSpawnPosition, pendingSpawnRotation, pendingSpawnOwner);
         }
     }
 
-    /// <summary>Dipanggil VehicleDirector tepat setelah spawn: simpan titik spawn dan parkir di sana.</summary>
-    public void InitSpawn(Vector3 position, Quaternion rotation) {
+    /// <summary>Pemilik mobil (clientID + 1), 0 = tanpa pemilik.</summary>
+    public int OwnerClientPlusOne => model != null ? model.ownerClient : pendingSpawnOwner;
+
+    /// <summary>True kalau tidak ada yang duduk, masuk/keluar, atau menyetir (aman dihapus).</summary>
+    public bool IsUnoccupied {
+        get {
+            if (!car.IsEmpty) return false;
+            if (model == null) return true;
+            if (model.simulator != 0) return false;
+            for (int seat = 0; seat < CarSyncModel.MaxSeats; seat++)
+                if (model.GetSeatClient(seat) != 0) return false;
+            return true;
+        }
+    }
+
+    /// <summary>Dipanggil VehicleDirector tepat setelah spawn: simpan pemilik dan titik spawn, lalu parkir di sana.</summary>
+    public void InitSpawn(Vector3 position, Quaternion rotation, int ownerClientPlusOne) {
         transform.SetPositionAndRotation(position, rotation);
         if (model == null) {
             pendingSpawnInit = true;
             pendingSpawnPosition = position;
             pendingSpawnRotation = rotation;
+            pendingSpawnOwner = ownerClientPlusOne;
             return;
         }
-        WriteSpawn(position, rotation);
+        WriteSpawn(position, rotation, ownerClientPlusOne);
     }
 
-    private void WriteSpawn(Vector3 position, Quaternion rotation) {
+    private void WriteSpawn(Vector3 position, Quaternion rotation, int ownerClientPlusOne) {
+        model.ownerClient = ownerClientPlusOne;
         model.spawnPosition = position;
         model.spawnRotation = rotation;
         WriteParked(position, rotation);

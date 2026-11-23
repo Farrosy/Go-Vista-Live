@@ -64,6 +64,10 @@ public class PlayerProgress {
     /// <summary>Siklus 7 hari, hari yang sudah login, dan hari yang sudah diklaim. Ubah lewat DailyLoginRules.</summary>
     public DailyLoginProgress dailyLogin = new DailyLoginProgress();
 
+    // ---------------------------------------------------------------- Dealer mobil (lihat CarDealerService)
+    /// <summary>ID mobil (CarCatalog.Entry.id) yang sudah dibeli pemain. Hanya mobil ini yang bisa di-Spawn.</summary>
+    public List<string> ownedCars = new List<string>();
+
     // ---------------------------------------------------------------- Posisi terakhir (TIDAK DIPAKAI)
     // Dulu dipakai untuk spawn di posisi terakhir. Sekarang pemain selalu spawn di PlayerSpawnPoint,
     // dan ProgressService.Migrate() mengosongkan field ini. Dibiarkan supaya save lama tetap terbaca.

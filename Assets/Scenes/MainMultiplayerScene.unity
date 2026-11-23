@@ -866,10 +866,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d2c6b9119011eb1499ef2404766ed073, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VehicleDirector
-  prefabName: Vehicles/Matador_Drivable
   spawnMarkerName: SpawnPointMobil
+  parkingClearance: {x: 2.2, y: 1.6, z: 4.6}
   evaluateInterval: 1
-  missingCarGrace: 4
+  missingOwnerGrace: 5
 --- !u!114 &1238083304
 MonoBehaviour:
   m_ObjectHideFlags: 0
