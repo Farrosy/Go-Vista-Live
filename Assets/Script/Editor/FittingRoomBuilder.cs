@@ -64,9 +64,7 @@ public static class FittingRoomBuilder {
 
         InteractionAction action = EnsureAction();
         var prompt = AssetDatabase.LoadAssetAtPath<InteractPromptWorld>(WorldPromptPrefabs.PromptPath);
-        Material ring = BuildingEntranceArt.RingMaterial();
-        Material glow = BuildingEntranceArt.GlowMaterial();
-        for (int i = 0; i < booths.Count; i++) Place(stations.transform, booths[i], i + 1, action, prompt, ring, glow);
+        for (int i = 0; i < booths.Count; i++) Place(stations.transform, booths[i], i + 1, action, prompt);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -155,8 +153,7 @@ public static class FittingRoomBuilder {
 
     // ---------------------------------------------------------------- Station
 
-    private static void Place(Transform parent, Booth booth, int number, InteractionAction action, InteractPromptWorld prompt,
-                              Material ringMaterial, Material glowMaterial) {
+    private static void Place(Transform parent, Booth booth, int number, InteractionAction action, InteractPromptWorld prompt) {
         Vector3 towardCamera = -booth.Inward;
         var station = new GameObject("Fitting Room " + number);
         station.transform.SetParent(parent, false);
@@ -170,18 +167,8 @@ public static class FittingRoomBuilder {
         viewpoint.SetPositionAndRotation(station.transform.position + towardCamera * CameraDistance + Vector3.up * CameraHeight,
                                          Quaternion.LookRotation(booth.Inward) * Quaternion.Euler(CameraPitch, 0f, 0f));
 
-        MeshRenderer ring = Panel(station.transform, "Ring", ringMaterial, new Vector3(0f, 0.02f, 0f),
-                                  Quaternion.Euler(90f, 0f, 0f), new Vector3(RingSize, RingSize, 1f));
-        var glows = new MeshRenderer[GlowSegments];
-        float radius = RingSize * 0.5f;
-        float width = 2f * radius * Mathf.Tan(Mathf.PI / GlowSegments) + 0.01f;
-        for (int i = 0; i < GlowSegments; i++) {
-            float angle = 360f * i / GlowSegments;
-            Quaternion around = Quaternion.Euler(0f, angle, 0f);
-            glows[i] = Panel(station.transform, "Glow " + (i + 1), glowMaterial,
-                             around * new Vector3(0f, 0f, radius) + Vector3.up * GlowHeight * 0.5f, around,
-                             new Vector3(width, GlowHeight, 1f));
-        }
+        (MeshRenderer ring, MeshRenderer[] glows) =
+            BuildingEntranceArt.BuildFloorRing(station.transform, RingSize, GlowHeight, GlowSegments);
 
         var trigger = station.AddComponent<BoxCollider>();
         trigger.isTrigger = true;
@@ -251,21 +238,6 @@ public static class FittingRoomBuilder {
         path.arraySize = 2;
         path.GetArrayElementAtIndex(0).objectReferenceValue = door;
         path.GetArrayElementAtIndex(1).objectReferenceValue = stand;
-    }
-
-    private static MeshRenderer Panel(Transform parent, string name, Material material, Vector3 position,
-                                      Quaternion rotation, Vector3 scale) {
-        var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
-        go.transform.SetParent(parent, false);
-        go.transform.localPosition = position;
-        go.transform.localRotation = rotation;
-        go.transform.localScale = scale;
-        go.GetComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
-        var renderer = go.GetComponent<MeshRenderer>();
-        renderer.sharedMaterial = material;
-        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        renderer.receiveShadows = false;
-        return renderer;
     }
 
     private static InteractionAction EnsureAction() {

@@ -148,6 +148,10 @@ public enum QuestDialogueCondition
     QuestActive,
     /// Setelah quest selesai.
     QuestCompleted,
+    /// Selama quest ditawarkan: belum diterima, belum selesai, dan syaratnya (requiredQuest) sudah selesai.
+    QuestAvailable,
+    /// Selama tujuan 'objectiveId' quest ini sedang bisa dikerjakan.
+    ObjectiveAvailable,
 }
 
 /// Satu dialog NPC yang bergantung pada status quest (lihat DialogueTrigger.questDialogues).
@@ -156,13 +160,20 @@ public class QuestDialogue
 {
     public QuestData quest;
     public QuestDialogueCondition when;
+    [UnityEngine.Tooltip("Untuk ObjectiveAvailable: ID tujuan di quest ini.")]
+    public string objectiveId;
     public DialogueData dialogue;
 
     public bool Matches()
     {
         if (!quest) return false;
-        return when == QuestDialogueCondition.QuestActive
-            ? QuestService.IsActive(quest.Id)
-            : QuestService.IsCompleted(quest.Id);
+        switch (when)
+        {
+            case QuestDialogueCondition.QuestActive: return QuestService.IsActive(quest.Id);
+            case QuestDialogueCondition.QuestCompleted: return QuestService.IsCompleted(quest.Id);
+            case QuestDialogueCondition.QuestAvailable: return QuestService.IsAvailable(quest);
+            case QuestDialogueCondition.ObjectiveAvailable: return QuestService.IsObjectiveAvailable(quest.Id, objectiveId);
+            default: return false;
+        }
     }
 }

@@ -23,6 +23,10 @@ public class QuestObjective {
     public string locationId;
     [Tooltip("Untuk FinishDialogue: dialog yang harus dibaca sampai selesai.")]
     public DialogueData dialogue;
+    [Tooltip("Untuk FinishDialogue: kalau dialog ini SUDAH pernah tamat sebelum tujuan ini bisa dikerjakan (mis. " +
+             "perkenalan NPC yang sudah didengar), tujuan langsung selesai. Tanpa ini pemain bisa terjebak karena " +
+             "dialog yang sudah tamat tidak diputar lagi.")]
+    public bool completeIfDialogueDone;
 }
 
 /// Data satu quest. Dibuat sebagai asset: Create > Quest > Quest Data.
@@ -38,6 +42,10 @@ public class QuestData : ScriptableObject {
     [Tooltip("Quest Utama: selama belum diterima, minimap/peta penuh/GPS menunjuk ke pemberinya (QuestGiver) " +
              "dengan ikon quest baru, supaya pemain tahu harus ke mana dulu.")]
     public bool isMainQuest;
+
+    [Tooltip("Quest ini baru ditawarkan (bisa diterima, pin quest utama, dialog tawaran) setelah quest ini selesai. " +
+             "Kosong = langsung tersedia.")]
+    public QuestData requiredQuest;
 
     [Tooltip("ON = tujuan harus diselesaikan sesuai urutan. OFF = boleh dalam urutan apa saja.")]
     public bool sequentialObjectives;

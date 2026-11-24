@@ -115,7 +115,11 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 50b10394dca7018648040ab06875e432, type: 2}
   - {fileID: 11400000, guid: 3ceb1ff8b58dedc399f74d5253a57349, type: 2}
   - {fileID: 11400000, guid: 9f7b98ee6f4caae4a847e25bdef0dc69, type: 2}
-  questDialogues: []
+  questDialogues:
+  - quest: {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+    when: 3
+    objectiveId: tunjukkan-mira
+    dialogue: {fileID: 11400000, guid: cef5bb6486411443d83cac9fda734dfb, type: 2}
   legacyDialogue: {fileID: 0}
   focusPoint: {fileID: 0}
   defaultFocusOffset: {x: 0, y: 1.6, z: 0}
@@ -146,7 +150,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QuestAvailableIndicator
   quest: {fileID: 0}
+  moreQuests: []
   dialogueId: mira_intro
+  objectiveQuest: {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+  objectiveIds:
+  - tunjukkan-mira
   indicator: {fileID: 7978465660259540255}
   bobHeight: 0.12
   bobSpeed: 2.5

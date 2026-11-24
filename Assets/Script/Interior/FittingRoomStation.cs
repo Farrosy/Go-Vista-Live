@@ -58,6 +58,12 @@ public sealed class FittingRoomStation : MonoBehaviour {
     [SerializeField] private string lockedTitle = "Ruang ganti belum bisa dipakai";
     [SerializeField] private string lockedDetail = "Ngobrol dulu dengan Mira di kasir, ya!";
 
+    [Header("Quest")]
+    [Tooltip("Opsional: tujuan quest (Manual) yang selesai saat pemain menyimpan penampilan BARU di ruang ganti ini, " +
+             "mis. Tampil Beda > ganti-gaya. SIMPAN tanpa perubahan tidak dihitung.")]
+    [SerializeField] private QuestData completesQuest;
+    [SerializeField] private string completesObjectiveId = "";
+
     private Interactable _interactable;
     private Phase _phase = Phase.Idle;
     private bool _sceneOpened;
@@ -83,9 +89,11 @@ public sealed class FittingRoomStation : MonoBehaviour {
     void Awake() {
         _interactable = GetComponent<Interactable>();
         _interactable.onInteract.AddListener(Open);
+        CharacterSceneLoader.FittingRoomLookChanged += OnLookChanged;
     }
 
     void OnDestroy() {
+        CharacterSceneLoader.FittingRoomLookChanged -= OnLookChanged;
         if (_interactable) _interactable.onInteract.RemoveListener(Open);
         if (_phase == Phase.Idle) return;
         // Interior di-unload di tengah transisi / saat editor terbuka (mis. keluar room): kembalikan semuanya
@@ -112,6 +120,12 @@ public sealed class FittingRoomStation : MonoBehaviour {
             if (!_fade) _fade = gameObject.AddComponent<FadeToBlackTransition>();
             return _fade;
         }
+    }
+
+    /// Penampilan baru tersimpan di editor yang dibuka dari station INI: selesaikan tujuan quest-nya (kalau aktif).
+    private void OnLookChanged() {
+        if (_phase == Phase.Idle || completesQuest == null || string.IsNullOrEmpty(completesObjectiveId)) return;
+        QuestService.CompleteObjective(completesQuest.Id, completesObjectiveId);
     }
 
     // ---------------------------------------------------------------- Buka

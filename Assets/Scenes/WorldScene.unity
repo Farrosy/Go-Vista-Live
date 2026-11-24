@@ -4048,6 +4048,7 @@ MonoBehaviour:
   dialogue: {fileID: 11400000, guid: 16c4e2f9a84b72fe2a28ea7d75d6719f, type: 2}
   mascotSpot: {fileID: 655895643}
   marker: {fileID: 1981480369}
+  followUpDialogue: {fileID: 0}
 --- !u!136 &61256869
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -8581,6 +8582,7 @@ MonoBehaviour:
   dialogue: {fileID: 11400000, guid: feeff4cdf0446d75292820e46a1a8122, type: 2}
   mascotSpot: {fileID: 710940936}
   marker: {fileID: 2080934721}
+  followUpDialogue: {fileID: 0}
 --- !u!136 &188116580
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -41724,6 +41726,73 @@ MonoBehaviour:
       m_Data: []
   m_Knots:
     m_KnotsLink: []
+--- !u!1 &669426425
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 669426426}
+  - component: {fileID: 669426428}
+  - component: {fileID: 669426427}
+  m_Layer: 0
+  m_Name: Clothing Shop Door
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &669426426
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 669426425}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 235.1, y: 23.2, z: 259.80002}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 726885226}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &669426427
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 669426425}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 874f8a81d0e0cee47b636176708e1134, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::QuestLocation
+  locationId: tampil-beda-clothing-shop
+--- !u!135 &669426428
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 669426425}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 3
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &669556290
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -46677,6 +46746,52 @@ MonoBehaviour:
   m_IgnoreFromBuild: 0
   m_ApplyToChildren: 1
   m_AffectedAgents: ffffffffi
+--- !u!1 &717896740
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 717896741}
+  - component: {fileID: 717896742}
+  m_Layer: 0
+  m_Name: Door Target - Kenalan Mira
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &717896741
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 717896740}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 235.1, y: 23.2, z: 259.80002}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 726885226}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &717896742
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 717896740}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e5159d83a91c404aa4fbdceaa6aa8ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::QuestTargetPoint
+  quest: {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+  objectiveId: kenalan-mira
 --- !u!1001 &718084553
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -47325,6 +47440,41 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7035097163130550124, guid: 1e2902991d2906e479032fc447a87c67, type: 3}
   m_PrefabInstance: {fileID: 725614259}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &726885225
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 726885226}
+  m_Layer: 0
+  m_Name: Tampil Beda
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &726885226
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726885225}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 669426426}
+  - {fileID: 717896741}
+  - {fileID: 1247259717}
+  - {fileID: 2037644842}
+  m_Father: {fileID: 1135823177}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &728825359
 GameObject:
   m_ObjectHideFlags: 0
@@ -56165,6 +56315,7 @@ GameObject:
   - component: {fileID: 962573740}
   - component: {fileID: 962573742}
   - component: {fileID: 962573741}
+  - component: {fileID: 962573743}
   m_Layer: 0
   m_Name: Stop - Vista Palace
   m_TagString: Untagged
@@ -56206,6 +56357,7 @@ MonoBehaviour:
   dialogue: {fileID: 11400000, guid: 08892424ee1878242bf681015438e815, type: 2}
   mascotSpot: {fileID: 2146456148}
   marker: {fileID: 1773898806}
+  followUpDialogue: {fileID: 11400000, guid: 41e08312a8cd7060db6ac7f25ab26b54, type: 2}
 --- !u!136 &962573742
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -56229,6 +56381,23 @@ CapsuleCollider:
   m_Height: 8
   m_Direction: 1
   m_Center: {x: 0, y: 3, z: 0}
+--- !u!114 &962573743
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 962573739}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8af837a51434c8944af37e7f29e9fac4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::QuestGiver
+  quests:
+  - {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+  mode: 0
+  giveAfterDialogue: {fileID: 11400000, guid: 41e08312a8cd7060db6ac7f25ab26b54, type: 2}
+  showOnMap: 0
 --- !u!1001 &962964674
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -62512,6 +62681,7 @@ MonoBehaviour:
   dialogue: {fileID: 11400000, guid: e86e630b78cfb1a0a8603e3034631067, type: 2}
   mascotSpot: {fileID: 685525656}
   marker: {fileID: 474197600}
+  followUpDialogue: {fileID: 0}
 --- !u!136 &1091654143
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -64905,6 +65075,7 @@ Transform:
   - {fileID: 1091654141}
   - {fileID: 188116578}
   - {fileID: 962573740}
+  - {fileID: 726885226}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1140365122
@@ -72536,6 +72707,52 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ed9fc2bff371d6348b9fef4a9a52b9f8, type: 3}
+--- !u!1 &1247259716
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1247259717}
+  - component: {fileID: 1247259718}
+  m_Layer: 0
+  m_Name: Door Target - Ruang Ganti
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1247259717
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1247259716}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 235.1, y: 23.2, z: 259.80002}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 726885226}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1247259718
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1247259716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e5159d83a91c404aa4fbdceaa6aa8ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::QuestTargetPoint
+  quest: {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+  objectiveId: ganti-gaya
 --- !u!1 &1248516378
 GameObject:
   m_ObjectHideFlags: 0
@@ -73234,6 +73451,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: d7f017fbab2caaa468ea2f1dc4bd7268, type: 2}
   mode: 0
   giveAfterDialogue: {fileID: 11400000, guid: ae65c851e7d09ad42a827c24d20e8a3f, type: 2}
+  showOnMap: 1
 --- !u!1 &1254597606
 GameObject:
   m_ObjectHideFlags: 0
@@ -78481,6 +78699,7 @@ MonoBehaviour:
   dialogue: {fileID: 11400000, guid: 0481fe6111db3c1b48944baf0ab7e993, type: 2}
   mascotSpot: {fileID: 422354582}
   marker: {fileID: 1316214319}
+  followUpDialogue: {fileID: 0}
 --- !u!136 &1392091904
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -81584,6 +81803,7 @@ MonoBehaviour:
   dialogue: {fileID: 11400000, guid: 3421fac2d46e71779bdf2a65eb6212d9, type: 2}
   mascotSpot: {fileID: 1804845305}
   marker: {fileID: 2143178096}
+  followUpDialogue: {fileID: 0}
 --- !u!136 &1408171664
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -95908,6 +96128,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 6016129384719816011, guid: 5a6dfd541d13a1bcda47b122c50d9b45, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1668899274}
+    - targetCorrespondingSourceObject: {fileID: 6016129384719816011, guid: 5a6dfd541d13a1bcda47b122c50d9b45, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1668899279}
   m_SourcePrefab: {fileID: 100100000, guid: 5a6dfd541d13a1bcda47b122c50d9b45, type: 3}
 --- !u!4 &1668899271 stripped
 Transform:
@@ -95937,7 +96160,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QuestAvailableIndicator
   quest: {fileID: 11400000, guid: e0594f7608230e246b04415bb6b83ecb, type: 2}
+  moreQuests:
+  - {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
   dialogueId: 
+  objectiveQuest: {fileID: 0}
+  objectiveIds: []
   indicator: {fileID: 751769096}
   bobHeight: 0.12
   bobSpeed: 2.5
@@ -95957,6 +96184,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: e0594f7608230e246b04415bb6b83ecb, type: 2}
   mode: 0
   giveAfterDialogue: {fileID: 11400000, guid: 12c49bb84c2d2e6129942043a27a30cf, type: 2}
+  showOnMap: 1
 --- !u!114 &1668899276
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -96007,7 +96235,16 @@ MonoBehaviour:
   questDialogues:
   - quest: {fileID: 11400000, guid: e0594f7608230e246b04415bb6b83ecb, type: 2}
     when: 0
+    objectiveId: 
     dialogue: {fileID: 11400000, guid: 46e2389e1625c747495954867f872d33, type: 2}
+  - quest: {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+    when: 2
+    objectiveId: 
+    dialogue: {fileID: 11400000, guid: 20fb58d1826b39b169b0b39f0604f043, type: 2}
+  - quest: {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+    when: 0
+    objectiveId: 
+    dialogue: {fileID: 11400000, guid: d774d88f0a3a1bd7796e507ea7c2fa34, type: 2}
   legacyDialogue: {fileID: 0}
   focusPoint: {fileID: 1668899272}
   defaultFocusOffset: {x: 0, y: 1.6, z: 0}
@@ -96034,6 +96271,23 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 0.9, z: 0}
+--- !u!114 &1668899279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1668899273}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8af837a51434c8944af37e7f29e9fac4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::QuestGiver
+  quests:
+  - {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+  mode: 0
+  giveAfterDialogue: {fileID: 11400000, guid: 20fb58d1826b39b169b0b39f0604f043, type: 2}
+  showOnMap: 1
 --- !u!1001 &1670739951
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -119233,6 +119487,52 @@ Transform:
   - {fileID: 1856959345}
   m_Father: {fileID: 409919573}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2037644841
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2037644842}
+  - component: {fileID: 2037644843}
+  m_Layer: 0
+  m_Name: Door Target - Tunjukkan Mira
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2037644842
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2037644841}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 235.1, y: 23.2, z: 259.80002}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 726885226}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2037644843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2037644841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e5159d83a91c404aa4fbdceaa6aa8ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::QuestTargetPoint
+  quest: {fileID: 11400000, guid: edcf5a897dbba0451a626e69dd951031, type: 2}
+  objectiveId: tunjukkan-mira
 --- !u!1001 &2039518756
 PrefabInstance:
   m_ObjectHideFlags: 0

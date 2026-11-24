@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42a28fe17bee6fe4595a8fb40d280502, type: 3}
+  m_Name: TampilBeda
+  m_EditorClassIdentifier: Assembly-CSharp::QuestData
+  questId: tampil-beda
+  title: Tampil Beda
+  description: Vio & Vira mengajakmu ke Clothing Shop untuk mencari gaya baru bersama Mira.
+  isMainQuest: 1
+  requiredQuest: {fileID: 11400000, guid: e0594f7608230e246b04415bb6b83ecb, type: 2}
+  sequentialObjectives: 1
+  objectives:
+  - objectiveId: ke-clothing-shop
+    description: Pergi ke Clothing Shop
+    type: 0
+    locationId: tampil-beda-clothing-shop
+    dialogue: {fileID: 0}
+    completeIfDialogueDone: 0
+  - objectiveId: kenalan-mira
+    description: Ngobrol dengan Mira di kasir
+    type: 1
+    locationId: 
+    dialogue: {fileID: 11400000, guid: 0c5f05faebd1be852b8fd7f96f18655c, type: 2}
+    completeIfDialogueDone: 1
+  - objectiveId: ganti-gaya
+    description: Ganti gaya di ruang ganti lalu SIMPAN
+    type: 2
+    locationId: 
+    dialogue: {fileID: 0}
+    completeIfDialogueDone: 0
+  - objectiveId: tunjukkan-mira
+    description: Tunjukkan gaya barumu ke Mira
+    type: 1
+    locationId: 
+    dialogue: {fileID: 11400000, guid: cef5bb6486411443d83cac9fda734dfb, type: 2}
+    completeIfDialogueDone: 0
+  rewardCoins: 150
