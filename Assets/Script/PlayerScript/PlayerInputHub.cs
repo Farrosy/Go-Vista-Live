@@ -67,7 +67,7 @@ public class PlayerInputHub : MonoBehaviour
     public bool Sprint
     {
         get => !MovementLocked && (sprint ||
-            (UseKeyboard && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))));
+            (UseKeyboard && (TestKeyboard.Held(TestKeyboard.Btn.LeftShift) || TestKeyboard.Held(TestKeyboard.Btn.RightShift))));
         set => sprint = value;
     }
 
@@ -88,15 +88,15 @@ public class PlayerInputHub : MonoBehaviour
     }
 
     /// True pada frame Space ditekan dan gerak tidak terkunci. Dibaca PlayerController untuk lompat.
-    public bool JumpPressed => UseKeyboard && !MovementLocked && Input.GetKeyDown(KeyCode.Space);
+    public bool JumpPressed => UseKeyboard && !MovementLocked && TestKeyboard.Pressed(TestKeyboard.Btn.Space);
 
     private static Vector2 KeyboardMove()
     {
         float x = 0f, y = 0f;
-        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) x -= 1f;
-        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) x += 1f;
-        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) y -= 1f;
-        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) y += 1f;
+        if (TestKeyboard.Held(TestKeyboard.Btn.A) || TestKeyboard.Held(TestKeyboard.Btn.Left)) x -= 1f;
+        if (TestKeyboard.Held(TestKeyboard.Btn.D) || TestKeyboard.Held(TestKeyboard.Btn.Right)) x += 1f;
+        if (TestKeyboard.Held(TestKeyboard.Btn.S) || TestKeyboard.Held(TestKeyboard.Btn.Down)) y -= 1f;
+        if (TestKeyboard.Held(TestKeyboard.Btn.W) || TestKeyboard.Held(TestKeyboard.Btn.Up)) y += 1f;
         return Vector2.ClampMagnitude(new Vector2(x, y), 1f);
     }
 
