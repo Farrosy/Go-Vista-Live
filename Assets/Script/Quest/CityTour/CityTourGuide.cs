@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// Vio & Vira yang "menemani" tur: muncul (poof) di depan gedung saat pemain sampai, menjelaskan gedung
@@ -54,13 +55,19 @@ public sealed class CityTourGuide : MonoBehaviour {
     }
 
     /// Munculkan maskot di 'spot' (menghadap pemain), putar dialog, lalu hilangkan. 'done' dipanggil setelah selesai.
-    public bool Present(Transform spot, DialogueData dialogue, Action done) {
-        if (IsPresenting || spot == null || dialogue == null || !CanPresent) return false;
-        StartCoroutine(PresentRoutine(spot, dialogue, done));
+    public bool Present(Transform spot, DialogueData dialogue, Action done) =>
+        Present(spot, dialogue != null ? new[] { dialogue } : null, done);
+
+    /// Sama seperti di atas, tapi beberapa dialog diputar berurutan dalam satu kemunculan (tiap dialog yang tamat
+    /// langsung memicu DialogueFinished, jadi tujuan quest dialog pertama selesai sebelum dialog berikutnya mulai).
+    public bool Present(Transform spot, IList<DialogueData> dialogues, Action done) {
+        if (IsPresenting || spot == null || dialogues == null || dialogues.Count == 0 || dialogues[0] == null ||
+            !CanPresent) return false;
+        StartCoroutine(PresentRoutine(spot, dialogues, done));
         return true;
     }
 
-    private IEnumerator PresentRoutine(Transform spot, DialogueData dialogue, Action done) {
+    private IEnumerator PresentRoutine(Transform spot, IList<DialogueData> dialogues, Action done) {
         IsPresenting = true;
         // Kunci gerak pemain sejak maskot muncul: kalau pemain masih berjalan selama animasi muncul, maskot
         // menghadap posisi lama dan dari kamera dialog terlihat berbaris depan-belakang, bukan berdampingan.
@@ -79,9 +86,9 @@ public sealed class CityTourGuide : MonoBehaviour {
         bool ended = false;
         duo.Engage();
         bool started = DialogueUI.Instance != null &&
-                       DialogueUI.Instance.StartDialogue(dialogue, duo.FocusPoint, () => ended = true);
+                       DialogueUI.Instance.StartDialogue(dialogues, duo.FocusPoint, () => ended = true);
         if (!started) {
-            Debug.LogWarning($"[Tour] Dialog '{dialogue.name}' tidak bisa dimulai.", this);
+            Debug.LogWarning($"[Tour] Dialog '{dialogues[0].name}' tidak bisa dimulai.", this);
             SetPlayerLocked(false);
         }
         while (started && !ended) yield return null;

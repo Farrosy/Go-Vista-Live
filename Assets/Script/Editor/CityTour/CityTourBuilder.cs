@@ -72,6 +72,7 @@ public static partial class CityTourBuilder {
         foreach (CityTourContent.Stop stop in route)
             BuildStop(root, stop, buildings[stop.ObjectiveId], data, prefabs);
         HideTestQuest(scene);
+        WireTampilBedaIfBuilt(scene);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -125,7 +126,8 @@ public static partial class CityTourBuilder {
         SetArray(triggerData.FindProperty("stages"), data.Intro);
         triggerData.FindProperty("repeatDialogue").objectReferenceValue = data.AfterTour;
         SerializedProperty questDialogues = triggerData.FindProperty("questDialogues");
-        questDialogues.arraySize = 1;
+        // Entri 0 = pengingat tur; entri lain (mis. Tampil Beda) dibiarkan.
+        if (questDialogues.arraySize < 1) questDialogues.arraySize = 1;
         SerializedProperty reminder = questDialogues.GetArrayElementAtIndex(0);
         reminder.FindPropertyRelative("quest").objectReferenceValue = data.Quest;
         reminder.FindPropertyRelative("when").enumValueIndex = (int)QuestDialogueCondition.QuestActive;
@@ -135,7 +137,7 @@ public static partial class CityTourBuilder {
 
         SetupInteractable(mascots.gameObject, trigger);
 
-        var giver = Ensure<QuestGiver>(mascots.gameObject);
+        var giver = GiverFor(mascots.gameObject, data.Quest); // Mascots juga punya QuestGiver Tampil Beda
         var giverData = new SerializedObject(giver);
         SetArray(giverData.FindProperty("quests"), data.Quest);
         giverData.FindProperty("mode").enumValueIndex = (int)QuestGiver.GiveMode.AfterDialogue;

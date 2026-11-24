@@ -55,6 +55,21 @@ public static class QuestService {
     public static bool IsActive(string questId) => FindProgress(questId) != null;
     public static bool IsCompleted(string questId) => Save.completedQuests.Contains(questId);
 
+    /// <summary>Quest bisa ditawarkan: belum diterima, belum selesai, dan quest syaratnya (requiredQuest) sudah selesai.</summary>
+    public static bool IsAvailable(QuestData quest) =>
+        quest != null && ProgressService.Current != null && !IsActive(quest.Id) && !IsCompleted(quest.Id) &&
+        (quest.requiredQuest == null || IsCompleted(quest.requiredQuest.Id));
+
+    /// <summary>Tujuan quest aktif ini sedang bisa dikerjakan (mis. untuk dialog NPC yang hanya muncul di tujuan itu).</summary>
+    public static bool IsObjectiveAvailable(string questId, string objectiveId) {
+        QuestProgress progress = FindProgress(questId);
+        QuestData quest = progress != null && QuestDatabase.Instance != null ? QuestDatabase.Instance.Find(questId) : null;
+        if (quest == null) return false;
+        for (int i = 0; i < quest.objectives.Length; i++)
+            if (quest.ObjectiveId(i) == objectiveId) return IsObjectiveAvailable(quest, progress, i);
+        return false;
+    }
+
     /// <summary>Quest aktif untuk Daftar Quest: yang dipin paling atas, lalu urut waktu diterima.</summary>
     public static List<Entry> GetActiveQuests() {
         var result = new List<Entry>();
@@ -84,9 +99,9 @@ public static class QuestService {
 
     // ================================================================ Aksi
 
-    /// <summary>Terima quest. False kalau quest sudah aktif, sudah selesai, atau tidak punya tujuan.</summary>
+    /// <summary>Terima quest. False kalau quest sudah aktif, sudah selesai, syaratnya belum selesai, atau tidak punya tujuan.</summary>
     public static bool Accept(QuestData quest) {
-        if (quest == null || IsActive(quest.Id) || IsCompleted(quest.Id)) return false;
+        if (!IsAvailable(quest)) return false;
         if (quest.objectives == null || quest.objectives.Length == 0) {
             Debug.LogWarning($"[Quest] '{quest.Id}' tidak punya tujuan, tidak bisa diterima.", quest);
             return false;
@@ -98,8 +113,8 @@ public static class QuestService {
         Save.activeQuests.Add(new QuestProgress { questId = quest.Id });
         Save.hasNewQuest = true;
         QuestAccepted?.Invoke(quest);
-        // Tujuan lokasi yang pemainnya sudah berdiri di sana langsung selesai.
-        if (!CompleteReachedLocations(quest)) SaveNow();
+        // Tujuan lokasi yang pemainnya sudah berdiri di sana / dialog yang sudah tamat langsung selesai.
+        if (!CompleteAlreadySatisfied(quest)) SaveNow();
         Changed?.Invoke();
         return true;
     }
@@ -165,26 +180,34 @@ public static class QuestService {
             PlayerCoins.Add(quest.rewardCoins, saveNow: false);
             QuestCompleted?.Invoke(quest);
         } else if (quest.sequentialObjectives) {
-            // Tujuan berikutnya bisa jadi lokasi tempat pemain sedang berdiri.
-            if (CompleteReachedLocations(quest)) return true;
+            // Tujuan berikutnya bisa jadi lokasi tempat pemain sedang berdiri, atau dialog yang sudah tamat.
+            if (CompleteAlreadySatisfied(quest)) return true;
         }
         SaveNow();
         Changed?.Invoke();
         return true;
     }
 
-    /// <summary>Selesaikan tujuan lokasi yang sedang bisa dikerjakan dan pemainnya sudah di dalam area.</summary>
-    private static bool CompleteReachedLocations(QuestData quest) {
+    /// <summary>Selesaikan tujuan yang sedang bisa dikerjakan dan syaratnya sudah terpenuhi: lokasi yang pemainnya
+    /// sudah di dalam area, atau dialog (completeIfDialogueDone) yang sudah pernah tamat.</summary>
+    private static bool CompleteAlreadySatisfied(QuestData quest) {
         QuestProgress progress = FindProgress(quest.Id);
         if (progress == null) return false;
-        for (int i = 0; i < quest.objectives.Length; i++) {
-            QuestObjective objective = quest.objectives[i];
-            if (objective.type == QuestObjectiveType.GoToLocation &&
-                QuestLocation.IsLocalPlayerInside(objective.locationId) &&
-                TryComplete(quest, progress, i))
-                return true;
-        }
+        for (int i = 0; i < quest.objectives.Length; i++)
+            if (IsAlreadySatisfied(quest.objectives[i]) && TryComplete(quest, progress, i)) return true;
         return false;
+    }
+
+    private static bool IsAlreadySatisfied(QuestObjective objective) {
+        switch (objective.type) {
+            case QuestObjectiveType.GoToLocation:
+                return QuestLocation.IsLocalPlayerInside(objective.locationId);
+            case QuestObjectiveType.FinishDialogue:
+                return objective.completeIfDialogueDone && objective.dialogue != null &&
+                       ProgressService.IsDialogueCompleted(objective.dialogue.Id);
+            default:
+                return false;
+        }
     }
 
     private static bool AllObjectivesDone(QuestData quest, QuestProgress progress) {

@@ -128,12 +128,12 @@ public static class QuestWaypoint {
         }
     }
 
-    /// Pemberi quest utama terdekat yang quest-nya belum diterima dan belum selesai.
+    /// Pemberi quest utama terdekat yang quest-nya sedang ditawarkan (QuestService.IsAvailable).
     private static void ResolveGiver(Vector3 from) {
         float bestDistance = float.MaxValue;
         foreach ((QuestData quest, Transform giver) in Givers) {
             if (giver == null || !giver.gameObject.activeInHierarchy) continue;
-            if (QuestService.IsActive(quest.Id) || QuestService.IsCompleted(quest.Id)) continue;
+            if (!QuestService.IsAvailable(quest)) continue; // sudah diterima/selesai, atau syaratnya belum selesai
             float distance = (giver.position - from).sqrMagnitude;
             if (distance >= bestDistance) continue;
             bestDistance = distance;
