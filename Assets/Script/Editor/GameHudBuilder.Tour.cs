@@ -38,7 +38,8 @@ public static partial class GameHudBuilder {
         distance.rectTransform.sizeDelta = new Vector2(140f, 30f);
 
         var view = root.gameObject.AddComponent<QuestWaypointMarker>();
-        Bind(view, ("marker", marker), ("arrow", arrow.rectTransform), ("dot", dot.gameObject), ("distanceLabel", distance));
+        Bind(view, ("marker", marker), ("arrow", arrow.rectTransform), ("dot", dot.gameObject), ("distanceLabel", distance),
+            ("giverSprite", Load(QuestFolder + "quest_giver.png")));
         SetFloat(view, "worldRadius", WaypointWorldRadius);
         SetFloat(view, "edgeRadius", WaypointEdgeRadius);
     }

@@ -124,7 +124,8 @@ public static partial class GameHudBuilder {
         var view = viewport.gameObject.AddComponent<GoVistaFullMap>();
         Bind(view, ("panelCanvas", panelCanvas), ("panelGroup", panelGroup), ("seaBackground", sea), ("mapImage", map),
             ("wavesImage", waves), ("routeLine", route), ("iconLayer", icons), ("iconTemplate", template),
-            ("questIcon", questDot.rectTransform), ("sidePanel", side), ("mapControls", controls),
+            ("questIcon", questDot.rectTransform), ("giverMapSprite", Load(QuestFolder + "quest_giver_fullmap.png")),
+            ("sidePanel", side), ("mapControls", controls),
             ("destinationIconBackground", parts.IconBackground), ("destinationIcon", parts.Icon),
             ("destinationCaption", parts.Caption), ("destinationTitle", parts.Title),
             ("destinationHint", parts.Hint),

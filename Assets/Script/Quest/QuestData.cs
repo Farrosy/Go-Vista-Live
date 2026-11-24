@@ -35,6 +35,10 @@ public class QuestData : ScriptableObject {
     public string title = "Quest baru";
     [TextArea(2, 5)] public string description;
 
+    [Tooltip("Quest Utama: selama belum diterima, minimap/peta penuh/GPS menunjuk ke pemberinya (QuestGiver) " +
+             "dengan ikon quest baru, supaya pemain tahu harus ke mana dulu.")]
+    public bool isMainQuest;
+
     [Tooltip("ON = tujuan harus diselesaikan sesuai urutan. OFF = boleh dalam urutan apa saja.")]
     public bool sequentialObjectives;
     public QuestObjective[] objectives = new QuestObjective[1];
