@@ -81,6 +81,8 @@ public class CarSync : RealtimeComponent<CarSyncModel> {
     public bool IsLocalSimulator => IsOnline && model.simulator == LocalClientId + 1;
 
     void Awake() {
+        // Salinan mobil dari client lain tercipta di scene aktif; tinggal di scene persisten (lihat VehicleDirector).
+        PersistentSceneAdopter.Adopt(gameObject);
         car = GetComponent<PlayerCar>();
         drive = GetComponent<CarDriveController>();
         body = GetComponent<Rigidbody>();

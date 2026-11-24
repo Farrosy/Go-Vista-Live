@@ -30,6 +30,10 @@ public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
         }
     }
 
+    // Avatar pemain lain bisa tercipta di scene venue yang sedang aktif; pindahkan ke scene persisten
+    // supaya tidak ikut ter-destroy saat venue itu di-unload.
+    private void Awake() => PersistentSceneAdopter.Adopt(gameObject);
+
     private void OnEnable() => _all.Add(this);
     private void OnDisable() => _all.Remove(this);
 
