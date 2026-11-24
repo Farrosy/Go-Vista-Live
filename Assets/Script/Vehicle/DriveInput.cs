@@ -33,8 +33,8 @@ public static class DriveInput {
             if (Locked) return 0f;
             float key = 0f;
             if (Keyboard) {
-                if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) key -= 1f;
-                if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) key += 1f;
+                if (TestKeyboard.Held(TestKeyboard.Btn.A) || TestKeyboard.Held(TestKeyboard.Btn.Left)) key -= 1f;
+                if (TestKeyboard.Held(TestKeyboard.Btn.D) || TestKeyboard.Held(TestKeyboard.Btn.Right)) key += 1f;
             }
             return Mathf.Clamp(UiSteer + key, -1f, 1f);
         }
@@ -43,14 +43,14 @@ public static class DriveInput {
     public static float Gas {
         get {
             if (Locked) return 0f;
-            return UiGas || (Keyboard && Input.GetKey(KeyCode.J)) ? 1f : 0f;
+            return UiGas || (Keyboard && TestKeyboard.Held(TestKeyboard.Btn.J)) ? 1f : 0f;
         }
     }
 
     public static float Brake {
         get {
             if (Locked) return 0f;
-            return UiBrake || (Keyboard && Input.GetKey(KeyCode.K)) ? 1f : 0f;
+            return UiBrake || (Keyboard && TestKeyboard.Held(TestKeyboard.Btn.K)) ? 1f : 0f;
         }
     }
 
@@ -58,7 +58,7 @@ public static class DriveInput {
     public static bool Handbrake {
         get {
             if (Locked) return false;
-            return UiHandbrake || (Keyboard && Input.GetKey(KeyCode.Space));
+            return UiHandbrake || (Keyboard && TestKeyboard.Held(TestKeyboard.Btn.Space));
         }
     }
 
