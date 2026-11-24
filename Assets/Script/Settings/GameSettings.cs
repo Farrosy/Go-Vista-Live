@@ -23,10 +23,26 @@ public static class GameSettings {
 
     private const string CameraSensitivityKey = "Settings.CameraSensitivity";
     private const string DriveControlKey = "Settings.DriveControl";
+    private const string ShowPingKey = "Settings.ShowPing";
 
     // Di-cache karena CameraOrbit membaca sensitivitas setiap frame (PlayerPrefs di Android cukup mahal).
     private static float? _cameraSensitivity;
     private static DriveControlMode? _driveControl;
+    private static bool? _showPing;
+
+    /// <summary>Dipanggil saat indikator ping dinyalakan/dimatikan di PENGATURAN.</summary>
+    public static event System.Action ShowPingChanged;
+
+    /// <summary>Tampilkan indikator ping di HUD gameplay. Default: tampil.</summary>
+    public static bool ShowPing {
+        get => _showPing ??= PlayerPrefs.GetInt(ShowPingKey, 1) != 0;
+        set {
+            if (_showPing == value) return;
+            _showPing = value;
+            PlayerPrefs.SetInt(ShowPingKey, value ? 1 : 0);
+            ShowPingChanged?.Invoke();
+        }
+    }
 
     /// <summary>Dipanggil saat tipe kontrol setir diganti (HUD menyetir yang sedang tampil langsung ikut berganti).</summary>
     public static event System.Action DriveControlChanged;
@@ -62,6 +78,8 @@ public static class GameSettings {
     private static void ResetCache() {
         _cameraSensitivity = null;
         _driveControl = null;
+        _showPing = null;
         DriveControlChanged = null;
+        ShowPingChanged = null;
     }
 }

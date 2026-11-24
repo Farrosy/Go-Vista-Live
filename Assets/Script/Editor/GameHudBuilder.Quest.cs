@@ -206,14 +206,17 @@ public static partial class GameHudBuilder {
     /// Atlas HUD dibuat sebelum folder Quest ada; tambahkan folder itu sekali saja.
     /// Folder Minimap sengaja TIDAK di-pack: atlas membuang tepi transparan sprite, sehingga titik pusat busur
     /// Filled Radial360 bergeser dan busur HP/O₂ terpotong.
-    private static void EnsureQuestSpritesInAtlas() {
-        string questGuid = AssetDatabase.AssetPathToGUID(AssetRoot + "Quest");
+    private static void EnsureQuestSpritesInAtlas() => EnsureFolderInAtlas("Quest");
+
+    /// Tambahkan folder <see cref="AssetRoot"/>/<paramref name="folder"/> ke sprite atlas HUD kalau belum ada.
+    private static void EnsureFolderInAtlas(string folder) {
+        string folderGuid = AssetDatabase.AssetPathToGUID(AssetRoot + folder);
         // SpriteAtlasAsset tidak membuka daftar packable, jadi cek GUID folder di file atlas.
-        if (string.IsNullOrEmpty(questGuid) || !System.IO.File.Exists(AtlasPath) ||
-            System.IO.File.ReadAllText(AtlasPath).Contains(questGuid)) return;
+        if (string.IsNullOrEmpty(folderGuid) || !System.IO.File.Exists(AtlasPath) ||
+            System.IO.File.ReadAllText(AtlasPath).Contains(folderGuid)) return;
         SpriteAtlasAsset atlas = SpriteAtlasAsset.Load(AtlasPath);
         if (atlas == null) return;
-        atlas.Add(new Object[] { AssetDatabase.LoadAssetAtPath<DefaultAsset>(AssetRoot + "Quest") });
+        atlas.Add(new Object[] { AssetDatabase.LoadAssetAtPath<DefaultAsset>(AssetRoot + folder) });
         SpriteAtlasAsset.Save(atlas, AtlasPath);
         ((SpriteAtlasImporter)AssetImporter.GetAtPath(AtlasPath)).SaveAndReimport();
     }
