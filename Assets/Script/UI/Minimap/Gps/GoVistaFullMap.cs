@@ -597,10 +597,8 @@ public sealed class GoVistaFullMap : MonoBehaviour,
 
     /// True kalau tujuan sendiri sedang dipasang di pemberi quest utama (dipilih dari pin / daftar).
     private static bool CustomIsMainGiver(out QuestData quest) {
-        Transform giver = QuestWaypoint.MainGiver;
         quest = QuestWaypoint.MainGiverQuest;
-        return giver != null && GpsService.HasCustomWaypoint &&
-               (Flat(giver.position) - Flat(GpsService.CustomWaypoint)).sqrMagnitude < 1f;
+        return GpsService.CustomIsMainGiver;
     }
 
     private void DrawRoute() {

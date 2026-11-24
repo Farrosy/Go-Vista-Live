@@ -20,6 +20,8 @@ public sealed class GpsRoute : MonoBehaviour {
     [Header("Tampilan")]
     [SerializeField] private Color questColor = new Color32(255, 204, 64, 255);
     [SerializeField] private Color customColor = new Color32(214, 64, 224, 255);
+    [Tooltip("Rute ke pemberi quest utama yang dipilih pemain dari peta penuh (sama dengan pin quest-nya).")]
+    [SerializeField] private Color mainGiverColor = new Color32(255, 160, 58, 255);
     [Tooltip("Tebal garis rute di radar (px pada referensi 1080p). Tetap sama walau radar zoom.")]
     [SerializeField] private float radarLinePixels = 7f;
     [Tooltip("Tujuan buatan pemain otomatis hilang saat pemain sedekat ini (meter).")]
@@ -33,7 +35,8 @@ public sealed class GpsRoute : MonoBehaviour {
     public IReadOnlyList<Vector3> Points => _points;
     public bool IsShowing { get; private set; }
     public GpsDestinationKind Kind { get; private set; }
-    public Color CurrentColor => Kind == GpsDestinationKind.Custom ? customColor : questColor;
+    public Color CurrentColor => Kind != GpsDestinationKind.Custom ? questColor
+        : GpsService.CustomIsMainGiver ? mainGiverColor : customColor;
     public Color QuestColor => questColor;
     public Color CustomColor => customColor;
 
@@ -58,7 +61,8 @@ public sealed class GpsRoute : MonoBehaviour {
             GpsService.ClearCustomWaypoint();
 
         if (waypointBlip != null) {
-            waypointBlip.Item.enabled = GpsService.HasCustomWaypoint;
+            // Tujuan di pemberi quest utama: pin quest-nya sudah jadi penanda, jangan ditumpuk penanda ungu.
+            waypointBlip.Item.enabled = GpsService.HasCustomWaypoint && !GpsService.CustomIsMainGiver;
             if (GpsService.HasCustomWaypoint) waypointBlip.transform.position = GpsService.CustomWaypoint;
         }
 

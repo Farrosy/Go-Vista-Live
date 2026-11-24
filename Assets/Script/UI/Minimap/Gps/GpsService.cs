@@ -41,6 +41,18 @@ public static class GpsService {
         Changed?.Invoke();
     }
 
+    /// True kalau tujuan sendiri sedang dipasang di pemberi quest utama (dipilih dari pin / daftar peta penuh).
+    /// Rute lalu berwarna oranye quest utama dan penanda ungu tujuan sendiri disembunyikan (pin quest jadi penandanya).
+    public static bool CustomIsMainGiver {
+        get {
+            if (!_hasCustom) return false;
+            Transform giver = QuestWaypoint.MainGiver;
+            if (giver == null) return false;
+            float dx = giver.position.x - _custom.x, dz = giver.position.z - _custom.z;
+            return dx * dx + dz * dz < 1f;
+        }
+    }
+
     /// Tujuan yang sedang dipandu GPS. False kalau tidak ada.
     public static bool TryGetDestination(out Vector3 position, out GpsDestinationKind kind) {
         if (_hasCustom) {

@@ -308,8 +308,8 @@ Seperti GPS di GTA: garis rute mengikuti jalan dari pemain ke tujuan, di radar d
 (ketuk radar, atau tombol **M**). Di peta penuh pemain bisa **mengetuk peta untuk memasang tujuan sendiri**
 (ketuk lagi / "Hapus Tujuan" untuk melepas; hilang otomatis saat sampai).
 
-- **Warna:** emas = tujuan quest, oranye = pin pemberi quest utama, ungu = tujuan sendiri (termasuk pemberi quest
-  yang dipilih dari peta penuh). Tujuan sendiri menang dari tujuan quest.
+- **Warna:** emas = tujuan quest, oranye = pemberi quest utama (pin + rute saat dipilih dari peta penuh; penanda ungu
+  tujuan sendiri disembunyikan supaya tidak menumpuk pin), ungu = tujuan sendiri. Tujuan sendiri menang dari tujuan quest.
 - **Penanda quest di minimap tidak pernah berubah jadi panah:** kalau jauh, ikonnya menempel di tepi minimap ke arah tujuan.
 - **Tujuan quest dipilih otomatis:** quest yang dipin dulu, lalu quest aktif lain (urutan Daftar Quest). Di tiap quest,
   objective yang bisa dikerjakan dan punya titik di dunia (`QuestLocation` / `QuestTargetPoint` / `CityTourStop`).
