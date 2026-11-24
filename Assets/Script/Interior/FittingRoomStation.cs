@@ -7,9 +7,10 @@ using UnityEngine;
 /// "Ganti Baju" (Interactable di objek ini). Editor karakter (scene KARAKTER, tab khusus ruang ganti) dibuka
 /// dengan karakter berdiri di bilik ini dan kamera di toko, jadi latarnya toko asli, bukan warna polos.
 ///
-/// Transisi: kamera gameplay meluncur halus ke pose kamera editor, layar fade singkat menutupi momen scene
-/// dimuat dan karakter preview di-bake, lalu editor muncul. Saat ditutup urutannya dibalik (fade, unload,
-/// buka layar, kamera meluncur kembali sambil avatar berjalan keluar bilik ke depan cermin luar), baru HUD dan kontrol dikembalikan.
+/// Transisi: kamera gameplay meluncur halus ke pose kamera editor (dinding bilik masih ada), layar fade singkat
+/// menutupi momen dinding depan disembunyikan, scene dimuat dan karakter preview di-bake, lalu editor muncul.
+/// Saat ditutup urutannya dibalik (fade, unload, buka layar, kamera meluncur kembali sambil avatar berjalan
+/// keluar bilik ke depan cermin luar), baru HUD dan kontrol dikembalikan.
 ///
 /// Selama editor terbuka, HANYA di layar pemain ini: gerak terkunci, HUD disembunyikan, dinding depan bilik
 /// (+ tirai) disembunyikan (tampilan potongan), avatar asli pemain disembunyikan (diganti karakter preview),
@@ -130,7 +131,6 @@ public sealed class FittingRoomStation : MonoBehaviour {
         SetInputLocked(true);
         _interactable.enabled = false; // prompt + tombol Interact hilang selama editor terbuka
         SetHudHidden(true);
-        HideScenery(); // dinding depan hilang sejak awal luncuran, jadi kamera melihat bilik
         _nextPlayerScan = 0f;
         StartCoroutine(OpenRoutine(view));
     }
@@ -144,6 +144,8 @@ public sealed class FittingRoomStation : MonoBehaviour {
         yield return Fade.Cover();
         // Pemain lain melihat avatar masuk ke bilik, lalu hilang saat layar ini hitam (suara + minimap tetap).
         SetPresence(FittingRoomPresence.Hidden);
+        // Dinding depan + tirai baru hilang di balik layar hitam; selama avatar merapikan posisi dinding tetap ada.
+        HideScenery();
 
         _sceneOpened = false;
         _sceneClosed = false;
