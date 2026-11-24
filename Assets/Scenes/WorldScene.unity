@@ -15157,7 +15157,7 @@ Transform:
   m_GameObject: {fileID: 281188129}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 248.871, y: 24.890003, z: 155.72801}
+  m_LocalPosition: {x: 248.871, y: 23.879, z: 155.72801}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -18927,7 +18927,7 @@ Transform:
   m_GameObject: {fileID: 303323601}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 247.16, y: 24.890003, z: 153.973}
+  m_LocalPosition: {x: 247.16, y: 23.879, z: 153.973}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -25938,7 +25938,7 @@ Transform:
   m_GameObject: {fileID: 414659334}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 248.89, y: 25.16, z: 153.99}
+  m_LocalPosition: {x: 248.89, y: 24.97, z: 153.99}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -36862,7 +36862,7 @@ Transform:
   m_GameObject: {fileID: 578812085}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 248.871, y: 24.890003, z: 152.239}
+  m_LocalPosition: {x: 248.871, y: 23.879, z: 152.239}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -38599,6 +38599,7 @@ MonoBehaviour:
   activeAlphaMin: 0.9
   areaPadding: 0.25
   blendSpeed: 6
+  highlightLevel: 0.6
 --- !u!1001 &624664438
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -44782,7 +44783,7 @@ Transform:
   m_GameObject: {fileID: 677198608}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 250.61299, y: 24.890003, z: 153.973}
+  m_LocalPosition: {x: 250.61299, y: 23.879, z: 153.973}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -95881,6 +95882,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::QuestAvailableIndicator
   quest: {fileID: 11400000, guid: e0594f7608230e246b04415bb6b83ecb, type: 2}
+  dialogueId: 
   indicator: {fileID: 751769096}
   bobHeight: 0.12
   bobSpeed: 2.5
@@ -95946,6 +95948,7 @@ MonoBehaviour:
   stages:
   - {fileID: 11400000, guid: 12c49bb84c2d2e6129942043a27a30cf, type: 2}
   repeatDialogue: {fileID: 11400000, guid: 4023f1338337aa70abe295b55ee3a625, type: 2}
+  repeatPool: []
   questDialogues:
   - quest: {fileID: 11400000, guid: e0594f7608230e246b04415bb6b83ecb, type: 2}
     when: 0
@@ -120581,6 +120584,7 @@ MonoBehaviour:
   activeAlphaMin: 0.9
   areaPadding: 0.25
   blendSpeed: 6
+  highlightLevel: 0.6
 --- !u!1001 &2087943183
 PrefabInstance:
   m_ObjectHideFlags: 0
