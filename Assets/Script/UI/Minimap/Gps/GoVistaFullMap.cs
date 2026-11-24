@@ -108,11 +108,21 @@ public sealed class GoVistaFullMap : MonoBehaviour,
     [SerializeField] private float slideDistance = 72f;
     [SerializeField] private Color customColor = new Color32(240, 84, 96, 255);
     [SerializeField] private Color questColor = new Color32(255, 196, 61, 255);
+
+    [Header("Pemberi quest utama")]
+    [Tooltip("Pin quest baru di peta penuh (warna penuh, tidak di-tint). Ujung bawah pin = posisi pemberi. " +
+             "Ketuk pin / baris quest di daftar = jadikan tujuan (GPS).")]
+    [SerializeField] private Sprite giverMapSprite;
+    [SerializeField] private float giverMapSize = 40f;
+    [Tooltip("Titik pivot pin = ujung bawahnya (y dari bawah, 0–1).")]
+    [SerializeField] private float giverPivotY = 0.14f;
+    [SerializeField] private Color giverColor = new Color32(255, 160, 58, 255);
     [SerializeField] private Color idleColor = new Color32(120, 136, 160, 255);
     [SerializeField] private Color rowColor = new Color(1f, 1f, 1f, 0.06f);
     [SerializeField] private Color rowSelectedColor = new Color32(54, 196, 186, 90);
 
     private RectTransform _viewport;
+    private RectTransform _giverIcon;
     private bool _open;
     private float _anim;               // 0 = tertutup, 1 = terbuka penuh
     private float _zoom;
@@ -144,6 +154,8 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         public MinimapBlip Blip;
         /// Indeks area venue (-1 = baris tempat penting pulau).
         public int Area;
+        /// Baris pemberi quest utama (paling atas daftar).
+        public bool Giver;
     }
 
     private static readonly Comparison<MinimapBlip> ByOrder = (a, b) => a.Item.orderInLayer.CompareTo(b.Item.orderInLayer);
@@ -156,6 +168,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         _controlsRest = mapControls.anchoredPosition;
         panelCanvas.enabled = false;
         iconTemplate.gameObject.SetActive(false);
+        _giverIcon = CreateGiverIcon();
         legendRowTemplate.gameObject.SetActive(false);
         openButton.onClick.AddListener(Open);
         closeButton.onClick.AddListener(Close);
@@ -330,15 +343,20 @@ public sealed class GoVistaFullMap : MonoBehaviour,
             if (blip != null && !string.IsNullOrEmpty(blip.MapLabel) && blip.Item.itemSprite != null) blips.Add(blip);
         blips.Sort((a, b) => string.Compare(a.MapLabel, b.MapLabel, StringComparison.OrdinalIgnoreCase));
 
-        EnsureRows(blips.Count);
+        // Quest utama yang belum diterima tampil paling atas, dengan pin quest-nya.
+        QuestData mainQuest = giverMapSprite ? QuestWaypoint.MainGiverQuest : null;
+        int offset = mainQuest != null ? 1 : 0;
+        EnsureRows(blips.Count + offset);
         for (int i = 0; i < _rows.Count; i++) {
             LegendRow row = _rows[i];
-            bool used = i < blips.Count;
+            bool used = i < blips.Count + offset;
             row.Button.gameObject.SetActive(used);
             if (!used) continue;
-            row.Blip = blips[i];
             row.Area = -1;
-            SetRow(row, "Row " + row.Blip.MapLabel, row.Blip.Item.itemSprite, Color.white, row.Blip.MapLabel);
+            row.Giver = i < offset;
+            row.Blip = row.Giver ? null : blips[i - offset];
+            if (row.Giver) SetRow(row, "Row Quest " + mainQuest.title, giverMapSprite, Color.white, mainQuest.title);
+            else SetRow(row, "Row " + row.Blip.MapLabel, row.Blip.Item.itemSprite, Color.white, row.Blip.MapLabel);
             _rows[i] = row;
         }
     }
@@ -352,6 +370,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
             row.Button.gameObject.SetActive(used);
             if (!used) continue;
             row.Blip = null;
+            row.Giver = false;
             row.Area = i;
             SetRow(row, "Row " + areas[i].name, areaSprite, areas[i].color, areas[i].name);
             _rows[i] = row;
@@ -383,10 +402,22 @@ public sealed class GoVistaFullMap : MonoBehaviour,
             if (venueOverlay.ToggleSelect(area)) PanTo(_venue.Areas[area].center);
             return;
         }
+        if (_rows[index].Giver) {
+            SelectMainGiver();
+            return;
+        }
         if (_rows[index].Blip == null) return;
         Vector3 position = _rows[index].Blip.transform.position;
         GpsService.SetCustomWaypoint(position);
         PanTo(Flat(position));
+    }
+
+    /// Pemberi quest utama dijadikan tujuan sendiri: GPS memandu ke sana sampai pemain tiba atau menghapusnya.
+    private void SelectMainGiver() {
+        Transform giver = QuestWaypoint.MainGiver;
+        if (giver == null) return;
+        GpsService.SetCustomWaypoint(giver.position);
+        PanTo(Flat(giver.position));
     }
 
     private MinimapBlip SelectedLandmark() {
@@ -412,6 +443,11 @@ public sealed class GoVistaFullMap : MonoBehaviour,
             GpsService.ClearCustomWaypoint();
             return;
         }
+        if (_giverIcon != null && _giverIcon.gameObject.activeSelf && QuestWaypoint.MainGiver != null &&
+            (GiverIconCenter() - local).magnitude <= tapRemoveRadius) {
+            SelectMainGiver();
+            return;
+        }
         Vector2 world = LocalToWorld(local);
         if (!InsideMap(world)) return;
         // Tinggi tidak dipakai untuk jarak (GPS memakai x,z); pakai tinggi pemain supaya pencarian titik jalan terdekat
@@ -419,6 +455,10 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         float y = PlayerController.Local != null ? PlayerController.Local.transform.position.y : 0f;
         GpsService.SetCustomWaypoint(new Vector3(world.x, y, world.y));
     }
+
+    /// Tengah badan pin pemberi quest (pivot-nya di ujung bawah), untuk deteksi ketukan.
+    private Vector2 GiverIconCenter() =>
+        _giverIcon.anchoredPosition + new Vector2(0f, giverMapSize * (0.5f - giverPivotY));
 
     public void OnBeginDrag(PointerEventData eventData) => _panTarget = null;
 
@@ -529,6 +569,38 @@ public sealed class GoVistaFullMap : MonoBehaviour,
             questIcon.anchoredPosition = WorldToLocal(quest.position);
             questIcon.SetAsLastSibling();
         }
+
+        Transform giver = _venue == null && _giverIcon != null ? QuestWaypoint.MainGiver : null;
+        if (_giverIcon == null) return;
+        _giverIcon.gameObject.SetActive(giver != null);
+        if (giver == null) return;
+        _giverIcon.anchoredPosition = WorldToLocal(giver.position);
+        _giverIcon.SetAsLastSibling();
+    }
+
+    /// Pin pemberi quest utama di peta penuh, dibuat saat runtime di lapisan ikon (prefab cukup menyimpan sprite-nya).
+    private RectTransform CreateGiverIcon() {
+        if (!giverMapSprite) return null;
+        var icon = new GameObject("Main Quest Giver", typeof(RectTransform), typeof(Image)).GetComponent<RectTransform>();
+        icon.SetParent(questIcon.parent, false);
+        icon.anchorMin = questIcon.anchorMin;
+        icon.anchorMax = questIcon.anchorMax;
+        icon.pivot = new Vector2(0.5f, giverPivotY);
+        icon.sizeDelta = new Vector2(giverMapSize, giverMapSize);
+        var image = icon.GetComponent<Image>();
+        image.sprite = giverMapSprite;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        icon.gameObject.SetActive(false);
+        return icon;
+    }
+
+    /// True kalau tujuan sendiri sedang dipasang di pemberi quest utama (dipilih dari pin / daftar).
+    private static bool CustomIsMainGiver(out QuestData quest) {
+        Transform giver = QuestWaypoint.MainGiver;
+        quest = QuestWaypoint.MainGiverQuest;
+        return giver != null && GpsService.HasCustomWaypoint &&
+               (Flat(giver.position) - Flat(GpsService.CustomWaypoint)).sqrMagnitude < 1f;
     }
 
     private void DrawRoute() {
@@ -556,7 +628,12 @@ public sealed class GoVistaFullMap : MonoBehaviour,
 
         string caption, title, hint;
         Color accent;
-        if (custom) {
+        if (custom && CustomIsMainGiver(out QuestData mainQuest)) {
+            caption = "QUEST UTAMA";
+            title = mainQuest.title;
+            hint = "Temui pemberi quest untuk memulai";
+            accent = giverColor;
+        } else if (custom) {
             caption = "TUJUANMU";
             title = landmark != null ? landmark.MapLabel : "Titik di peta";
             hint = "Ketuk penanda di peta untuk menghapus";
@@ -581,7 +658,7 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         destinationCaption.color = accent;
         destinationIconBackground.color = new Color(accent.r, accent.g, accent.b, 0.22f);
         destinationIcon.color = accent;
-        destinationIcon.sprite = quest ? flagSprite : pinSprite;
+        destinationIcon.sprite = quest || (custom && CustomIsMainGiver(out _)) ? flagSprite : pinSprite;
         if (clearButton.gameObject.activeSelf != custom) {
             clearButton.gameObject.SetActive(custom);
             // Tombol Hapus di kanan baris bawah: sempitkan teks supaya tidak tertimpa.
@@ -591,7 +668,8 @@ public sealed class GoVistaFullMap : MonoBehaviour,
         }
 
         foreach (LegendRow row in _rows)
-            if (row.Blip != null) row.Background.color = row.Blip == landmark ? rowSelectedColor : rowColor;
+            if (row.Giver) row.Background.color = custom && CustomIsMainGiver(out _) ? rowSelectedColor : rowColor;
+            else if (row.Blip != null) row.Background.color = row.Blip == landmark ? rowSelectedColor : rowColor;
     }
 
     /// Kartu atas di venue: area tempat pemain berada (tanpa tujuan / rute).

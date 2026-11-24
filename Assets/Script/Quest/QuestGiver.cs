@@ -23,8 +23,17 @@ public sealed class QuestGiver : MonoBehaviour {
             Debug.LogWarning($"[Quest] QuestGiver '{name}': isi Give After Dialogue untuk mode AfterDialogue.", this);
     }
 
-    private void OnEnable() => DialogueUI.DialogueFinished += OnDialogueFinished;
-    private void OnDisable() => DialogueUI.DialogueFinished -= OnDialogueFinished;
+    private void OnEnable() {
+        DialogueUI.DialogueFinished += OnDialogueFinished;
+        // Quest utama yang belum diterima: minimap + GPS menunjuk ke pemberi ini (QuestWaypoint).
+        foreach (QuestData quest in quests)
+            if (quest != null && quest.isMainQuest) QuestWaypoint.RegisterGiver(quest, transform);
+    }
+
+    private void OnDisable() {
+        DialogueUI.DialogueFinished -= OnDialogueFinished;
+        QuestWaypoint.UnregisterGiver(transform);
+    }
 
     /// <summary>Berikan semua quest yang belum aktif/selesai. Mengembalikan jumlah quest baru.</summary>
     public int Give() {
