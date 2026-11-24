@@ -12,4 +12,7 @@ public partial class PlayerVenueModel
     // Reliable + change-callback: avatar disembunyikan selama layar mati. Pemain yang baru masuk room
     // langsung mendapat nilai ini lewat model.
     [RealtimeProperty(2, true, true)] private bool _hidden;
+    // Reliable + change-callback: status ruang ganti (FittingRoomPresence). Terpisah dari _hidden karena
+    // suara proximity dan titik minimap tetap aktif; pemain masih di ruangan yang sama.
+    [RealtimeProperty(3, true, true)] private int _fittingRoom;
 }
