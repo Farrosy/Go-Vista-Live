@@ -63,6 +63,7 @@ public static partial class GameHudBuilder {
         Fonts fonts = EnsureFonts();
         EnsureSpriteAtlas();
         EnsureQuestSpritesInAtlas();
+        EnsurePingSprites();
         GameObject prefab = BuildPrefab(fonts);
         InstallInHostScene(prefab);
         InstallWaterSurface();
@@ -201,6 +202,7 @@ public static partial class GameHudBuilder {
             BuildDailyLoginButton(root.transform, safeArea, fonts);
             BuildFullMap(root.transform, safeArea, fonts);
             BuildQuestToast(safeArea, fonts);
+            BuildPing(safeArea, fonts);
 
             var hud = root.AddComponent<GameHudView>();
             Bind(hud, ("vitals", vitals), ("health", health), ("oxygen", oxygen), ("rootCanvas", canvas),
@@ -285,15 +287,16 @@ public static partial class GameHudBuilder {
     }
 
     private static Canvas BuildCoin(RectTransform parent, Fonts fonts) {
-        const float pillWidth = 240f;
+        const float iconOverlap = 37f;
+        const float pillWidth = HudLayout.CoinGroupWidth - iconOverlap;
         RectTransform group = TopLeft(NewRect("Coin", parent), HudLayout.CoinLeft, HudLayout.CoinTop,
-            pillWidth + 37f, 130f);
+            HudLayout.CoinGroupWidth, 130f);
         var canvas = group.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true;
         canvas.sortingOrder = HudSortingOrder;
 
         Image pill = SlicedImage("Pill", group, "Panels/pill_money.png");
-        TopLeft(pill.rectTransform, 37f, 3f, pillWidth, SpriteHeight(pill));
+        TopLeft(pill.rectTransform, iconOverlap, 3f, pillWidth, SpriteHeight(pill));
         Image coin = PlainImage("Coin Icon", group, "Icons/icon_coin_G.png");
         TopLeft(coin.rectTransform, 0f, 0f, 74f, 80f);
         TextMeshProUGUI balance = Text("Balance", group, fonts.Bold, "100", 34f, Color.white, TextAlignmentOptions.MidlineRight);

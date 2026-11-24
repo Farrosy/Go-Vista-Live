@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// dipasang sebagai nested prefab di LobbyCanvas ("Settings Overlay") dan RoomWaitingCanvas (menu pause).
 /// Ubah desainnya sekali di prefab itu, kedua tempat ikut berubah.
 ///
-/// Panel ini mengurus semua isi dialog sendiri (sensitivitas kamera, info akun, simpan saat ditutup).
+/// Panel ini mengurus semua isi dialog sendiri (sensitivitas kamera, tampilkan ping, info akun, simpan saat ditutup).
 /// Pemakai hanya memanggil Open() dengan dua callback untuk hal yang memang beda per tempat:
 ///  - controlsRequested : tombol "Atur kontrol" (lobby menyembunyikan menu, pause menyembunyikan overlay pause)
 ///  - closed            : SELESAI / tombol × (lobby menutup overlay, pause kembali ke menu pause)
@@ -27,6 +27,10 @@ public sealed class SettingsPanel : MonoBehaviour {
     [SerializeField] private Text accountLabel;
     [SerializeField] private string accountPrefix = "Masuk sebagai  ";
 
+    [Header("Tampilan")]
+    [Tooltip("Opsional. Saklar \"Tampilkan ping\" (GameSettings.ShowPing).")]
+    [SerializeField] private SettingsSwitch pingSwitch;
+
     // Pilihan kontrol belok mobil (roda setir / tombol) pindah ke ATUR KONTROL > Kendaraan.
 
     [Header("Tombol")]
@@ -41,8 +45,10 @@ public sealed class SettingsPanel : MonoBehaviour {
     public bool IsOpen => gameObject.activeSelf;
 
     /// <summary>Dipakai pembuat prefab (Editor) untuk mengisi referensi.</summary>
-    public void Init(Slider slider, Text value, Text account, Button controls, Button done, Button close) {
+    public void Init(Slider slider, Text value, Text account, Button controls, Button done, Button close,
+                     SettingsSwitch ping) {
         sensitivitySlider = slider;
+        pingSwitch = ping;
         sensitivityValue = value;
         accountLabel = account;
         controlsButton = controls;
@@ -56,6 +62,7 @@ public sealed class SettingsPanel : MonoBehaviour {
             sensitivitySlider.maxValue = GameSettings.MaxCameraSensitivity;
             sensitivitySlider.onValueChanged.AddListener(OnSensitivityChanged);
         }
+        if (pingSwitch != null) pingSwitch.Changed += OnPingSwitchChanged;
         if (controlsButton != null) controlsButton.onClick.AddListener(RequestControls);
         if (doneButton != null) doneButton.onClick.AddListener(Close);
         if (closeButton != null) closeButton.onClick.AddListener(Close);
@@ -103,8 +110,12 @@ public sealed class SettingsPanel : MonoBehaviour {
         if (sensitivitySlider != null)
             sensitivitySlider.SetValueWithoutNotify(GameSettings.CameraSensitivity);
         UpdateSensitivityLabel();
+        if (pingSwitch != null)
+            pingSwitch.SetWithoutNotify(GameSettings.ShowPing);
         RefreshAccount();
     }
+
+    private static void OnPingSwitchChanged(bool on) => GameSettings.ShowPing = on;
 
     private void RequestControls() {
         GameSettings.Save();
