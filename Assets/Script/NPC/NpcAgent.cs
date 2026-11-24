@@ -128,6 +128,9 @@ public class NpcAgent : MonoBehaviour
 
     void Awake()
     {
+        // Remote copies are created in this client's active scene (often WorldScene); keep them in the
+        // persistent scene so leaving World doesn't destroy the crowd locally.
+        PersistentSceneAdopter.Adopt(gameObject);
         agent = GetComponent<NavMeshAgent>();
         npcSync = GetComponent<NpcSync>();
         realtimeView = GetComponent<RealtimeView>();
