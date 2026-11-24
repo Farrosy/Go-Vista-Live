@@ -2,7 +2,8 @@
 
 Dokumen ini menjelaskan cara quest bekerja, quest yang ada saat ini, dan alur pemain dari awal masuk game sampai quest selesai.
 
-> **Ringkasan:** quest **tidak langsung didapat** saat masuk game. Pemain spawn di Central Plaza dan langsung melihat maskot **Vio & Vira** (ada tanda `!` di atas kepala). Quest **Tur Kota Go Vista** diberikan setelah pemain bicara dengan mereka dan menjawab **"Ayo!"**.
+> **Ringkasan:** quest **tidak langsung didapat** saat masuk game. Pemain spawn di Central Plaza dan langsung melihat maskot **Vio & Vira** (ada tanda `!` di atas kepala, dan pin `!` oranye di minimap). Quest **Tur Kota Go Vista** diberikan setelah pemain bicara dengan mereka dan menjawab **"Ayo!"**.
+> Setelah tur selesai, Vio & Vira menawarkan quest utama berikutnya, **Tampil Beda** (Clothing Shop), lihat [bagian 2](#2-rangkaian-quest-utama-primary).
 
 ---
 
@@ -10,12 +11,15 @@ Dokumen ini menjelaskan cara quest bekerja, quest yang ada saat ini, dan alur pe
 
 | questId | Asset | Judul di UI | Pemberi | Status |
 |---|---|---|---|---|
-| `city-tour` | `Assets/Quests/CityTour.asset` | Tur Kota Go Vista | Vio & Vira di Central Plaza | **Aktif** — quest utama pemain baru |
+| `city-tour` | `Assets/Quests/CityTour.asset` | Tur Kota Go Vista | Vio & Vira di Central Plaza | **Aktif** — quest utama #1 pemain baru (`isMainQuest` ON) |
+| `tampil-beda` | `Assets/Quests/TampilBeda.asset` | Tampil Beda | Vio & Vira (akhir tur di Vista Palace / Central Plaza) | **Aktif** — quest utama #2 setelah Tur Kota |
 | `Q1` | `Assets/Quests/Quest1.asset` | "Quest baru" | NPC Twin | **Disembunyikan** (quest testing). QuestGiver di NPC Twin dimatikan |
 | *(kosong)* | `Assets/Quests/New Quest Data.asset` | "Quest baru" | — | Template kosong |
 
 ### Tur Kota Go Vista (`city-tour`)
 
+- **Quest Utama** (`isMainQuest` ON): selama belum diterima, minimap + peta penuh menandai Vio & Vira dengan pin `!` oranye
+  (tidak dipilih otomatis; GPS baru memandu kalau pemain memilihnya di peta penuh).
 - **Berurutan** (`sequentialObjectives` ON), hadiah **200 Go Vista Coin**.
 - Rute dihitung builder dari jarak (tetangga terdekat dari Central Plaza), Vista Palace selalu terakhir:
 
@@ -31,7 +35,181 @@ Dokumen ini menjelaskan cara quest bekerja, quest yang ada saat ini, dan alur pe
 
 ---
 
-## 2. Flow dari awal masuk game
+## 2. Rangkaian quest utama (primary)
+
+Quest utama = quest yang wajib dikenalkan ke pemain baru, berurutan. Dicentang **Quest Utama** (`isMainQuest`) di
+`QuestData`, sehingga selama belum diterima pemberinya ditandai pin `!` oranye di minimap dan peta penuh (tidak
+dipilih otomatis sebagai tujuan GPS; pemain memilihnya sendiri di peta penuh).
+
+| # | Quest | Mengenalkan | Status |
+|---|---|---|---|
+| 1 | **Tur Kota Go Vista** (`city-tour`) | Kota, gedung penting, minimap/GPS, Go Vista Coin | Sudah jalan |
+| 2 | **Tampil Beda** (`tampil-beda`) | Masuk gedung (interior), Mira, ruang ganti, kustomisasi + belanja | Sudah jalan |
+
+```mermaid
+flowchart TD
+    A[Spawn di Central Plaza] --> B[Bicara dengan Vio & Vira]
+    B -->|Nanti saja| A2[Pin ! oranye tetap di minimap] --> B
+    B -->|Ayo!| T[Tur Kota: 6 gedung berurutan]
+    T --> V[Vista Palace: dialog penutup<br/>Quest selesai, +200 G]
+    V --> O{Vio & Vira menawarkan<br/>Tampil Beda}
+    O -->|Ayo!| S1
+    O -->|Nanti saja| P[Ambil lagi dari Vio & Vira<br/>di Central Plaza, pin ! oranye] --> S1
+    subgraph Q2 [Tampil Beda]
+        S1[1. Pergi ke Clothing Shop] --> S2[2. Ngobrol dengan Mira di kasir]
+        S2 --> S3[3. Ganti gaya di ruang ganti, SIMPAN]
+        S3 --> S4[4. Opsional: tunjukkan ke Mira]
+    end
+    S4 --> R[Quest selesai: hadiah koin]
+```
+
+### 2.1 Transisi Tur Kota → Tampil Beda
+
+- **Tidak perlu balik ke Central Plaza.** Tur berakhir di Vista Palace (markas Vio & Vira), jadi tawaran quest berikutnya
+  disambung **langsung di akhir dialog penutup Vista Palace**: *"Eh, tapi warga Go Vista harus tampil keren dong! Mampir
+  ke Clothing Shop yuk, Mira di sana jago banget soal gaya."* → **"Ayo!" / "Nanti saja"**.
+- **"Ayo!"** → toast "Quest selesai! +200 G" lalu "Quest baru: Tampil Beda"; GPS + minimap langsung menunjuk Clothing Shop.
+- **"Nanti saja"** → quest diambil lagi dari Vio & Vira di **Central Plaza** (selalu ada di sana dan tempat spawn).
+  Dialog plaza `tour-plaza-after` diganti jadi tawaran Tampil Beda selama quest itu belum diambil, lalu kembali jadi
+  obrolan biasa setelahnya. Pin `!` oranye menunjuk plaza.
+- Hadiah 200 G dari tur langsung jadi modal belanja di Clothing Shop (pemain mulai 100 G → ±300 G; item termurah per
+  kategori 50–100 G, jadi pasti bisa membeli sesuatu).
+
+### 2.2 Tampil Beda — tujuan (berurutan)
+
+| # | Tujuan | Tipe | Selesai saat | Sudah ada |
+|---|---|---|---|---|
+| 1 | Pergi ke Clothing Shop | GoToLocation | Masuk area `QuestLocation` di depan pintu toko | `QuestLocation`, GPS otomatis |
+| 2 | Ngobrol dengan Mira di kasir | FinishDialogue `mira_intro` | Dialog perkenalan Mira tamat (sekaligus membuka ruang ganti + tutorial panah bilik) | Dialog, tanda `!` Mira, `FittingRoomHint` |
+| 3 | Ganti gaya di ruang ganti | Manual | SIMPAN di editor ruang ganti (`FittingRoomStation`, event Saved editor) | Ruang ganti, toko baju, keranjang |
+| 4 | *(opsional)* Tunjukkan ke Mira | FinishDialogue (baru) | Dialog pujian Mira tamat → hadiah | — |
+
+Yang perlu dibuat: asset quest, `QuestLocation` di depan Clothing Shop, sambungan "SIMPAN di ruang ganti → tujuan 3
+selesai", dialog tawaran Vio & Vira (Vista Palace + plaza), dan dialog pujian Mira.
+
+### 2.3 Hal yang perlu diperhatikan
+
+- **Sudah kenalan dengan Mira sebelum quest diterima:** kalau `mira_intro` sudah selesai, tujuan 2 harus langsung
+  dianggap selesai, kalau tidak pemain terjebak (dialog itu tidak muncul lagi).
+- **Penanda di dalam gedung:** interior memakai peta venue kecil, bukan minimap kota. Cek apakah titik emas tujuan
+  tampil untuk Mira dan bilik; kalau tidak, tanda `!` Mira + panah tutorial bilik sudah cukup sebagai penunjuk.
+- **"Ada perubahan"** di tujuan 3 = tampilan yang tersimpan berbeda dari sebelum editor dibuka. SIMPAN tanpa perubahan,
+  atau keranjang yang semua itemnya dibatalkan (tampilan kembali seperti semula), tidak dihitung.
+
+### 2.4 Keputusan (2026-11-24)
+
+- [x] Setelah tur **tidak** balik ke plaza; tawaran Tampil Beda langsung di akhir dialog Vista Palace.
+- [x] "Nanti saja" → quest diambil lagi dari Vio & Vira di **Central Plaza**.
+- [x] Tujuan 3: cukup **ada perubahan lalu SIMPAN** (tidak wajib beli).
+- [x] Pakai tujuan 4 **"Tunjukkan ke Mira"**; quest selesai setelah dialog pujian Mira.
+- [x] Hadiah **koin dulu**; title menyusul (masuk TODO badge). Jumlah koin: lihat 2.4.1.
+- [x] Nama quest: **Tampil Beda** (`questId` usulan `tampil-beda`).
+
+#### 2.4.1 Hadiah dan teks
+
+- [x] Hadiah **150 G**.
+- [x] Draf teks di 2.4.2 disetujui.
+
+### 2.4.2 Teks (disetujui)
+
+**Quest:** judul *Tampil Beda*, deskripsi *"Vio & Vira mengajakmu ke Clothing Shop untuk mencari gaya baru bersama Mira."*
+Tujuan: *Pergi ke Clothing Shop* → *Ngobrol dengan Mira di kasir* → *Ganti gaya di ruang ganti lalu SIMPAN* →
+*Tunjukkan gaya barumu ke Mira*.
+
+**Vista Palace, akhir dialog penutup tur** (dua baris terakhir lama diganti; "Selamat menjelajah" pindah ke "Nanti saja"):
+- Vira: "Terima kasih sudah ikut tur! Ini hadiah kecil dari kami."
+- Vio: "Eh, tapi warga Go Vista juga harus tampil keren dong!"
+- Vira: "Mampir ke Clothing Shop, yuk! Mira di sana jago banget soal gaya."
+- Vio: "Mau ke sana sekarang?" → **Ayo!** / **Nanti saja**
+  - Ayo! → Vira: "Asyik! Tokonya sudah kami tandai di peta. Sampai ketemu lagi!"
+  - Nanti saja → Vio: "Oke! Selamat menjelajah Go Vista. Kalau berubah pikiran, cari kami di Central Plaza, ya!"
+
+**Central Plaza, selama Tampil Beda belum diambil** (menggantikan `tour-plaza-after`):
+- Vira: "Hai lagi! Sudah sempat mampir ke Clothing Shop?"
+- Vio: "Mira bisa bantu kamu ganti gaya. Mau ke sana sekarang?" → **Ayo!** / **Nanti saja**
+  - Ayo! → Vira: "Mantap! Tokonya sudah kami tandai di peta."
+  - Nanti saja → Vio: "Siap, kapan-kapan saja. Kami tunggu di sini!"
+
+**Central Plaza, selama Tampil Beda berjalan:**
+- Vira: "Toko bajunya sudah ditandai di peta, ya! Mira pasti senang ketemu kamu."
+
+**Central Plaza, setelah Tampil Beda selesai:** kembali ke "Selamat menjelajah Go Vista!" (sementara, lihat TODO basa-basi).
+
+**Mira, tujuan 2:** dialog perkenalan `mira_intro` yang sudah ada, tanpa perubahan.
+
+**Mira, tujuan 4 "Tunjukkan ke Mira"** (hanya muncul saat tujuan 4 aktif):
+- Mira: "Wah, lihat kamu sekarang! Gaya barunya cocok banget."
+- Mira: "Vio dan Vira pasti kaget lihat kamu nanti. Hehe."
+- Mira: "Ini sedikit hadiah dari toko. Mampir lagi kapan-kapan kalau mau ganti gaya, ya!"
+
+### 2.5 Checklist implementasi Tampil Beda
+
+Dibangun dengan **Go Vista > Quest > Buat Tampil Beda** (`CityTourBuilder.TampilBeda.cs`, teks di
+`TampilBedaContent.cs`). Aman dijalankan ulang; **Buat Tur Kota** ikut menyambungkan ulang bagian WorldScene-nya.
+✅ = dites di Play mode (2026-11-24), ☐ = belum dites.
+
+**A. Data quest**
+- [x] `Assets/Quests/TampilBeda.asset`: `tampil-beda`, `isMainQuest` ON, `requiredQuest` = Tur Kota (baru ditawarkan
+      setelah tur selesai), berurutan, 150 G. Terdaftar di `Resources/QuestDatabase`.
+- [x] Tujuan: `ke-clothing-shop` (GoToLocation), `kenalan-mira` (FinishDialogue `mira_intro`,
+      `completeIfDialogueDone`), `ganti-gaya` (Manual), `tunjukkan-mira` (FinishDialogue `mira-tampil-beda`).
+
+**B. Transisi dari Tur Kota (Vista Palace)**
+- [x] ✅ Dialog penutup `tour-vista-palace` disambung `tampil-beda-offer-palace` dalam satu kemunculan maskot
+      (`CityTourStop.followUpDialogue`). Tur selesai (+200 G) sebelum pertanyaan muncul.
+- [x] ✅ `QuestGiver` Tampil Beda di `Stop - Vista Palace` (AfterDialogue, `showOnMap` OFF supaya pin tetap di plaza).
+- [x] Toast "Quest selesai!" lalu "Quest baru!" lewat antrean `QuestToastView`. ☐ belum dilihat langsung.
+- [x] "Ayo!" memberi quest; "Nanti saja" (`askAgainLater`) tidak memberi quest, tawaran muncul lagi di Central Plaza.
+      ☐ jalur "Nanti saja" di Vista Palace belum dites langsung.
+
+**C. Pemberi cadangan di Central Plaza**
+- [x] ✅ Vio & Vira memutar `tampil-beda-offer-plaza` (QuestDialogue `QuestAvailable`) selama quest ditawarkan, lalu
+      `tampil-beda-reminder` (`QuestActive`) selama berjalan, kembali ke `tour-plaza-after` setelah selesai.
+- [x] ✅ `QuestGiver` Tampil Beda kedua di `Mascots` (pin `!` oranye karena `isMainQuest`).
+- [x] ✅ Tanda `!` di atas kepala tampil lagi (`QuestAvailableIndicator.moreQuests`).
+- [x] Pin dan tawaran tidak muncul sebelum Tur Kota selesai (`QuestService.IsAvailable` memeriksa `requiredQuest`).
+
+**D. Tujuan 1: ke Clothing Shop**
+- [x] ✅ `QuestLocation` di depan pintu Clothing Shop (WorldScene) **dan** di pintu dalam toko (kalau pemain langsung masuk).
+- [x] ✅ GPS + titik emas menunjuk pintu toko; tujuan selesai saat sampai.
+- [x] ✅ Teleport/pindah venue tidak lagi membuat area dianggap masih ditempati (`QuestLocation` cek posisi pemain).
+
+**E. Tujuan 2: ngobrol dengan Mira**
+- [x] ✅ Pakai `mira_intro` yang sudah ada; GPS di dalam toko menunjuk Mira (titik emas di peta venue).
+- [x] Sudah kenalan sebelumnya → tujuan 2 langsung selesai (`completeIfDialogueDone`).
+- [x] ✅ Titik GPS di pintu toko untuk tujuan 2–4: dari luar toko GPS tetap kembali ke Clothing Shop.
+
+**F. Tujuan 3: ganti gaya di ruang ganti**
+- [x] ✅ SIMPAN di ruang ganti dengan penampilan berbeda → `FittingRoomStation` menyelesaikan `ganti-gaya`
+      (`CharacterSceneLoader.FittingRoomLookChanged`).
+- [x] ✅ SIMPAN tanpa perubahan tidak dihitung (dibandingkan setelah dibersihkan seperti saat disimpan, jadi template
+      yang disimpan apa adanya juga tidak dihitung).
+
+**G. Tujuan 4: tunjukkan ke Mira**
+- [x] ✅ Mira memutar `mira-tampil-beda` hanya selama tujuan 4 bisa dikerjakan (QuestDialogue `ObjectiveAvailable`
+      di `NPC_Mira.prefab`) → quest selesai.
+- [x] ✅ Setelah itu Mira kembali ke obrolan acak.
+- [x] ✅ Selama tujuan 4 bisa dikerjakan: tanda `!` emas di atas kepala Mira (`QuestAvailableIndicator.objectiveIds`)
+      dan **checkpoint emas** di lantai depan tengah meja kasir (`QuestObjectiveMarker` + lingkaran bergaya karpet pintu
+      masuk, `BuildingEntranceArt.BuildFloorRing`; bukan beacon Tur Kota yang terlalu tinggi untuk di dalam gedung).
+      Checkpoint disembunyikan selama dialog dan menyala lebih terang saat diinjak.
+
+**H. Hadiah**
+- [x] ✅ +150 G saat quest selesai.
+- [ ] Title menyusul (TODO badge, bagian 7).
+
+**I. Uji**
+- [x] ✅ Akun lama (Tur Kota selesai sebelum update) → tawaran di Central Plaza → toko → Mira → SIMPAN → Mira → +150 G.
+- [x] ✅ Akhir Tur Kota di Vista Palace → +200 G → tawaran → "Ayo!" → quest aktif.
+- [ ] "Nanti saja" di Vista Palace → ambil lagi di Central Plaza.
+- [ ] Pemain baru penuh dari awal tanpa bantuan skrip (semua langkah di atas dites dengan memindah pemain / mengatur
+      progres sesi tes).
+- [ ] Keluar game di tengah quest → progres tersimpan (Cloud Save) dan penanda kembali benar.
+- [ ] Build HP.
+
+---
+
+## 3. Flow dari awal masuk game
 
 ```mermaid
 flowchart TD
@@ -49,7 +227,7 @@ flowchart TD
 
 ---
 
-## 3. Flow tur di tiap gedung
+## 4. Flow tur di tiap gedung
 
 ```mermaid
 sequenceDiagram
@@ -99,7 +277,7 @@ Margin teks dialog juga sudah dibetulkan (dulu margin kanan −1097 px sehingga 
 
 ---
 
-## 4. Go Vista Coin
+## 5. Go Vista Coin
 
 - Saldo **permanen** di Cloud Save (`PlayerProgress.coins`, lewat `PlayerCoins`).
 - Akun baru dan save lama tanpa koin mulai dari **100** (sekali saja). Saldo tidak pernah minus.
@@ -108,7 +286,7 @@ Margin teks dialog juga sudah dibetulkan (dulu margin kanan −1097 px sehingga 
 
 ---
 
-## 5. Komponen
+## 6. Komponen
 
 | File | Fungsi |
 |---|---|
@@ -158,6 +336,11 @@ HUD (marker minimap + toast) dibangun lewat **Go Vista > HUD > Buat ulang GameHu
    - Objective `GoToLocation`: cukup pasang `QuestLocation` dengan `locationId` yang sama. GPS otomatis mengarah ke sana.
    - Objective lain (mis. `FinishDialogue` bicara dengan NPC, atau `Manual`): pasang `QuestTargetPoint` di objek tujuan, isi `quest` + `objectiveId`.
    - Tidak perlu kode tambahan.
+6. **Quest Utama** (opsional): centang `isMainQuest` supaya pemain tahu harus ke mana dulu. Selama quest itu belum
+   diterima dan belum selesai, minimap + peta penuh menandai `QuestGiver`-nya dengan pin quest baru
+   (`quest_giver.png` / `quest_giver_fullmap.png` di `GoVista_HUD_Assets/Quest/`), juga walau pemain memilih "Nanti saja".
+   Pin ini **tidak** dipilih otomatis: pemain mengetuk pin atau baris quest (paling atas daftar) di peta penuh,
+   lalu GPS memandu seperti tujuan sendiri.
 
 ### GPS (rute di radar + peta penuh)
 
@@ -165,10 +348,13 @@ Seperti GPS di GTA: garis rute mengikuti jalan dari pemain ke tujuan, di radar d
 (ketuk radar, atau tombol **M**). Di peta penuh pemain bisa **mengetuk peta untuk memasang tujuan sendiri**
 (ketuk lagi / "Hapus Tujuan" untuk melepas; hilang otomatis saat sampai).
 
-- **Warna:** emas = tujuan quest, ungu = tujuan sendiri. Tujuan sendiri menang dari tujuan quest.
+- **Warna:** emas = tujuan quest, oranye = pin pemberi quest utama, ungu = tujuan sendiri (termasuk pemberi quest
+  yang dipilih dari peta penuh). Tujuan sendiri menang dari tujuan quest.
+- **Penanda quest di minimap tidak pernah berubah jadi panah:** kalau jauh, ikonnya menempel di tepi minimap ke arah tujuan.
 - **Tujuan quest dipilih otomatis:** quest yang dipin dulu, lalu quest aktif lain (urutan Daftar Quest). Di tiap quest,
   objective yang bisa dikerjakan dan punya titik di dunia (`QuestLocation` / `QuestTargetPoint` / `CityTourStop`).
-  Quest bebas urutan memilih titik terdekat. Jadi **pin quest = ganti tujuan GPS**.
+  Quest bebas urutan memilih titik terdekat. Jadi **pin quest = ganti tujuan GPS**. Pemberi quest utama terpisah
+  (`QuestWaypoint.MainGiver`) dan bukan tujuan GPS otomatis.
 - **Dari kode:** `QuestWaypoint.Set(transform)` / `Clear(transform)` = override sementara (cutscene, event);
   `QuestWaypoint.Register(questId, objectiveId, transform)` = daftarkan titik objective;
   `GpsService.SetCustomWaypoint(pos)` / `ClearCustomWaypoint()` = tujuan pemain.
@@ -180,10 +366,11 @@ Seperti GPS di GTA: garis rute mengikuti jalan dari pemain ke tujuan, di radar d
 
 ---
 
-## 6. TODO / catatan next develop
+## 7. TODO / catatan next develop
 
-- [ ] **Dialog basa-basi Vio & Vira setelah tur selesai** (sapaan acak, tips kota). Sekarang masih satu dialog sementara `tour-plaza-after`.
-- [ ] **Badge / title "Warga Go Vista"** di profil sebagai hadiah tambahan tur.
+- [x] **Quest utama #2 "Tampil Beda"** (Clothing Shop): lihat bagian 2.5 (sisa uji di sana).
+- [ ] **Dialog basa-basi Vio & Vira setelah tur selesai** (sapaan acak, tips kota). Setelah Tampil Beda selesai masih dialog sementara `tour-plaza-after` (sebelumnya: tawaran / pengingat Tampil Beda, lihat 2.1).
+- [ ] **Badge / title** di profil: "Warga Go Vista" (Tur Kota) dan title untuk Tampil Beda (nama menyusul).
 - [ ] **"Mau dengar lagi tentang gedung tertentu?"** — pilihan replay penjelasan gedung dari maskot di plaza.
 - [ ] **Cek kendaraan:** saat pemain sudah bisa menyetir, tambahkan "sedang di kendaraan" di `CityTourGuide.CanPresent` supaya maskot muncul setelah pemain turun.
 - [ ] **Interior gedung:** setelah interior ada, teks gedung sebaiknya menyebut apa yang bisa dilakukan di dalamnya.
@@ -193,4 +380,4 @@ Seperti GPS di GTA: garis rute mengikuti jalan dari pemain ke tujuan, di radar d
   taman garis bisa sedikit mundur dulu ke jalan terdekat. Hilang begitu pemain di jalan.
 - [ ] **Animasi bicara Vio & Vira (dikerjakan manual):** maskot memakai model + controller pemain chibi lama (`MaleAnimationController` / `FemaleAnimationController`, tinggi 1,80 m). Tambahkan parameter bool `IsTalking` + state **Talk** (`MaleChibiAnimation/idle_talking_loop_fit.anim`, bisa dipakai keduanya) dengan transisi Locomotion ↔ Talk tanpa exit time. `MascotDuo` otomatis menyalakan `IsTalking` di maskot yang sedang bicara; selama parameternya belum ada, hanya pantulan kecil yang terlihat.
 - [ ] Ganti judul Q1 dan hapus/isi `New Quest Data.asset` kalau quest testing dipakai lagi.
-- [x] **Collider gedung:** Inovation Tower dan Vista Palace (ditaruh langsung dari FBX, bukan prefab ithappy) sekarang punya MeshCollider seperti gedung lain, jadi tidak bisa ditembus. Masih tanpa collider di WorldScene: `elite_residental_building_007` (dan skyline latar belakang).
+- [x] **Collider gedung:** Inovation Tower dan Vista Palace (ditaruh langsung dari FBX, bukan prefab ithappy) sekarang punya MeshCollider seperti gedung lain, jadi tidak bisa ditembus. `elite_residental_building_007` dan `building_platform_009 (2)` diberi collider di PR #132. Skyline latar belakang memang tanpa collider.

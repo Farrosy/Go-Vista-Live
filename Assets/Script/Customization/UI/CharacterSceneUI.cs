@@ -31,6 +31,8 @@ public class CharacterSceneUI : MonoBehaviour {
     private int previewKey = int.MinValue;
     private int pendingDelete = -1;
     private Coroutine toastRoutine;
+    // Penampilan saat editor ruang ganti dibuka (JSON), untuk tahu apakah SIMPAN benar-benar mengubah sesuatu.
+    private static string fittingOpenedLook;
     private CustomizerEditor editor;
     // Frame saat editor ditutup: tombol Back di frame yang sama jangan ikut menutup scene.
     private int editorClosedFrame = -1;
@@ -100,15 +102,28 @@ public class CharacterSceneUI : MonoBehaviour {
         CenterOnStageArea();
         editorUi.Preview.color = new Color(1f, 1f, 1f, 0f); // tetap jadi area geser, gambarnya = toko di belakang UI
         editor.OfferOverwriteWhenFull = true;
+        fittingOpenedLook = LookKey(record);
         editor.Saved += OnFittingRoomSaved;
         editor.Open(record, slot, false, CharacterSceneLoader.Close);
     }
 
     /// Penampilan baru langsung dipakai: slot itu jadi aktif, pemain lain menerima data barunya.
+    /// Kalau penampilannya berbeda dari saat editor dibuka, ruang ganti diberi tahu (tujuan quest "ganti gaya").
     private static void OnFittingRoomSaved(int slot) {
         CustomCharacterStore.Activate(slot);
         PlayerAppearanceSync.RefreshLocal();
+        CustomCharacterRecord saved = CustomCharacterStore.Get(slot);
+        if (saved == null) return;
+        string look = LookKey(saved);
+        if (look == fittingOpenedLook) return;
+        fittingOpenedLook = look; // simpan berikutnya dibandingkan dengan yang ini
+        CharacterSceneLoader.NotifyFittingRoomLookChanged();
     }
+
+    /// Penampilan sebagai teks, dibersihkan dengan aturan yang sama seperti saat disimpan (CustomCharacterStore.Save),
+    /// supaya template yang disimpan tanpa diubah tidak dianggap berubah (penyimpanan membuang nilai bawaan).
+    private static string LookKey(CustomCharacterRecord record) =>
+        JsonUtility.ToJson(CustomCharacterValidator.Sanitize(record, OutfitCatalog.Exists) ?? record);
 
     /// Sumbu karakter ke tengah area kosong di antara rail, bar atas, dan panel kanan (koordinat NDC).
     private void CenterOnStageArea() {

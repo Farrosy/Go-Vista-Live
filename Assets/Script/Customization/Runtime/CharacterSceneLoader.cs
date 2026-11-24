@@ -32,6 +32,14 @@ public static class CharacterSceneLoader {
     /// </summary>
     public static FittingRoomView FittingRoom { get; private set; }
 
+    /// <summary>
+    /// Dipicu saat penampilan disimpan di ruang ganti dan berbeda dari penampilan waktu editor dibuka
+    /// (SIMPAN tanpa perubahan tidak dihitung). Dipakai FittingRoomStation untuk tujuan quest "ganti gaya".
+    /// </summary>
+    public static event Action FittingRoomLookChanged;
+
+    public static void NotifyFittingRoomLookChanged() => FittingRoomLookChanged?.Invoke();
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() {
         _onOpened = null;

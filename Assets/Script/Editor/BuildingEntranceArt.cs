@@ -84,6 +84,46 @@ internal static class BuildingEntranceArt
         return material;
     }
 
+    /// <summary>
+    /// Lingkaran cahaya di lantai + cahaya pendek di tepinya (gaya karpet pintu masuk), sebagai child 'parent'.
+    /// Dipakai ruang ganti (FittingRoomBuilder) dan checkpoint quest di dalam gedung (Tampil Beda). Pasangkan hasilnya
+    /// ke BuildingEntranceMarker (doormat = ring, glow = glows) supaya berdenyut dan menyala saat diinjak.
+    /// </summary>
+    public static (MeshRenderer ring, MeshRenderer[] glows) BuildFloorRing(Transform parent, float size, float glowHeight,
+        int segments)
+    {
+        MeshRenderer ring = Panel(parent, "Ring", RingMaterial(), new Vector3(0f, 0.02f, 0f),
+                                  Quaternion.Euler(90f, 0f, 0f), new Vector3(size, size, 1f));
+        Material glowMaterial = GlowMaterial();
+        var glows = new MeshRenderer[segments];
+        float radius = size * 0.5f;
+        float width = 2f * radius * Mathf.Tan(Mathf.PI / segments) + 0.01f;
+        for (int i = 0; i < segments; i++)
+        {
+            Quaternion around = Quaternion.Euler(0f, 360f * i / segments, 0f);
+            glows[i] = Panel(parent, "Glow " + (i + 1), glowMaterial,
+                             around * new Vector3(0f, 0f, radius) + Vector3.up * glowHeight * 0.5f, around,
+                             new Vector3(width, glowHeight, 1f));
+        }
+        return (ring, glows);
+    }
+
+    private static MeshRenderer Panel(Transform parent, string name, Material material, Vector3 position,
+                                      Quaternion rotation, Vector3 scale)
+    {
+        var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = position;
+        go.transform.localRotation = rotation;
+        go.transform.localScale = scale;
+        go.GetComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
+        var renderer = go.GetComponent<MeshRenderer>();
+        renderer.sharedMaterial = material;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        return renderer;
+    }
+
     // ------------------------------------------------------------------ gambar
 
     /// Cincin tebal + isi lembut yang makin terang ke tepi (seperti sorot lampu di lantai).

@@ -22,6 +22,11 @@ public static class FittingRoomBuilder {
     private const string DoorWallName = "SM_Bld_Base_Wall_Door_01";
     private const string CurtainPrefix = "SM_Bld_Door_Curtain";
     private const string MirrorName = "SM_Prop_Clothes_Mirror_01";
+    // Cermin di sisi luar dinding bilik (menghadap toko): tujuan avatar berjalan setelah editor ditutup.
+    private const string OutsideMirrorName = "SM_Prop_Barber_Mirror_02";
+    private const float OutsideMirrorMaxDistance = 3f;   // dari tengah dinding depan bilik
+    private const float ExitDoorClearance = 0.5f;        // titik keluar pintu, di luar dinding depan
+    private const float MirrorStandDistance = 0.7f;      // berdiri sejauh ini di depan cermin luar
     private const string ActionPath = "Assets/NPCAction/ChangeClothes.asset";
     private const string ShirtIconPath = "Assets/Resources/UI/Icons/icon-shirt.png";
     private const string HintArrowMaterialPath = "Assets/Art/Entrance/FittingHintArrow.mat";
@@ -59,9 +64,7 @@ public static class FittingRoomBuilder {
 
         InteractionAction action = EnsureAction();
         var prompt = AssetDatabase.LoadAssetAtPath<InteractPromptWorld>(WorldPromptPrefabs.PromptPath);
-        Material ring = BuildingEntranceArt.RingMaterial();
-        Material glow = BuildingEntranceArt.GlowMaterial();
-        for (int i = 0; i < booths.Count; i++) Place(stations.transform, booths[i], i + 1, action, prompt, ring, glow);
+        for (int i = 0; i < booths.Count; i++) Place(stations.transform, booths[i], i + 1, action, prompt);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -76,12 +79,14 @@ public static class FittingRoomBuilder {
         public readonly List<Renderer> Hidden = new List<Renderer>();
         public Vector3 Front;   // tengah dinding depan, di lantai
         public Vector3 Inward;  // arah ke dalam bilik (datar)
+        public Renderer OutsideMirror; // cermin luar terdekat, boleh null
     }
 
     private static List<Booth> FindBooths(Scene scene) {
         var walls = new List<Renderer>();
         var curtains = new List<Renderer>();
         var mirrors = new List<Renderer>();
+        var outsideMirrors = new List<Renderer>();
         foreach (GameObject root in scene.GetRootGameObjects()) {
             foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true)) {
                 Transform t = renderer.transform;
@@ -89,6 +94,7 @@ public static class FittingRoomBuilder {
                 if (inBooths && t.name == DoorWallName) walls.Add(renderer);
                 else if (inBooths && t.name.StartsWith(CurtainPrefix)) curtains.Add(renderer);
                 else if (t.name == MirrorName) mirrors.Add(renderer);
+                else if (t.name == OutsideMirrorName) outsideMirrors.Add(renderer);
             }
         }
 
@@ -110,6 +116,10 @@ public static class FittingRoomBuilder {
                 if (offset.magnitude > 0.6f) continue;
                 booth.Hidden.Add(curtain);
             }
+            Renderer outside = Nearest(outsideMirrors, booth.Front);
+            if (outside && Vector3.Distance(outside.bounds.center, bounds.center) <= OutsideMirrorMaxDistance &&
+                Vector3.Dot(outside.bounds.center - bounds.center, booth.Inward) < 0f)
+                booth.OutsideMirror = outside;
             if (IsDoorwayOpen(booth)) booths.Add(booth);
             else Debug.Log($"[FittingRoom] Bilik di {booth.Front} bertirai tertutup, dilewati.");
         }
@@ -143,8 +153,7 @@ public static class FittingRoomBuilder {
 
     // ---------------------------------------------------------------- Station
 
-    private static void Place(Transform parent, Booth booth, int number, InteractionAction action, InteractPromptWorld prompt,
-                              Material ringMaterial, Material glowMaterial) {
+    private static void Place(Transform parent, Booth booth, int number, InteractionAction action, InteractPromptWorld prompt) {
         Vector3 towardCamera = -booth.Inward;
         var station = new GameObject("Fitting Room " + number);
         station.transform.SetParent(parent, false);
@@ -158,18 +167,8 @@ public static class FittingRoomBuilder {
         viewpoint.SetPositionAndRotation(station.transform.position + towardCamera * CameraDistance + Vector3.up * CameraHeight,
                                          Quaternion.LookRotation(booth.Inward) * Quaternion.Euler(CameraPitch, 0f, 0f));
 
-        MeshRenderer ring = Panel(station.transform, "Ring", ringMaterial, new Vector3(0f, 0.02f, 0f),
-                                  Quaternion.Euler(90f, 0f, 0f), new Vector3(RingSize, RingSize, 1f));
-        var glows = new MeshRenderer[GlowSegments];
-        float radius = RingSize * 0.5f;
-        float width = 2f * radius * Mathf.Tan(Mathf.PI / GlowSegments) + 0.01f;
-        for (int i = 0; i < GlowSegments; i++) {
-            float angle = 360f * i / GlowSegments;
-            Quaternion around = Quaternion.Euler(0f, angle, 0f);
-            glows[i] = Panel(station.transform, "Glow " + (i + 1), glowMaterial,
-                             around * new Vector3(0f, 0f, radius) + Vector3.up * GlowHeight * 0.5f, around,
-                             new Vector3(width, GlowHeight, 1f));
-        }
+        (MeshRenderer ring, MeshRenderer[] glows) =
+            BuildingEntranceArt.BuildFloorRing(station.transform, RingSize, GlowHeight, GlowSegments);
 
         var trigger = station.AddComponent<BoxCollider>();
         trigger.isTrigger = true;
@@ -200,6 +199,7 @@ public static class FittingRoomBuilder {
         // Kolom cahaya ikut disembunyikan supaya tidak menutupi kaki karakter; cincin lantai tetap jadi alas.
         var hiddenRenderers = new List<Renderer>(booth.Hidden);
         hiddenRenderers.AddRange(glows);
+        PlaceExitPath(so, station.transform, booth);
         SerializedProperty hidden = so.FindProperty("hideWhileEditing");
         hidden.arraySize = hiddenRenderers.Count;
         for (int i = 0; i < hiddenRenderers.Count; i++) hidden.GetArrayElementAtIndex(i).objectReferenceValue = hiddenRenderers[i];
@@ -212,19 +212,32 @@ public static class FittingRoomBuilder {
         ho.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    private static MeshRenderer Panel(Transform parent, string name, Material material, Vector3 position,
-                                      Quaternion rotation, Vector3 scale) {
-        var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
-        go.transform.SetParent(parent, false);
-        go.transform.localPosition = position;
-        go.transform.localRotation = rotation;
-        go.transform.localScale = scale;
-        go.GetComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
-        var renderer = go.GetComponent<MeshRenderer>();
-        renderer.sharedMaterial = material;
-        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        renderer.receiveShadows = false;
-        return renderer;
+    /// Jalan keluar setelah editor ditutup: lewat pintu bilik, lalu berdiri menghadap cermin luar.
+    private static void PlaceExitPath(SerializedObject so, Transform station, Booth booth) {
+        SerializedProperty path = so.FindProperty("exitPath");
+        if (!booth.OutsideMirror) {
+            path.arraySize = 0;
+            Debug.LogWarning($"[FittingRoom] Tidak ada {OutsideMirrorName} di dekat bilik {booth.Front}; tanpa jalan keluar.");
+            return;
+        }
+        Transform mirror = booth.OutsideMirror.transform;
+        Vector3 facing = mirror.forward; // sisi cermin menghadap toko
+        facing.y = 0f;
+        facing.Normalize();
+        Vector3 center = booth.OutsideMirror.bounds.center;
+
+        var door = new GameObject("Exit Door").transform;
+        door.SetParent(station, false);
+        door.SetPositionAndRotation(booth.Front - booth.Inward * ExitDoorClearance, Quaternion.LookRotation(-booth.Inward));
+
+        var stand = new GameObject("Exit Mirror").transform;
+        stand.SetParent(station, false);
+        stand.SetPositionAndRotation(new Vector3(center.x, booth.Front.y, center.z) + facing * MirrorStandDistance,
+                                     Quaternion.LookRotation(-facing));
+
+        path.arraySize = 2;
+        path.GetArrayElementAtIndex(0).objectReferenceValue = door;
+        path.GetArrayElementAtIndex(1).objectReferenceValue = stand;
     }
 
     private static InteractionAction EnsureAction() {

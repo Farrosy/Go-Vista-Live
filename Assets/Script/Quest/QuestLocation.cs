@@ -11,6 +11,10 @@ public sealed class QuestLocation : MonoBehaviour {
 
     private static readonly List<QuestLocation> Occupied = new List<QuestLocation>();
     private static readonly List<QuestLocation> Enabled = new List<QuestLocation>();
+    // Toleransi (m) saat memastikan pemain benar-benar di dalam collider area.
+    private const float InsideTolerance = 0.05f;
+
+    private Collider _area;
 
     public string LocationId => locationId;
 
@@ -24,18 +28,25 @@ public sealed class QuestLocation : MonoBehaviour {
     }
 
     /// <summary>True kalau pemain lokal sedang berdiri di salah satu area dengan ID ini.</summary>
+    /// Catatan masuk/keluar trigger dicek ulang dengan posisi pemain: teleport (mis. pindah venue lewat pintu) tidak
+    /// selalu memicu OnTriggerExit, jadi tanpa cek ini area yang sudah ditinggalkan bisa tetap dianggap ditempati.
     public static bool IsLocalPlayerInside(string id) {
         if (string.IsNullOrEmpty(id)) return false;
+        PlayerController player = PlayerController.Local;
         foreach (QuestLocation location in Occupied)
-            if (location.locationId == id) return true;
+            if (location.locationId == id && (player == null || location.Contains(player.transform.position))) return true;
         return false;
     }
+
+    private bool Contains(Vector3 point) =>
+        _area == null || (_area.ClosestPoint(point) - point).sqrMagnitude <= InsideTolerance * InsideTolerance;
 
     private void Reset() => GetComponent<Collider>().isTrigger = true;
 
     private void Awake() {
         if (string.IsNullOrEmpty(locationId)) Debug.LogWarning("[Quest] QuestLocation tanpa locationId.", this);
-        GetComponent<Collider>().isTrigger = true;
+        _area = GetComponent<Collider>();
+        _area.isTrigger = true;
     }
 
     private void OnEnable() {

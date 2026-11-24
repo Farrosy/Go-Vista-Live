@@ -10,6 +10,9 @@ using UnityEngine;
 ///     - tipe lain     → titik yang didaftarkan lewat Register (QuestTargetPoint, CityTourStop, atau kode).
 ///     Kalau ada beberapa titik (beberapa tujuan bebas urutan, atau satu tujuan dengan beberapa area),
 ///     yang terdekat ke pemain saat tujuan dihitung yang dipilih.
+/// Terpisah dari Target: MainGiver = pemberi quest utama (QuestData.isMainQuest) yang quest-nya belum diterima dan
+/// belum selesai (didaftarkan QuestGiver). Hanya penanda di minimap/peta penuh, TIDAK dipilih otomatis sebagai
+/// tujuan GPS; pemain memilihnya sendiri di peta penuh (jadi tujuan sendiri, GpsService.SetCustomWaypoint).
 /// Quest baru cukup memakai QuestLocation atau QuestTargetPoint; tidak perlu kode GPS tambahan.
 public static class QuestWaypoint {
     private struct Point {
@@ -19,6 +22,9 @@ public static class QuestWaypoint {
     }
 
     private static readonly List<Point> Points = new List<Point>();
+    private static readonly List<(QuestData Quest, Transform Transform)> Givers = new List<(QuestData, Transform)>();
+    private static Transform _giver;
+    private static QuestData _giverQuest;
     private static Transform _override;
     private static Transform _resolved;
     private static bool _dirty = true;
@@ -35,9 +41,24 @@ public static class QuestWaypoint {
         }
     }
 
+    /// Pemberi quest utama terdekat yang quest-nya belum diterima, atau null. Bukan tujuan GPS otomatis.
+    public static Transform MainGiver {
+        get {
+            if (!_subscribed) Subscribe();
+            if (_dirty || (_giver == null && !ReferenceEquals(_giver, null))) Resolve();
+            return _giver;
+        }
+    }
+
+    /// Quest utama yang ditawarkan MainGiver, atau null.
+    public static QuestData MainGiverQuest => MainGiver != null ? _giverQuest : null;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() {
         Points.Clear();
+        Givers.Clear();
+        _giver = null;
+        _giverQuest = null;
         _override = null;
         _resolved = null;
         _dirty = true;
@@ -64,6 +85,18 @@ public static class QuestWaypoint {
         if (Points.RemoveAll(p => p.Transform == point) > 0) MarkDirty();
     }
 
+    /// Daftarkan pemberi quest utama. Ditunjuk selama quest itu belum diterima dan belum selesai.
+    public static void RegisterGiver(QuestData quest, Transform giver) {
+        if (quest == null || giver == null) return;
+        Givers.RemoveAll(g => g.Quest == quest && g.Transform == giver);
+        Givers.Add((quest, giver));
+        MarkDirty();
+    }
+
+    public static void UnregisterGiver(Transform giver) {
+        if (Givers.RemoveAll(g => g.Transform == giver) > 0) MarkDirty();
+    }
+
     /// Hitung ulang tujuan di akses berikutnya (dipanggil saat quest atau titik berubah).
     public static void MarkDirty() => _dirty = true;
 
@@ -75,9 +108,12 @@ public static class QuestWaypoint {
     private static void Resolve() {
         _dirty = false;
         _resolved = null;
+        _giver = null;
+        _giverQuest = null;
         if (ProgressService.Current == null) return;
 
         Vector3 from = PlayerController.Local != null ? PlayerController.Local.transform.position : Vector3.zero;
+        ResolveGiver(from);
         foreach (QuestService.Entry entry in QuestService.GetActiveQuests()) {
             // Quest berurutan hanya punya satu tujuan yang bisa dikerjakan; quest bebas urutan memilih yang terdekat.
             Transform best = null;
@@ -89,6 +125,20 @@ public static class QuestWaypoint {
             if (best == null) continue;
             _resolved = best;
             return;
+        }
+    }
+
+    /// Pemberi quest utama terdekat yang quest-nya sedang ditawarkan (QuestService.IsAvailable).
+    private static void ResolveGiver(Vector3 from) {
+        float bestDistance = float.MaxValue;
+        foreach ((QuestData quest, Transform giver) in Givers) {
+            if (giver == null || !giver.gameObject.activeInHierarchy) continue;
+            if (!QuestService.IsAvailable(quest)) continue; // sudah diterima/selesai, atau syaratnya belum selesai
+            float distance = (giver.position - from).sqrMagnitude;
+            if (distance >= bestDistance) continue;
+            bestDistance = distance;
+            _giver = giver;
+            _giverQuest = quest;
         }
     }
 
