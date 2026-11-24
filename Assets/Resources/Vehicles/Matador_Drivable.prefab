@@ -133,8 +133,8 @@ WheelCollider:
   m_Center: {x: 0, y: 0, z: 0}
   m_Radius: 0.33
   m_SuspensionSpring:
-    spring: 341093.56
-    damper: 23750.441
+    spring: 723118.25
+    damper: 34581.16
     targetPosition: 0.5
   m_SuspensionDistance: 0.18
   m_ForceAppPointDistance: 0
@@ -547,8 +547,8 @@ WheelCollider:
   m_Center: {x: 0, y: 0, z: 0}
   m_Radius: 0.33
   m_SuspensionSpring:
-    spring: 341093.56
-    damper: 23750.441
+    spring: 723118.25
+    damper: 34581.16
     targetPosition: 0.5
   m_SuspensionDistance: 0.18
   m_ForceAppPointDistance: 0
@@ -1321,8 +1321,8 @@ WheelCollider:
   m_Center: {x: 0, y: 0, z: 0}
   m_Radius: 0.33
   m_SuspensionSpring:
-    spring: 341093.56
-    damper: 23750.441
+    spring: 723118.25
+    damper: 34581.16
     targetPosition: 0.5
   m_SuspensionDistance: 0.18
   m_ForceAppPointDistance: 0
@@ -1915,8 +1915,8 @@ WheelCollider:
   m_Center: {x: 0, y: 0, z: 0}
   m_Radius: 0.33
   m_SuspensionSpring:
-    spring: 341093.56
-    damper: 23750.441
+    spring: 723118.25
+    damper: 34581.16
     targetPosition: 0.5
   m_SuspensionDistance: 0.18
   m_ForceAppPointDistance: 0
@@ -2870,16 +2870,24 @@ MonoBehaviour:
     model: {fileID: 9041950804268594558}
     steer: 0
     drive: 1
-  maxSpeedKmh: 60
-  maxReverseKmh: 15
-  acceleration: 4
-  brakeDeceleration: 9
-  coastDeceleration: 1.2
+  maxSpeedKmh: 130
+  maxReverseKmh: 25
+  acceleration: 11
+  brakeDeceleration: 14
+  coastDeceleration: 1.5
   lowSpeedSteerAngle: 32
   highSpeedSteerAngle: 12
   steerSpeed: 120
+  turnPush: 1
+  bodyLean: 1
+  turnAssistMaxMph: 60
+  driftRearGrip: 0.5
+  handbrakeDeceleration: 6
+  gripRecoverySeconds: 0.6
   centerOfMass: {x: 0, y: 0, z: 0}
+  gravityMultiplier: 2.12
   downforce: 600
+  skidSlipSpeed: 2.5
 --- !u!114 &3404869653873781516
 MonoBehaviour:
   m_ObjectHideFlags: 0
