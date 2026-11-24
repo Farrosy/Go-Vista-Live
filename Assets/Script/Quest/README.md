@@ -93,26 +93,64 @@ selesai", dialog tawaran Vio & Vira (Vista Palace + plaza), dan dialog pujian Mi
   dianggap selesai, kalau tidak pemain terjebak (dialog itu tidak muncul lagi).
 - **Penanda di dalam gedung:** interior memakai peta venue kecil, bukan minimap kota. Cek apakah titik emas tujuan
   tampil untuk Mira dan bilik; kalau tidak, tanda `!` Mira + panah tutorial bilik sudah cukup sebagai penunjuk.
-- **Belanja wajib atau tidak** di tujuan 3 (lihat keputusan di bawah).
+- **"Ada perubahan"** di tujuan 3 = tampilan yang tersimpan berbeda dari sebelum editor dibuka. SIMPAN tanpa perubahan,
+  atau keranjang yang semua itemnya dibatalkan (tampilan kembali seperti semula), tidak dihitung.
 
-### 2.4 Keputusan yang masih terbuka
+### 2.4 Keputusan (2026-11-24)
 
-- [ ] Setelah tur **tidak** balik ke plaza; tawaran Tampil Beda langsung di akhir dialog Vista Palace *(saran)*.
-- [ ] "Nanti saja" → ambil lagi di Central Plaza *(saran)* atau Vio & Vira menetap di depan Vista Palace?
-- [ ] Tujuan 3: cukup SIMPAN perubahan apa saja *(saran)* atau wajib beli minimal 1 item?
-- [ ] Pakai tujuan 4 "Tunjukkan ke Mira" atau selesai langsung setelah SIMPAN?
-- [ ] Hadiah (usulan 100–150 G) dan title (mis. "Fashionista Go Vista") kalau sistem badge sudah ada.
-- [ ] Nama final quest ("Tampil Beda" sementara).
+- [x] Setelah tur **tidak** balik ke plaza; tawaran Tampil Beda langsung di akhir dialog Vista Palace.
+- [x] "Nanti saja" → quest diambil lagi dari Vio & Vira di **Central Plaza**.
+- [x] Tujuan 3: cukup **ada perubahan lalu SIMPAN** (tidak wajib beli).
+- [x] Pakai tujuan 4 **"Tunjukkan ke Mira"**; quest selesai setelah dialog pujian Mira.
+- [x] Hadiah **koin dulu**; title menyusul (masuk TODO badge). Jumlah koin: lihat 2.4.1.
+- [x] Nama quest: **Tampil Beda** (`questId` usulan `tampil-beda`).
+
+#### 2.4.1 Hadiah dan teks
+
+- [x] Hadiah **150 G**.
+- [x] Draf teks di 2.4.2 disetujui.
+
+### 2.4.2 Teks (disetujui)
+
+**Quest:** judul *Tampil Beda*, deskripsi *"Vio & Vira mengajakmu ke Clothing Shop untuk mencari gaya baru bersama Mira."*
+Tujuan: *Pergi ke Clothing Shop* → *Ngobrol dengan Mira di kasir* → *Ganti gaya di ruang ganti lalu SIMPAN* →
+*Tunjukkan gaya barumu ke Mira*.
+
+**Vista Palace, akhir dialog penutup tur** (dua baris terakhir lama diganti; "Selamat menjelajah" pindah ke "Nanti saja"):
+- Vira: "Terima kasih sudah ikut tur! Ini hadiah kecil dari kami."
+- Vio: "Eh, tapi warga Go Vista juga harus tampil keren dong!"
+- Vira: "Mampir ke Clothing Shop, yuk! Mira di sana jago banget soal gaya."
+- Vio: "Mau ke sana sekarang?" → **Ayo!** / **Nanti saja**
+  - Ayo! → Vira: "Asyik! Tokonya sudah kami tandai di peta. Sampai ketemu lagi!"
+  - Nanti saja → Vio: "Oke! Selamat menjelajah Go Vista. Kalau berubah pikiran, cari kami di Central Plaza, ya!"
+
+**Central Plaza, selama Tampil Beda belum diambil** (menggantikan `tour-plaza-after`):
+- Vira: "Hai lagi! Sudah sempat mampir ke Clothing Shop?"
+- Vio: "Mira bisa bantu kamu ganti gaya. Mau ke sana sekarang?" → **Ayo!** / **Nanti saja**
+  - Ayo! → Vira: "Mantap! Tokonya sudah kami tandai di peta."
+  - Nanti saja → Vio: "Siap, kapan-kapan saja. Kami tunggu di sini!"
+
+**Central Plaza, selama Tampil Beda berjalan:**
+- Vira: "Toko bajunya sudah ditandai di peta, ya! Mira pasti senang ketemu kamu."
+
+**Central Plaza, setelah Tampil Beda selesai:** kembali ke "Selamat menjelajah Go Vista!" (sementara, lihat TODO basa-basi).
+
+**Mira, tujuan 2:** dialog perkenalan `mira_intro` yang sudah ada, tanpa perubahan.
+
+**Mira, tujuan 4 "Tunjukkan ke Mira"** (hanya muncul saat tujuan 4 aktif):
+- Mira: "Wah, lihat kamu sekarang! Gaya barunya cocok banget."
+- Mira: "Vio dan Vira pasti kaget lihat kamu nanti. Hehe."
+- Mira: "Ini sedikit hadiah dari toko. Mampir lagi kapan-kapan kalau mau ganti gaya, ya!"
 
 ### 2.5 Checklist implementasi Tampil Beda
 
-Tanda **⏳** = menunggu keputusan di 2.4 (dikerjakan dengan opsi saran kalau tidak ada perubahan). Sisanya bisa langsung.
+Semua keputusan sudah diambil (2.4).
 
 **A. Data quest**
-- [ ] Buat `Assets/Quests/TampilBeda.asset` (Create > Quest > Quest Data): `questId` final ⏳, `title`, `description`,
-      `isMainQuest` ON, `sequentialObjectives` ON, `rewardCoins` ⏳.
+- [ ] Buat `Assets/Quests/TampilBeda.asset` (Create > Quest > Quest Data): `questId` `tampil-beda`, `title`, `description`,
+      `isMainQuest` ON, `sequentialObjectives` ON, `rewardCoins` 150.
 - [ ] Isi tujuan dengan `objectiveId` tetap (jangan diganti setelah rilis): `ke-clothing-shop` (GoToLocation),
-      `kenalan-mira` (FinishDialogue `mira_intro`), `ganti-gaya` (Manual), `tunjukkan-mira` (FinishDialogue) ⏳.
+      `kenalan-mira` (FinishDialogue `mira_intro`), `ganti-gaya` (Manual), `tunjukkan-mira` (FinishDialogue).
 - [ ] Perbarui `Resources/QuestDatabase` (**Go Vista > Quest > Perbarui QuestDatabase**).
 
 **B. Transisi dari Tur Kota (Vista Palace)**
@@ -125,7 +163,7 @@ Tanda **⏳** = menunggu keputusan di 2.4 (dikerjakan dengan opsi saran kalau ti
       tidak menghukum, dan tawaran muncul lagi setiap kali bicara dengan Vio & Vira (Vista Palace saat itu, lalu
       Central Plaza). Pemain tetap bebas menjelajah tanpa quest aktif.
 
-**C. Pemberi cadangan di Central Plaza ("Nanti saja")** ⏳
+**C. Pemberi cadangan di Central Plaza ("Nanti saja")**
 - [ ] Dialog plaza setelah tur: `tour-plaza-after` → tawaran Tampil Beda dengan pilihan **"Ayo!" / "Nanti saja"**
       (`askAgainLater`, ditanya lagi tiap kali bicara) selama quest belum diambil, kembali ke obrolan biasa setelah
       diambil / selesai.
@@ -147,17 +185,17 @@ Tanda **⏳** = menunggu keputusan di 2.4 (dikerjakan dengan opsi saran kalau ti
 **F. Tujuan 3: ganti gaya di ruang ganti**
 - [ ] Sambungkan event `CustomizerEditor.Saved` saat dibuka dari ruang ganti → `QuestService.CompleteObjective(
       "tampil-beda", "ganti-gaya")`.
-- [ ] Syarat: SIMPAN perubahan apa saja, atau wajib ada item yang dibeli ⏳.
+- [ ] Syarat: ada perubahan lalu SIMPAN (tidak wajib beli). Perubahan = tampilan tersimpan berbeda dari sebelum editor dibuka.
 - [ ] SIMPAN tanpa perubahan / dibatalkan **tidak** menyelesaikan tujuan.
 
-**G. Tujuan 4: tunjukkan ke Mira** ⏳
+**G. Tujuan 4: tunjukkan ke Mira**
 - [ ] Dialog pujian Mira (stage baru di `DialogueTrigger` Mira, aktif hanya saat tujuan 4 bisa dikerjakan), selesai →
       quest selesai + hadiah.
 - [ ] Setelah quest selesai Mira kembali ke obrolan acak (`repeatPool`).
 
 **H. Hadiah**
-- [ ] `rewardCoins` ⏳ + toast "Quest selesai!".
-- [ ] Title "Fashionista Go Vista" ⏳ → masuk TODO badge kalau sistemnya belum ada.
+- [ ] `rewardCoins` 150 + toast "Quest selesai!".
+- [ ] Title menyusul → sudah masuk TODO badge (bagian 7).
 
 **I. Uji**
 - [ ] Alur penuh pemain baru: Tur Kota → "Ayo!" di Vista Palace → toko → Mira → SIMPAN → (Mira) → hadiah.
@@ -330,7 +368,7 @@ Seperti GPS di GTA: garis rute mengikuti jalan dari pemain ke tujuan, di radar d
 
 - [ ] **Quest utama #2 "Tampil Beda"** (Clothing Shop): rencana dan keputusan terbuka di bagian 2.
 - [ ] **Dialog basa-basi Vio & Vira setelah tur selesai** (sapaan acak, tips kota). Sekarang masih satu dialog sementara `tour-plaza-after` (rencananya jadi tawaran Tampil Beda dulu, lihat 2.1).
-- [ ] **Badge / title "Warga Go Vista"** di profil sebagai hadiah tambahan tur.
+- [ ] **Badge / title** di profil: "Warga Go Vista" (Tur Kota) dan title untuk Tampil Beda (nama menyusul).
 - [ ] **"Mau dengar lagi tentang gedung tertentu?"** — pilihan replay penjelasan gedung dari maskot di plaza.
 - [ ] **Cek kendaraan:** saat pemain sudah bisa menyetir, tambahkan "sedang di kendaraan" di `CityTourGuide.CanPresent` supaya maskot muncul setelah pemain turun.
 - [ ] **Interior gedung:** setelah interior ada, teks gedung sebaiknya menyebut apa yang bisa dilakukan di dalamnya.
