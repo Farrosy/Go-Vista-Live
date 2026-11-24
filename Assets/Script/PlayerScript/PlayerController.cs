@@ -14,7 +14,7 @@ public class PlayerController : MonoBehaviour
     [Header("Gerak")]
     [Tooltip("Kecepatan jalan (meter/detik). Langkah animasi otomatis disesuaikan, jadi kaki tidak meluncur.")]
     [SerializeField] private float walkSpeed = 1.4f;
-    [SerializeField] private float sprintSpeed = 3.5f;
+    [SerializeField] private float sprintSpeed = 6f;
     [SerializeField] private float turnSpeed = 720f;
     [Tooltip("Percepatan dari diam ke kecepatan penuh (meter/detik²). Besar = makin responsif.")]
     [SerializeField] private float acceleration = 15f;
@@ -43,10 +43,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Animator animator;
     [Tooltip("Kehalusan perpindahan idle/walk/sprint. Makin besar makin lambat berubah.")]
     [SerializeField] private float speedDampTime = 0.1f;
-    [Tooltip("Kecepatan asli klip Walk (meter/detik, skala avatar 1) = seberapa cepat kaki menapak mundur di klip.")]
+    [Tooltip("Kecepatan asli klip Walk (meter/detik, skala avatar 1; player cewek pakai BMAC_F_Walk ~1.33) = seberapa cepat kaki menapak mundur di klip.")]
     [SerializeField] private float walkClipSpeed = 1.0f;
-    [Tooltip("Kecepatan asli klip lari (Jog, jog_fwd_loop_unity_fit_anim_only.fbx) di blend Speed = 1 (meter/detik, skala avatar 1).")]
-    [SerializeField] private float sprintClipSpeed = 2.75f;
+    [Tooltip("Kecepatan asli klip lari (Sprint, sprint_loop_unity_fit_anim_only.fbx) di blend Speed = 1 (meter/detik, skala avatar 1).")]
+    [SerializeField] private float sprintClipSpeed = 6f;
     [Tooltip("Toleransi 'masih dianggap menapak tanah' supaya animasi tidak berkedip di tanjakan/anak tangga.")]
     [SerializeField] private float groundedGrace = 0.1f;
 
@@ -346,6 +346,7 @@ public class PlayerController : MonoBehaviour
         if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
 
         var input = PlayerInputHub.Instance;
+        if (IsLocal && input && input.JumpPressed) TryJump();   // Space = lompat (testing di PC)
         Vector3 dir;
         if (scriptedMove.HasValue && !IsKnockedDown)
         {

@@ -361,6 +361,7 @@ public static class VehicleSetup {
             Object.DestroyImmediate(motor);
             root.AddComponent<CarDriveController>().SetWheels(wheels, com);
             TuneSuspension(root);
+            ApplyTuning(root, source.name);
 
             var model = root.GetComponent<CarModelControl>();
             int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
@@ -410,6 +411,69 @@ public static class VehicleSetup {
         }
     }
 
+    // ------------------------------------------------------------------ Setelan per mobil
+
+    /// Top speed (km/jam) dan percepatan (m/s²) per mobil. Nilai CarMotor AllStar sama untuk semua mobil
+    /// (13500 kg, dorongan 200000 N), jadi pembedanya diatur di sini; grip samping tetap dari WheelCollider asset
+    /// (SUV 2x lebih mencengkeram, jadi lebih susah drift). Mobil yang tidak ada di daftar memakai nilai default.
+    private static readonly Dictionary<string, (float maxKmh, float acceleration)> Tuning =
+        new Dictionary<string, (float, float)> {
+            { "Sedan", (90f, 9f) },
+            { "SUV", (100f, 8f) },
+            { "Bezerker", (120f, 10f) },
+            { "Matador", (130f, 11f) },
+            { "GT", (150f, 12f) },
+            { "Mako", (160f, 13f) },
+        };
+
+    private static void ApplyTuning(GameObject root, string carName) {
+        var drive = root.GetComponent<CarDriveController>();
+        if (!drive || !Tuning.TryGetValue(carName, out var t)) return;
+        var so = new SerializedObject(drive);
+        so.FindProperty("maxSpeedKmh").floatValue = t.maxKmh;
+        so.FindProperty("acceleration").floatValue = t.acceleration;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// Terapkan default CarDriveController terbaru (rasa AllStar) + tabel Tuning ke semua prefab
+    /// Resources/Vehicles/*_Drivable tanpa membangun ulang (kursi, roda, jaringan tidak disentuh).
+    [MenuItem("Go Vista/Mobil/4. Terapkan Setelan Menyetir ke Semua Mobil")]
+    public static void ApplyTuningToAll() {
+        var log = new List<string>();
+        var defaults = new GameObject("TuningDefaults");
+        try {
+            var reference = new SerializedObject(defaults.AddComponent<CarDriveController>());
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { PrefabFolder })) {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!path.EndsWith("_Drivable.prefab")) continue;
+                GameObject root = PrefabUtility.LoadPrefabContents(path);
+                try {
+                    var drive = root.GetComponent<CarDriveController>();
+                    if (!drive) continue;
+                    var so = new SerializedObject(drive);
+                    SerializedProperty it = reference.GetIterator();
+                    // Semua angka penyetelan ikut default baru; roda dan titik berat milik mobil itu sendiri.
+                    for (bool enter = true; it.NextVisible(enter); enter = false) {
+                        if (it.propertyType != SerializedPropertyType.Float) continue;
+                        so.FindProperty(it.propertyPath).floatValue = it.floatValue;
+                    }
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    string carName = Path.GetFileNameWithoutExtension(path).Replace("_Drivable", "");
+                    ApplyTuning(root, carName);
+                    TuneSuspension(root);   // pegas ikut pengali gravitasi baru
+                    PrefabUtility.SaveAsPrefabAsset(root, path);
+                    log.Add($"{carName}: {new SerializedObject(drive).FindProperty("maxSpeedKmh").floatValue} km/jam");
+                } finally {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+            }
+        } finally {
+            Object.DestroyImmediate(defaults);
+        }
+        AssetDatabase.SaveAssets();
+        Debug.Log("[Mobil] Setelan menyetir diterapkan:\n- " + string.Join("\n- ", log));
+    }
+
     // Suspensi asset (travel 3 cm, pegas 840000) disetel untuk kota uji yang rata. Dengan massanya pegas sudah
     // tertekan habis, jarak badan ke tanah ±10 cm, dan mobil tersangkut di tepi trotoar / lantai pom bensin.
     // Pegas dihitung dari massa supaya frekuensi suspensi sama (±1,6 Hz) untuk mobil seberat apa pun.
@@ -426,7 +490,12 @@ public static class VehicleSetup {
         if (!body || wheels.Length == 0) return;
         float massPerWheel = body.mass / wheels.Length;
         float omega = 2f * Mathf.PI * SuspensionFrequency;
-        float spring = massPerWheel * omega * omega;
+        // Gravitasi ekstra mobil (CarDriveController.gravityMultiplier) menekan pegas lebih dalam: pegas dikali
+        // pengalinya supaya turunnya badan (dan jarak ke tanah) sama dengan gravitasi normal. Tanpa ini pegas
+        // tertekan habis, badan menempel ke jalan dan mobil tidak bisa jalan.
+        var drive = root.GetComponent<CarDriveController>();
+        float gravity = drive ? Mathf.Max(1f, new SerializedObject(drive).FindProperty("gravityMultiplier").floatValue) : 1f;
+        float spring = massPerWheel * omega * omega * gravity;
         float damper = 2f * SuspensionDampingRatio * Mathf.Sqrt(spring * massPerWheel);
         foreach (WheelCollider wheel in wheels) {
             wheel.suspensionDistance = SuspensionDistance;

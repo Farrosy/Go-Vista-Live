@@ -19,7 +19,7 @@ public static class CarDealerRules {
     /// <summary>Jumlah kotak bar Speed.</summary>
     public const int SpeedSegments = 10;
     /// <summary>Kecepatan maksimum yang mengisi bar Speed penuh (km/jam).</summary>
-    public const float FullSpeedKmh = 100f;
+    public const float FullSpeedKmh = 160f;   // mobil tercepat (Mako)
     /// <summary>Tulisan di kotak Price untuk mobil berharga 0 (prototype).</summary>
     public const string FreeLabel = "Gratis";
 

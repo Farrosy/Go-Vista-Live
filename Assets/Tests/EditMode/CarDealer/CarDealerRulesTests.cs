@@ -29,7 +29,8 @@ public class CarDealerRulesTests {
 
     [Test]
     public void SpeedFill_ScalesAndClamps() {
-        Assert.AreEqual(6, CarDealerRules.SpeedFill(60f));
+        Assert.AreEqual(4, CarDealerRules.SpeedFill(60f));
+        Assert.AreEqual(10, CarDealerRules.SpeedFill(160f));
         Assert.AreEqual(10, CarDealerRules.SpeedFill(250f));
         Assert.AreEqual(1, CarDealerRules.SpeedFill(2f));
         Assert.AreEqual(0, CarDealerRules.SpeedFill(0f));

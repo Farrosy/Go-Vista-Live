@@ -37,11 +37,17 @@ public static class CarDealerBuilder {
     private const string IntroId = "johnny_intro";
     private const string GreetingId = "johnny_greeting";
 
-    // Mobil pertama di katalog (prototype: Matador yang sudah ada, gratis).
-    private const string MatadorId = "matador";
-    private const string MatadorName = "Matador";
-    private const string MatadorResource = "Vehicles/Matador_Drivable";
-    private const string MatadorDrivablePath = "Assets/Resources/" + MatadorResource + ".prefab";
+    /// Mobil yang dijual (prefab Resources/Vehicles/&lt;Nama&gt;_Drivable, dibuat Go Vista > Mobil > 2).
+    /// Harga di sini hanya dipakai saat entry baru dibuat; harga yang sudah diisi di CarCatalog.asset tidak ditimpa.
+    /// Kartu di grid diurutkan dari harga termurah.
+    private static readonly (string id, string name, int price)[] Cars = {
+        ("sedan", "Sedan", 0),
+        ("suv", "SUV", 200),
+        ("bezerker", "Bezerker", 650),
+        ("matador", "Matador", 750),
+        ("gt", "GT", 800),
+        ("mako", "Mako", 1000),
+    };
 
     private const int SortingOrder = 53;   // sama dengan popup Hadiah Login: di atas HUD, di bawah layar mati
 
@@ -70,35 +76,44 @@ public static class CarDealerBuilder {
     [MenuItem("Go Vista/Dealer Mobil/1. Bangun Katalog, Gambar & Preview")]
     public static void BuildCatalog() {
         ConfigureSprites();
-        var drivable = AssetDatabase.LoadAssetAtPath<GameObject>(MatadorDrivablePath);
-        if (drivable == null) {
-            Debug.LogError($"[Dealer] {MatadorDrivablePath} tidak ada. Jalankan Go Vista > Mobil dulu.");
-            return;
-        }
-        GameObject preview = BuildPreviewModel(drivable, MatadorName);
-        Sprite thumb = RenderThumbnail(preview, MatadorName);
-
         EnsureFolder(Path.GetDirectoryName(CatalogPath).Replace('\\', '/'));
         var catalog = AssetDatabase.LoadAssetAtPath<CarCatalog>(CatalogPath);
         if (catalog == null) {
             catalog = ScriptableObject.CreateInstance<CarCatalog>();
             AssetDatabase.CreateAsset(catalog, CatalogPath);
         }
-        CarCatalog.Entry entry = catalog.Find(MatadorId);
-        if (entry == null) {
-            entry = new CarCatalog.Entry { id = MatadorId, price = 0 };   // harga yang sudah diisi tidak ditimpa
-            catalog.cars = catalog.cars.Concat(new[] { entry }).ToArray();
+
+        var log = new List<string>();
+        var entries = catalog.cars.Where(e => e != null).ToList();
+        foreach ((string id, string name, int price) in Cars) {
+            string resource = $"Vehicles/{name}_Drivable";
+            string drivablePath = $"Assets/Resources/{resource}.prefab";
+            var drivable = AssetDatabase.LoadAssetAtPath<GameObject>(drivablePath);
+            if (drivable == null) {
+                log.Add($"{name}: {drivablePath} tidak ada (Go Vista > Mobil > 2), dilewati");
+                continue;
+            }
+            GameObject preview = BuildPreviewModel(drivable, name);
+            Sprite thumb = RenderThumbnail(preview, name);
+
+            CarCatalog.Entry entry = entries.Find(e => e.id == id);
+            if (entry == null) {
+                entry = new CarCatalog.Entry { id = id, price = price };
+                entries.Add(entry);
+            }
+            entry.displayName = name;
+            entry.drivablePrefab = resource;
+            entry.maxSpeedKmh = ReadMaxSpeed(drivable);
+            entry.thumbnail = thumb;
+            entry.previewModel = preview;
+            log.Add($"{name}: {entry.maxSpeedKmh} km/jam, harga {entry.price}");
         }
-        entry.displayName = MatadorName;
-        entry.drivablePrefab = MatadorResource;
-        entry.maxSpeedKmh = ReadMaxSpeed(drivable);
-        entry.thumbnail = thumb;
-        entry.previewModel = preview;
+        catalog.cars = entries.OrderBy(e => e.price).ToArray();   // stabil: harga sama tetap urutan lama
         EditorUtility.SetDirty(catalog);
 
         BuildDialogues();
         AssetDatabase.SaveAssets();
-        Debug.Log($"[Dealer] Katalog {CatalogPath} siap: {MatadorName} ({entry.maxSpeedKmh} km/jam, harga {entry.price}).");
+        Debug.Log($"[Dealer] Katalog {CatalogPath} siap:\n- " + string.Join("\n- ", log));
     }
 
     /// <summary>Border 9-slice sprite dealer supaya sudut membulat tidak melar.</summary>

@@ -48,27 +48,56 @@ public class PlayerInputHub : MonoBehaviour
         {
             if (MovementLocked) return Vector2.zero;
 
+            Vector2 key = UseKeyboard ? KeyboardMove() : Vector2.zero;
+
             if (joystick)
             {
                 if (ignoreJoystickUntilNeutral)
                 {
-                    if (joystick.Direction.sqrMagnitude > 0.0001f) return Vector2.zero;
+                    if (joystick.Direction.sqrMagnitude > 0.0001f) return key;
                     ignoreJoystickUntilNeutral = false;
                 }
-                return new Vector2(joystick.Horizontal, joystick.Vertical);
+                return Vector2.ClampMagnitude(new Vector2(joystick.Horizontal, joystick.Vertical) + key, 1f);
             }
 
-            if (keyboardFallback)
-                return new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-
-            return Vector2.zero;
+            return key;
         }
     }
 
     public bool Sprint
     {
-        get => !MovementLocked && (sprint || (keyboardFallback && Input.GetKey(KeyCode.LeftShift)));
+        get => !MovementLocked && (sprint ||
+            (UseKeyboard && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))));
         set => sprint = value;
+    }
+
+    /// <summary>
+    /// Kontrol keyboard untuk testing di komputer: WASD/panah gerak, Shift lari, Space lompat.
+    /// Selalu aktif di Editor dan build PC; di build mobile hanya kalau keyboardFallback dicentang.
+    /// </summary>
+    public bool UseKeyboard
+    {
+        get
+        {
+#if UNITY_EDITOR || UNITY_STANDALONE
+            return true;
+#else
+            return keyboardFallback;
+#endif
+        }
+    }
+
+    /// True pada frame Space ditekan dan gerak tidak terkunci. Dibaca PlayerController untuk lompat.
+    public bool JumpPressed => UseKeyboard && !MovementLocked && Input.GetKeyDown(KeyCode.Space);
+
+    private static Vector2 KeyboardMove()
+    {
+        float x = 0f, y = 0f;
+        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) x -= 1f;
+        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) x += 1f;
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) y -= 1f;
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) y += 1f;
+        return Vector2.ClampMagnitude(new Vector2(x, y), 1f);
     }
 
     void Awake()
@@ -83,6 +112,18 @@ public class PlayerInputHub : MonoBehaviour
             return;
         }
         Instance = this;
+    }
+
+    void LateUpdate()
+    {
+        // Testing PC: tombol UI yang terakhir diklik mouse tetap "selected", dan Space/Enter akan mengkliknya
+        // lagi lewat Submit (mis. keluar mobil saat rem tangan). Lepas seleksi kecuali kolom ketik.
+        if (!UseKeyboard) return;
+        var es = UnityEngine.EventSystems.EventSystem.current;
+        GameObject selected = es ? es.currentSelectedGameObject : null;
+        if (selected && !selected.GetComponent<TMPro.TMP_InputField>() &&
+            !selected.GetComponent<UnityEngine.UI.InputField>())
+            es.SetSelectedGameObject(null);
     }
 
     void OnDestroy()

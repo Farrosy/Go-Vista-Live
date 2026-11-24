@@ -13,10 +13,38 @@ MonoBehaviour:
   m_Name: CarCatalog
   m_EditorClassIdentifier: Assembly-CSharp::CarCatalog
   cars:
+  - id: sedan
+    displayName: Sedan
+    drivablePrefab: Vehicles/Sedan_Drivable
+    price: 0
+    maxSpeedKmh: 55
+    thumbnail: {fileID: 21300000, guid: 0feaaebbc42c6284a840cc8d5b9b3936, type: 3}
+    previewModel: {fileID: 8238563116790193799, guid: d0322bcd45cdef442b287e230be2c8fc, type: 3}
+  - id: suv
+    displayName: SUV
+    drivablePrefab: Vehicles/SUV_Drivable
+    price: 200
+    maxSpeedKmh: 60
+    thumbnail: {fileID: 21300000, guid: d65cfdcd65ff29f41b3f04ff33b48d9c, type: 3}
+    previewModel: {fileID: 8313729907699371853, guid: c5757b9fd9657d444b1c687da968fd65, type: 3}
+  - id: bezerker
+    displayName: Bezerker
+    drivablePrefab: Vehicles/Bezerker_Drivable
+    price: 650
+    maxSpeedKmh: 70
+    thumbnail: {fileID: 21300000, guid: 7ab66b506f25a6043a4a3ddf93682c9a, type: 3}
+    previewModel: {fileID: 1977436420369618921, guid: 53aba72bfcaf497439f23d4de16f69b1, type: 3}
   - id: matador
     displayName: Matador
     drivablePrefab: Vehicles/Matador_Drivable
-    price: 0
-    maxSpeedKmh: 60
+    price: 750
+    maxSpeedKmh: 75
     thumbnail: {fileID: 21300000, guid: fddf6c39e57267e44ae1f84784674751, type: 3}
     previewModel: {fileID: 7013401559216386201, guid: 1c61366472540bf4ebf36a39056b1156, type: 3}
+  - id: gt
+    displayName: GT
+    drivablePrefab: Vehicles/GT_Drivable
+    price: 800
+    maxSpeedKmh: 85
+    thumbnail: {fileID: 21300000, guid: 7bf384c6408d0d446a61ba9b5f28d7fd, type: 3}
+    previewModel: {fileID: 7505355655038710808, guid: 1636d02ee90066f46af5b4b6c4ced255, type: 3}

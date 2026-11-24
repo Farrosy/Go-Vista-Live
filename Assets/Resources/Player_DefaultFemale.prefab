@@ -83,7 +83,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   walkSpeed: 1.4
-  sprintSpeed: 3.5
+  sprintSpeed: 6
   turnSpeed: 720
   acceleration: 15
   deceleration: 22
@@ -96,8 +96,8 @@ MonoBehaviour:
   cameraTransform: {fileID: 0}
   animator: {fileID: 0}
   speedDampTime: 0.1
-  walkClipSpeed: 1
-  sprintClipSpeed: 2.75
+  walkClipSpeed: 1.33
+  sprintClipSpeed: 6
   groundedGrace: 0.1
   knockdownStartTimeout: 0.5
   knockdownMaxSeconds: 8
@@ -376,11 +376,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3714064154411902657, guid: fd0fe80db618967f18b8b652dc78b5ae, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.0013136853
+      value: -0.0013136854
       objectReference: {fileID: 0}
     - target: {fileID: 3714064154411902657, guid: fd0fe80db618967f18b8b652dc78b5ae, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.029154314
+      value: -0.029154316
       objectReference: {fileID: 0}
     - target: {fileID: 8024217370974911395, guid: fd0fe80db618967f18b8b652dc78b5ae, type: 3}
       propertyPath: m_Name
@@ -389,18 +389,18 @@ PrefabInstance:
     - target: {fileID: 8376068504034900972, guid: fd0fe80db618967f18b8b652dc78b5ae, type: 3}
       propertyPath: m_Controller
       value: 
-      objectReference: {fileID: 9100000, guid: b170f5f0355f190258026c8847f28ec8, type: 2}
+      objectReference: {fileID: 22100000, guid: d02f8c0998d765a43b244a3fae435df0, type: 2}
     - target: {fileID: 8376068504034900972, guid: fd0fe80db618967f18b8b652dc78b5ae, type: 3}
       propertyPath: m_CullingMode
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8780746874344895216, guid: fd0fe80db618967f18b8b652dc78b5ae, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.0013136853
+      value: -0.0013136854
       objectReference: {fileID: 0}
     - target: {fileID: 8780746874344895216, guid: fd0fe80db618967f18b8b652dc78b5ae, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.029154314
+      value: -0.029154316
       objectReference: {fileID: 0}
     - target: {fileID: 8968851528837574720, guid: fd0fe80db618967f18b8b652dc78b5ae, type: 3}
       propertyPath: m_LocalScale.x
