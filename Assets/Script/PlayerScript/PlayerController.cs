@@ -116,7 +116,10 @@ public class PlayerController : MonoBehaviour
 
     private CharacterController cc;
     private float verticalVel;
-    private Vector3 planarVelocity;   // kecepatan horizontal aktual (dengan akselerasi)
+    // Kecepatan horizontal (m/s, dengan akselerasi). Arahnya selalu arah hadap badan (transform.forward),
+    // jadi badan dan langkah tidak pernah berbeda arah saat belok (dulu vektor kecepatan menyusul pelan
+    // di belakang rotasi badan → meluncur menyamping/"drift" dan animasi lari melambat di tengah belokan).
+    private float moveSpeed;
     private Vector3? scriptedMove;    // arah gerak dari skrip (dunia), menggantikan joystick
     private float nextJumpTime;
     private bool launchPending;
@@ -226,7 +229,7 @@ public class PlayerController : MonoBehaviour
     {
         if (InVehicle && TryGetComponent(out VehicleOccupant occupant)) occupant.ExitImmediate();
         shoveTimer = 0f;
-        planarVelocity = Vector3.zero;
+        moveSpeed = 0f;
         cc.enabled = false;
         transform.SetPositionAndRotation(position, rotation);
         Physics.SyncTransforms();
@@ -321,7 +324,7 @@ public class PlayerController : MonoBehaviour
     {
         UpdateKnockdown();
 
-        if (InVehicle || frozen) planarVelocity = Vector3.zero;
+        if (InVehicle || frozen) moveSpeed = 0f;
 
         if (InVehicle)
         {
@@ -366,17 +369,24 @@ public class PlayerController : MonoBehaviour
         IsSprinting = input && input.Sprint && moving && !wading && !IsKnockedDown && !scriptedMove.HasValue;
         float speed = wading ? wadingSpeed : IsSprinting ? sprintSpeed : walkSpeed;
 
-        // Akselerasi/deselerasi: kecepatan tidak langsung penuh / langsung nol, jadi badan dan langkah selaras.
-        Vector3 targetVelocity = dir * speed;
-        float rate = targetVelocity.sqrMagnitude >= planarVelocity.sqrMagnitude ? acceleration : deceleration;
-        planarVelocity = Vector3.MoveTowards(planarVelocity, targetVelocity, rate * Time.deltaTime);
-        Speed01 = SpeedToBlend(planarVelocity.magnitude);
+        // Akselerasi/deselerasi hanya untuk besar kecepatan; joystick setengah = setengah kecepatan.
+        float targetSpeed = speed * dir.magnitude;
+        // Putar balik (> 90° dari arah hadap): jangan ngegas dulu sampai badan berbalik, supaya tidak melangkah
+        // ke arah yang salah / melebar. Belok 45°–90° (W+A, W+D) tidak terpengaruh.
+        if (moving && Vector3.Dot(transform.forward, dir) < 0f) targetSpeed = 0f;
+        float rate = targetSpeed >= moveSpeed ? acceleration : deceleration;
+        moveSpeed = Mathf.MoveTowards(moveSpeed, targetSpeed, rate * Time.deltaTime);
+        Speed01 = SpeedToBlend(moveSpeed);
 
         if (moving)
         {
             Quaternion target = Quaternion.LookRotation(dir);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, target, turnSpeed * Time.deltaTime);
         }
+        // Gerak selalu searah hadap badan: belok = melengkung mulus mengikuti rotasi, bukan meluncur menyamping.
+        Vector3 forward = transform.forward;
+        forward.y = 0f;
+        Vector3 planarVelocity = forward.sqrMagnitude > 0.0001f ? forward.normalized * moveSpeed : Vector3.zero;
 
         // Lompat: tunggu sebentar supaya selaras dengan animasi JumpStart, baru terangkat.
         if (launchPending)
@@ -401,7 +411,7 @@ public class PlayerController : MonoBehaviour
         // Tertahan tembok: kecepatan ikut turun, supaya animasi tidak terus berjalan di tempat.
         Vector3 actual = cc.velocity;
         actual.y = 0f;
-        if (actual.sqrMagnitude < planarVelocity.sqrMagnitude) planarVelocity = Vector3.ClampMagnitude(planarVelocity, actual.magnitude + 0.05f);
+        if (actual.magnitude < moveSpeed) moveSpeed = Mathf.Min(moveSpeed, actual.magnitude + 0.05f);
 
         if (cc.isGrounded) lastGroundedTime = Time.time;
         UpdateAnimator();
