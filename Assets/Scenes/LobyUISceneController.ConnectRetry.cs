@@ -7,18 +7,23 @@ using UnityEngine;
 
 /// A room server in the nearest region can be unreachable from a player's network even though other
 /// regions work (seen with Asia Southeast). After a network failure the connection is retried on the
-/// other regions, nearest first, and for the next day connections go straight there. Quickmatch would
-/// put the player back in the same empty room whatever the region, so failed rooms are excluded. Other
-/// failures (room full, wrong code) are final and go through the normal handlers.
+/// other regions, nearest first. Quickmatch would put the player back in the same empty room whatever
+/// the region, so failed rooms are excluded. Other failures (room full, wrong code) are final and go
+/// through the normal handlers.
+///
+/// Every new connection starts on the nearest region again. The fallback used to be remembered for a day,
+/// but one slow attempt then put every room on a far region (Oceania ~110 ms instead of Asia Southeast
+/// ~20 ms from Indonesia, 2026-11-25), so it now only lasts for the attempt that failed.
 public partial class LobyUISceneController {
     private const int MaxConnectAttempts = 3;
     private const float ConnectRetryDelaySeconds = 1.5f;
     // A failed attempt normally reports after about 24 s, but some never report at all.
     private const float ConnectAttemptTimeoutSeconds = 28f;
-    // A healthy connection takes 3-5 s, so the nearest region gets little time before the others are tried.
-    private const float NearestRegionTimeoutSeconds = 10f;
-    private const string RegionFailureTimeKey = "Lobby.RegionFailureUtc";
-    private const double RegionFailureMemoryHours = 24d;
+    // A healthy connection takes 3-8 s (a fresh room server in Asia Southeast measured ~8 s), so 10 s
+    // gave up on working-but-slow connections. 20 s still leaves time for the other regions.
+    private const float NearestRegionTimeoutSeconds = 20f;
+    // No longer read: the old day-long fallback memory. Deleted so old installs start clean.
+    private const string LegacyRegionFailureTimeKey = "Lobby.RegionFailureUtc";
     private const float RegionListTimeoutSeconds = 8f;
     private const string ConnectFailedMessage =
         "Tidak bisa terhubung ke server room. Coba lagi beberapa saat lagi.";
@@ -33,23 +38,10 @@ public partial class LobyUISceneController {
     private Coroutine _connectWatchdog;
     private Coroutine _connectRetryRoutine;
 
+    /// Starts a new connection on the nearest region; fallback regions only apply to its retries.
     private void BeginConnect() {
-        if (s_fallbackRegions == null && HasRecentRegionFailure())
-            _connectRetryRoutine = StartCoroutine(LoadRegionsThenConnect());
-        else
-            RunConnectAttempt();
-    }
-
-    private IEnumerator LoadRegionsThenConnect() {
-        yield return LoadFallbackRegions();
-        _connectRetryRoutine = null;
+        s_fallbackRegions = null;
         RunConnectAttempt();
-    }
-
-    private static bool HasRecentRegionFailure() {
-        return long.TryParse(PlayerPrefs.GetString(RegionFailureTimeKey, ""), out long ticks) &&
-               ticks > 0 && ticks <= System.DateTime.UtcNow.Ticks &&
-               (System.DateTime.UtcNow - new System.DateTime(ticks, System.DateTimeKind.Utc)).TotalHours < RegionFailureMemoryHours;
     }
 
     private void RunConnectAttempt() {
@@ -127,10 +119,6 @@ public partial class LobyUISceneController {
 
     private void ScheduleConnectRetry() {
         StopConnectRoutines();
-        if (s_fallbackRegions == null) {
-            PlayerPrefs.SetString(RegionFailureTimeKey, System.DateTime.UtcNow.Ticks.ToString());
-            PlayerPrefs.Save();
-        }
         _connectAttempt++;
         string status = $"{_connectStatus} (mencoba server lain)";
         Debug.LogWarning($"[Lobby] Koneksi gagal, mencoba lagi ({_connectAttempt}/{MaxConnectAttempts}).");
@@ -178,6 +166,14 @@ public partial class LobyUISceneController {
     private static void ResetFallbackRegions() {
         s_fallbackRegions = null;
         s_unreachableRoomCodes.Clear();
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void DeleteLegacyRegionFailure() {
+        if (!PlayerPrefs.HasKey(LegacyRegionFailureTimeKey))
+            return;
+        PlayerPrefs.DeleteKey(LegacyRegionFailureTimeKey);
+        PlayerPrefs.Save();
     }
 
     private void StopConnectRoutines() {
