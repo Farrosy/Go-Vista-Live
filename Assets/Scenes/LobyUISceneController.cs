@@ -122,6 +122,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private string _waitingRosterSignature;
     private string _pauseRosterSignature;
     private Button _waitingJoinButton;
+    private ButtonProgressFill _waitingJoinProgress;
     private Button _waitingRosterToggleButton;
     private Coroutine _playerListRoutine;
     private bool _roomFullDisconnectRequested;
@@ -385,8 +386,9 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         scroll.content = content;
 
         // MULAI = aksi utama (besar, biru). KELUAR ROOM sengaja lebih kecil dan hanya outline supaya tidak salah tap.
-        Place(CreateButton("Waiting Join Game Button", panel, "MULAI", PrimaryColor, 36).GetComponent<RectTransform>(),
-              52f, 740f, 791f, 116f);
+        Button joinButton = CreateButton("Waiting Join Game Button", panel, "MULAI", PrimaryColor, 36);
+        Place(joinButton.GetComponent<RectTransform>(), 52f, 740f, 791f, 116f);
+        InstallJoinProgressFill(joinButton);
         Place(CreateButton("Waiting Disconnect Button", panel, "KELUAR ROOM", DangerTextColor, LabelFontSize, true)
                   .GetComponent<RectTransform>(), 869f, 751f, 279f, 94f);
 
@@ -1081,6 +1083,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
             _pausePlayerScroll = FindChild(waitingRoot, "Pause Player Box")?.GetComponent<ScrollRect>();
             _copyButtonLabel = FindChild(waitingRoot, "Waiting Copy Code Button Label")?.GetComponent<Text>();
             _waitingJoinButton = FindChild(waitingRoot, "Waiting Join Game Button")?.GetComponent<Button>();
+            _waitingJoinProgress = _waitingJoinButton != null ? _waitingJoinButton.GetComponent<ButtonProgressFill>() : null;
             _waitingRosterToggleButton = FindChild(waitingRoot, "Waiting Roster Toggle Button")?.GetComponent<Button>();
             _pauseButton = FindChild(waitingRoot, "Pause Button")?.gameObject;
             _pauseOverlay = FindChild(waitingRoot, "Pause Overlay")?.gameObject;
@@ -1718,9 +1721,58 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         AvatarBakeService bakes = AvatarBakeService.Instance;
         while (!bakes.ReadyForSpawn && realtime != null && realtime.connected) {
             (int done, int total) = bakes.Progress;
-            SetWaitingJoinButtonLabel($"MENYIAPKAN KARAKTER… {done}/{total}");
+            ShowJoinProgress(JoinLoadProgress.DuringCharacters(done, total));
             yield return null;
         }
+        ShowJoinProgress(JoinLoadProgress.CharacterShare);
+    }
+
+    // Batas tunggu kerumunan NPC supaya pemain tidak tertahan kalau authority macet / roster tak bisa lengkap.
+    private const float NpcCrowdWaitTimeoutSeconds = 15f;
+
+    // Lama maksimal menunggu bar menyusul 100% sebelum masuk world, supaya pemain melihat bar penuh.
+    private const float JoinProgressSettleSeconds = 0.6f;
+
+    private IEnumerator WaitForNpcCrowd() {
+        NpcDirector director = NpcDirector.Instance;
+        float deadline = Time.unscaledTime + NpcCrowdWaitTimeoutSeconds;
+        while (director != null && !director.CrowdReady && realtime != null && realtime.connected) {
+            if (Time.unscaledTime >= deadline) {
+                Debug.LogWarning($"[Lobby] Kerumunan NPC belum lengkap ({NpcAgent.All.Count}/{director.TargetCount}) setelah {NpcCrowdWaitTimeoutSeconds:0} dtk; lanjut masuk world.");
+                break;
+            }
+            ShowJoinProgress(JoinLoadProgress.DuringCrowd(NpcAgent.All.Count, director.TargetCount));
+            yield return null;
+        }
+
+        ShowJoinProgress(1f);
+        float settleDeadline = Time.unscaledTime + JoinProgressSettleSeconds;
+        while (_waitingJoinProgress != null && !_waitingJoinProgress.Settled && Time.unscaledTime < settleDeadline)
+            yield return null;
+    }
+
+    /// Bar progres di tombol MULAI (fallback ke label persen kalau prefab belum punya fill-nya).
+    private void ShowJoinProgress(float progress) {
+        if (_waitingJoinButton == null)
+            return;
+        _waitingJoinButton.interactable = false;
+        if (_waitingJoinProgress != null)
+            _waitingJoinProgress.SetProgress(progress);
+        else
+            SetWaitingJoinButtonLabel($"MEMUAT… {JoinLoadProgress.Percent(progress)}%");
+    }
+
+    private void HideJoinProgress() {
+        if (_waitingJoinProgress != null)
+            _waitingJoinProgress.Hide();
+    }
+
+    /// Pasang fill bar di tombol MULAI (dipanggil layout default; prefab yang sudah ada dipasang sekali lewat editor).
+    internal static ButtonProgressFill InstallJoinProgressFill(Button joinButton) {
+        if (joinButton == null)
+            return null;
+        Text label = joinButton.transform.Find("Waiting Join Game Button Label")?.GetComponent<Text>();
+        return ButtonProgressFill.Install(joinButton, label, PrimaryColor);
     }
 
     private void SetWaitingJoinButtonLabel(string text) {
@@ -1736,6 +1788,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private void SetWaitingJoinButtonLoading(bool loading) {
         if (_waitingJoinButton == null)
             return;
+        HideJoinProgress();
 
         _waitingJoinButton.interactable = !loading;
         Transform label = _waitingJoinButton.transform.Find("Waiting Join Game Button Label");
@@ -1798,6 +1851,10 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
         // Tahap 3 customizer (per perangkat): masuk world setelah avatar sendiri + semua pemain yang sudah ada
         // selesai di-bake di HP ini, jadi tidak ada yang terlihat dalam wujud template/setengah jadi.
         yield return WaitForAvatarBakes();
+
+        // Kerumunan NPC di-spawn (tersembunyi) selagi pemain masih di daftar pemain. Kalau MULAI ditekan
+        // sebelum selesai, tunggu sisanya di sini supaya spawn & drop FPS tidak terjadi di gameplay.
+        yield return WaitForNpcCrowd();
 
         // Koneksi putus selama pemuatan: lobby sudah tampil, jadi jangan masuk gameplay atau meninggalkan world.
         if (realtime == null || !realtime.connected) {
@@ -2004,6 +2061,7 @@ public sealed partial class LobyUISceneController : MonoBehaviour {
     private void SetWaitingJoinButtonJoined(bool joined) {
         if (_waitingJoinButton == null)
             return;
+        HideJoinProgress();
 
         _waitingJoinButton.interactable = !joined;
         Transform label = _waitingJoinButton.transform.Find("Waiting Join Game Button Label");
