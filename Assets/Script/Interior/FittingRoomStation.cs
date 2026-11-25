@@ -7,9 +7,10 @@ using UnityEngine;
 /// "Ganti Baju" (Interactable di objek ini). Editor karakter (scene KARAKTER, tab khusus ruang ganti) dibuka
 /// dengan karakter berdiri di bilik ini dan kamera di toko, jadi latarnya toko asli, bukan warna polos.
 ///
-/// Transisi: kamera gameplay meluncur halus ke pose kamera editor, layar fade singkat menutupi momen scene
-/// dimuat dan karakter preview di-bake, lalu editor muncul. Saat ditutup urutannya dibalik (fade, unload,
-/// buka layar, kamera meluncur kembali), baru HUD dan kontrol dikembalikan.
+/// Transisi: kamera gameplay meluncur halus ke pose kamera editor (dinding bilik masih ada), layar fade singkat
+/// menutupi momen dinding depan disembunyikan, scene dimuat dan karakter preview di-bake, lalu editor muncul.
+/// Saat ditutup urutannya dibalik (fade, unload, buka layar, kamera meluncur kembali sambil avatar berjalan
+/// keluar bilik ke depan cermin luar), baru HUD dan kontrol dikembalikan.
 ///
 /// Selama editor terbuka, HANYA di layar pemain ini: gerak terkunci, HUD disembunyikan, dinding depan bilik
 /// (+ tirai) disembunyikan (tampilan potongan), avatar asli pemain disembunyikan (diganti karakter preview),
@@ -29,6 +30,9 @@ public sealed class FittingRoomStation : MonoBehaviour {
     private const float ArriveDistance = 0.08f;
     private const float AlignTurnSpeed = 360f;
     private const float MaxAlignSeconds = 2.5f;
+    // Jalan keluar ke cermin: titik antara dianggap dilewati dalam jarak ini (m) supaya tidak berhenti-berhenti.
+    private const float WaypointPassDistance = 0.25f;
+    private const float MaxExitSeconds = 6f;
 
     private enum Phase { Idle, Opening, Active, Closing }
 
@@ -43,12 +47,22 @@ public sealed class FittingRoomStation : MonoBehaviour {
     [Header("Transisi")]
     [Tooltip("Lama kamera meluncur dari kamera gameplay ke kamera editor (dan kembali), detik.")]
     [SerializeField] private float glideSeconds = 0.7f;
+    [Tooltip("Setelah editor ditutup, avatar berjalan melewati titik-titik ini berurutan (keluar pintu bilik), " +
+             "berhenti di titik terakhir menghadap sumbu birunya (cermin luar), baru kontrol dikembalikan. " +
+             "Kosong = tidak berjalan.")]
+    [SerializeField] private Transform[] exitPath = new Transform[0];
 
     [Header("Syarat")]
     [Tooltip("Ruang ganti terkunci sampai pemain lokal menyelesaikan dialog ini (perkenalan kasir). Kosong = bebas.")]
     [SerializeField] private string requiredDialogueId = "mira_intro";
     [SerializeField] private string lockedTitle = "Ruang ganti belum bisa dipakai";
     [SerializeField] private string lockedDetail = "Ngobrol dulu dengan Mira di kasir, ya!";
+
+    [Header("Quest")]
+    [Tooltip("Opsional: tujuan quest (Manual) yang selesai saat pemain menyimpan penampilan BARU di ruang ganti ini, " +
+             "mis. Tampil Beda > ganti-gaya. SIMPAN tanpa perubahan tidak dihitung.")]
+    [SerializeField] private QuestData completesQuest;
+    [SerializeField] private string completesObjectiveId = "";
 
     private Interactable _interactable;
     private Phase _phase = Phase.Idle;
@@ -68,13 +82,18 @@ public sealed class FittingRoomStation : MonoBehaviour {
     private readonly List<Renderer> _rendererBuffer = new List<Renderer>();
     private readonly List<Canvas> _canvasBuffer = new List<Canvas>();
     private PlayerController[] _players = new PlayerController[0];
+    // Pasangan collider (avatar lokal, pemain lain/NPC) yang sedang diabaikan selama berjalan keluar bilik.
+    private readonly List<(Collider mine, Collider other)> _ignoredPairs = new List<(Collider, Collider)>();
+    private readonly List<Collider> _colliderBuffer = new List<Collider>();
 
     void Awake() {
         _interactable = GetComponent<Interactable>();
         _interactable.onInteract.AddListener(Open);
+        CharacterSceneLoader.FittingRoomLookChanged += OnLookChanged;
     }
 
     void OnDestroy() {
+        CharacterSceneLoader.FittingRoomLookChanged -= OnLookChanged;
         if (_interactable) _interactable.onInteract.RemoveListener(Open);
         if (_phase == Phase.Idle) return;
         // Interior di-unload di tengah transisi / saat editor terbuka (mis. keluar room): kembalikan semuanya
@@ -82,6 +101,8 @@ public sealed class FittingRoomStation : MonoBehaviour {
         StopAligning();
         RestoreActors();
         RestoreScenery();
+        RestoreCollisions();
+        SetPresence(FittingRoomPresence.None);
         if (_orbit) _orbit.ReleasePoseImmediate();
         SetHudHidden(false);
         SetInputLocked(false);
@@ -101,6 +122,12 @@ public sealed class FittingRoomStation : MonoBehaviour {
         }
     }
 
+    /// Penampilan baru tersimpan di editor yang dibuka dari station INI: selesaikan tujuan quest-nya (kalau aktif).
+    private void OnLookChanged() {
+        if (_phase == Phase.Idle || completesQuest == null || string.IsNullOrEmpty(completesObjectiveId)) return;
+        QuestService.CompleteObjective(completesQuest.Id, completesObjectiveId);
+    }
+
     // ---------------------------------------------------------------- Buka
 
     private void Open() {
@@ -118,7 +145,6 @@ public sealed class FittingRoomStation : MonoBehaviour {
         SetInputLocked(true);
         _interactable.enabled = false; // prompt + tombol Interact hilang selama editor terbuka
         SetHudHidden(true);
-        HideScenery(); // dinding depan hilang sejak awal luncuran, jadi kamera melihat bilik
         _nextPlayerScan = 0f;
         StartCoroutine(OpenRoutine(view));
     }
@@ -126,10 +152,14 @@ public sealed class FittingRoomStation : MonoBehaviour {
     private IEnumerator OpenRoutine(FittingRoomView view) {
         // Sambil kamera meluncur, avatar asli merapikan posisinya ke titik karakter preview (menghadap kamera),
         // jadi pergantian ke karakter preview di balik layar hitam tidak terlihat melompat.
-        StartCoroutine(AlignPlayer(PlayerController.Local, new Pose(subject.position, subject.rotation)));
+        StartCoroutine(WalkPath(PlayerController.Local, new[] { subject.position }, subject.rotation, MaxAlignSeconds));
         yield return Glide(true);
-        while (_aligning) yield return null; // AlignPlayer punya batas waktu sendiri
+        while (_aligning) yield return null; // WalkPath punya batas waktu sendiri
         yield return Fade.Cover();
+        // Pemain lain melihat avatar masuk ke bilik, lalu hilang saat layar ini hitam (suara + minimap tetap).
+        SetPresence(FittingRoomPresence.Hidden);
+        // Dinding depan + tirai baru hilang di balik layar hitam; selama avatar merapikan posisi dinding tetap ada.
+        HideScenery();
 
         _sceneOpened = false;
         _sceneClosed = false;
@@ -189,8 +219,28 @@ public sealed class FittingRoomStation : MonoBehaviour {
         // Kamera utama masih di pose editor, jadi saat layar dibuka sudut pandangnya sama dengan editor.
         RestoreActors();
         yield return Fade.Reveal();
+        // Avatar berjalan keluar bilik ke depan cermin luar sambil kamera meluncur kembali ke kamera gameplay;
+        // kontrol baru dikembalikan setelah keduanya selesai. Dinding depan + tirai kembali begitu mulai berjalan.
+        RestoreScenery();
+        // Terlihat lagi oleh pemain lain, tapi tembus pemain lain + NPC sampai kontrol dikembalikan.
+        SetPresence(FittingRoomPresence.PassThrough);
+        IgnoreCharacterCollisions(local);
+        StartExitWalk(local);
         yield return Glide(false);
+        while (_aligning) yield return null; // WalkPath punya batas waktu sendiri
         FinishClose();
+    }
+
+    private void StartExitWalk(PlayerController player) {
+        if (!player || exitPath == null) return;
+        var points = new List<Vector3>(exitPath.Length);
+        Transform last = null;
+        foreach (Transform point in exitPath) {
+            if (!point) continue;
+            points.Add(point.position);
+            last = point;
+        }
+        if (last) StartCoroutine(WalkPath(player, points, last.rotation, MaxExitSeconds));
     }
 
     private void OnClosed() {
@@ -200,6 +250,8 @@ public sealed class FittingRoomStation : MonoBehaviour {
 
     private void FinishClose() {
         RestoreScenery();
+        RestoreCollisions();
+        SetPresence(FittingRoomPresence.None);
         SetHudHidden(false);
         SetInputLocked(false);
         _phase = Phase.Idle;
@@ -212,23 +264,27 @@ public sealed class FittingRoomStation : MonoBehaviour {
             InteractButtonUI.Instance.Register(_interactable);
     }
 
-    /// Avatar berjalan (animasi jalan biasa) ke titik karakter preview, lalu berbalik menghadap kamera editor.
-    /// Pemilik avatar yang menggerakkannya, jadi pemain lain melihat gerakan yang sama lewat sinkron biasa.
-    private IEnumerator AlignPlayer(PlayerController player, Pose target) {
+    /// Avatar berjalan (animasi jalan biasa) melewati <paramref name="points"/> berurutan, lalu berputar ke
+    /// <paramref name="facing"/>. Pemilik avatar yang menggerakkannya, jadi pemain lain melihat gerakan yang sama
+    /// lewat sinkron biasa. Berhenti paksa setelah <paramref name="maxSeconds"/> supaya tidak macet di halangan.
+    private IEnumerator WalkPath(PlayerController player, IReadOnlyList<Vector3> points, Quaternion facing,
+                                 float maxSeconds) {
         if (!player) yield break;
         _aligning = true;
-        float deadline = Time.unscaledTime + MaxAlignSeconds;
-        Vector3 goal = target.position;
-        while (player && Time.unscaledTime < deadline) {
-            Vector3 offset = goal - player.transform.position;
-            offset.y = 0f;
-            if (offset.magnitude <= ArriveDistance) break;
-            player.SetScriptedMove(offset.normalized);
-            yield return null;
+        float deadline = Time.unscaledTime + maxSeconds;
+        for (int i = 0; i < points.Count && player && Time.unscaledTime < deadline; i++) {
+            float arrive = i == points.Count - 1 ? ArriveDistance : WaypointPassDistance;
+            while (player && Time.unscaledTime < deadline) {
+                Vector3 offset = points[i] - player.transform.position;
+                offset.y = 0f;
+                if (offset.magnitude <= arrive) break;
+                player.SetScriptedMove(offset.normalized);
+                yield return null;
+            }
         }
         if (player) player.SetScriptedMove(null);
 
-        Quaternion endRotation = Flatten(target.rotation);
+        Quaternion endRotation = Flatten(facing);
         while (player && Time.unscaledTime < deadline && Quaternion.Angle(player.transform.rotation, endRotation) > 1f) {
             player.transform.rotation = Quaternion.RotateTowards(player.transform.rotation, endRotation,
                                                                  AlignTurnSpeed * Time.deltaTime);
@@ -269,6 +325,47 @@ public sealed class FittingRoomStation : MonoBehaviour {
         foreach (PlayerController player in _players) {
             if (player && player != PlayerController.Local && InClearZone(player.transform.position)) HidePlayer(player);
         }
+    }
+
+    // ---------------------------------------------------------------- Jaringan + tabrakan
+
+    /// Status ruang ganti avatar lokal untuk pemain lain (VenueVisibilityFilter di perangkat mereka).
+    private static void SetPresence(FittingRoomPresence presence) {
+        PlayerController local = PlayerController.Local;
+        if (local && local.TryGetComponent(out PlayerVenueSync sync)) sync.SetFittingRoom(presence);
+    }
+
+    /// Avatar lokal tembus pemain lain dan NPC (di layar ini) selama berjalan keluar bilik; tembok/lantai tetap padat.
+    /// Pemain dan NPC tidak punya layer sendiri, jadi diabaikan per pasangan collider.
+    private void IgnoreCharacterCollisions(PlayerController local) {
+        RestoreCollisions();
+        if (!local) return;
+        Collider[] mine = local.GetComponentsInChildren<Collider>(true);
+        foreach (PlayerController player in FindObjectsByType<PlayerController>()) {
+            if (player && player != local) IgnoreAgainst(mine, player);
+        }
+        foreach (NpcAgent npc in FindObjectsByType<NpcAgent>()) {
+            if (npc) IgnoreAgainst(mine, npc);
+        }
+    }
+
+    private void IgnoreAgainst(Collider[] mine, Component other) {
+        other.GetComponentsInChildren(true, _colliderBuffer);
+        foreach (Collider theirs in _colliderBuffer) {
+            if (!theirs || theirs.isTrigger) continue;
+            foreach (Collider own in mine) {
+                if (!own || own.isTrigger) continue;
+                Physics.IgnoreCollision(own, theirs, true);
+                _ignoredPairs.Add((own, theirs));
+            }
+        }
+    }
+
+    private void RestoreCollisions() {
+        foreach ((Collider mine, Collider other) in _ignoredPairs) {
+            if (mine && other) Physics.IgnoreCollision(mine, other, false);
+        }
+        _ignoredPairs.Clear();
     }
 
     // ---------------------------------------------------------------- Sembunyikan / kembalikan

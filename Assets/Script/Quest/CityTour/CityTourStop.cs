@@ -17,6 +17,9 @@ public sealed class CityTourStop : MonoBehaviour {
     [SerializeField] private Transform mascotSpot;
     [Tooltip("Lingkaran di tanah + beacon. Hanya tampil saat gedung ini tujuan aktif.")]
     [SerializeField] private GameObject marker;
+    [Tooltip("Opsional: diputar langsung setelah dialog gedung, tanpa maskot menghilang dulu (mis. tawaran quest " +
+             "utama berikutnya di gedung terakhir tur).")]
+    [SerializeField] private DialogueData followUpDialogue;
 
     private bool _playerInside;
     private bool _active;
@@ -70,7 +73,8 @@ public sealed class CityTourStop : MonoBehaviour {
         if (CityTourGuide.Instance.IsPresenting || !CityTourGuide.CanPresent) return;
         // Beacon disembunyikan selama maskot bicara: kamera dialog bisa berada di dalam silinder beacon dan
         // membuat layar kuning. Setelah selesai, Refresh menentukan apakah marker perlu tampil lagi.
-        if (CityTourGuide.Instance.Present(mascotSpot, dialogue, Refresh) && marker != null) marker.SetActive(false);
+        var sequence = followUpDialogue != null ? new[] { dialogue, followUpDialogue } : new[] { dialogue };
+        if (CityTourGuide.Instance.Present(mascotSpot, sequence, Refresh) && marker != null) marker.SetActive(false);
     }
 
     private void OnTriggerEnter(Collider other) {

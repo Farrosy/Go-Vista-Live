@@ -110,7 +110,7 @@ public static class CityTourContent {
                 new Line(Vira, "Dan ini Vista Palace, markas Vista, tim di balik Go Vista!"),
                 new Line(Vio, "Sekaligus rumah kami berdua. Hehe."),
                 new Line(Vira, "Terima kasih sudah ikut tur! Ini hadiah kecil dari kami."),
-                new Line(Vio, "Selamat menjelajah Go Vista! Sampai ketemu lagi!"),
+                // Lanjut ke tawaran quest utama berikutnya (TampilBedaContent.PalaceOffer*), di kemunculan yang sama.
             },
         },
     };

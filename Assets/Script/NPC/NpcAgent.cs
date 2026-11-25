@@ -92,6 +92,12 @@ public class NpcAgent : MonoBehaviour
     private NpcSync npcSync;       // ownership/model-ready source; null-safe
     private RealtimeView realtimeView; // this NPC's view; used by NpcDirector to claim ownership on migration
     private bool simulating;       // current gate state (false until resolved → networked remotes stay put)
+    // RealtimeTransform has its OWN ownership, separate from the view: claiming the view on migration
+    // leaves the transform owned by the previous authority, whose frozen pose keeps snapping the NPC
+    // back (walking in place). The simulating client must own the transform too.
+    private RealtimeTransform realtimeTransform;
+    private float nextTransformClaim;
+    private const float TransformClaimInterval = 0.5f;
 
     /// Live registry of every NPC instance (networked or dev), mirroring PlayerSpawnPoint's pattern.
     /// NpcDirector iterates this on migration to RequestOwnership each NPC's view.
@@ -122,9 +128,13 @@ public class NpcAgent : MonoBehaviour
 
     void Awake()
     {
+        // Remote copies are created in this client's active scene (often WorldScene); keep them in the
+        // persistent scene so leaving World doesn't destroy the crowd locally.
+        PersistentSceneAdopter.Adopt(gameObject);
         agent = GetComponent<NavMeshAgent>();
         npcSync = GetComponent<NpcSync>();
         realtimeView = GetComponent<RealtimeView>();
+        realtimeTransform = GetComponent<RealtimeTransform>();
         reusablePath = new NavMeshPath();
         if (!animator) animator = GetComponentInChildren<Animator>();
 
@@ -185,6 +195,7 @@ public class NpcAgent : MonoBehaviour
         // Not our NPC to drive: RealtimeTransform moves the transform, NpcSync drives the animation.
         if (!simulating) return;
 
+        ClaimTransformIfNeeded();
         UpdateAnimation();
 
         // If pushed/warped off the mesh at runtime, snap back before pathing.
@@ -248,8 +259,21 @@ public class NpcAgent : MonoBehaviour
         else if (agent) agent.enabled = false;
     }
 
+    /// Simulating client only: take over the RealtimeTransform if another client still owns it
+    /// (re-asked at an interval in case the first request raced the view's ownership change).
+    private void ClaimTransformIfNeeded()
+    {
+        if (!IsNetworked || realtimeTransform == null || !realtimeTransform.enabled) return;
+        if (realtimeTransform.isOwnedLocallySelf || Time.unscaledTime < nextTransformClaim) return;
+        nextTransformClaim = Time.unscaledTime + TransformClaimInterval;
+        realtimeTransform.RequestOwnership();
+    }
+
     private void EnterSimulation()
     {
+        nextTransformClaim = 0f;
+        ClaimTransformIfNeeded();
+
         if (!agent.enabled) agent.enabled = true;
 
         // Ensure we're on the mesh before pathing (we may be entering from a RealtimeTransform-driven

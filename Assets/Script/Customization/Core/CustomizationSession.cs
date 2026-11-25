@@ -25,6 +25,8 @@ public sealed class CustomizationSession {
 
     public int Slot { get; private set; }
     public CustomCharacterRecord Current => _current.Clone();
+    /// <summary>Record saat terakhir disimpan (atau saat dibuka).</summary>
+    public CustomCharacterRecord Saved => _saved.Clone();
     public bool CanUndo => _history.Count > 0;
     public bool IsDirty => !ReferenceEquals(_current, _saved);
 

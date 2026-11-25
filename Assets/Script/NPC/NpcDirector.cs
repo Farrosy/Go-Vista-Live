@@ -12,8 +12,12 @@ using UnityEngine.SceneManagement;
 /// guard (NpcDirectorModel) must sync across clients.
 ///
 /// Responsibilities:
-///  • Elect the authority: the client with the lowest owner-clientID among avatars currently in the
-///    World venue (avatar-scan — no second model). Only that client, while in World, does any work.
+///  • Elect the authority (NpcCrowdRules.IsAuthority): the client with the lowest owner-clientID among
+///    avatars currently in the World venue. While nobody has an avatar in World yet (everyone is still on
+///    the waiting-lobby player list), the owner of this director's view is authority once WorldScene's
+///    navmesh is loaded — so the crowd is spawned, hidden, BEFORE anyone presses MULAI and the spawn
+///    hitch lands on the lobby UI instead of gameplay. The lobby waits on CrowdReady before spawning
+///    the avatar.
 ///  • Spawn the roster ONCE: the first authority instantiates N networked NpcAgent prefabs onto random
 ///    walkable navmesh points and moves them into MainMultiplayerScene (persistent — they must survive
 ///    WorldScene unloading when a client travels into a venue). A synced flag blocks a double-spawn.
@@ -58,6 +62,20 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
     [Tooltip("Milliseconds per frame the authority may spend instantiating NPCs. At least one NPC is spawned per frame. " +
              "Lower = smoother entry into World, roster takes longer to fill (~1 NPC per frame on slow devices).")]
     [SerializeField] private float spawnBudgetMs = 4f;
+    [Tooltip("Budget ms per frame selama pemain lokal belum punya avatar (masih di daftar pemain lobby). Lebih besar dari " +
+             "Spawn Budget Ms karena belum ada gameplay, jadi roster cepat lengkap sebelum MULAI ditekan.")]
+    [SerializeField] private float lobbySpawnBudgetMs = 12f;
+    [Tooltip("Scene yang memuat navmesh World. Di lobby, roster baru di-spawn setelah scene ini ter-load (pratinjau world).")]
+    [SerializeField] private string worldSceneName = "WorldScene";
+
+    /// Director aktif di scene (satu per room). Lobby memakainya untuk menunggu kerumunan siap.
+    public static NpcDirector Instance { get; private set; }
+
+    /// Jumlah NPC target roster.
+    public int TargetCount => count;
+
+    /// Kerumunan sudah lengkap di client ini (roster ditandai lengkap, atau jumlah NPC sudah mencapai target).
+    public bool CrowdReady => model != null && NpcCrowdRules.IsCrowdReady(model.rosterSpawned, NpcAgent.All.Count, count);
 
     private Realtime _realtime;
     private RealtimeView _view;
@@ -72,6 +90,7 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
 
     void OnEnable()
     {
+        Instance = this;
         _realtime = FindAnyObjectByType<Realtime>();
         if (_realtime != null) _realtime.didConnectToRoom += OnConnected;
         VenueTravelManager.VenueChanged += Evaluate;
@@ -80,6 +99,7 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
 
     void OnDisable()
     {
+        if (Instance == this) Instance = null;
         if (_realtime != null) _realtime.didConnectToRoom -= OnConnected;
         VenueTravelManager.VenueChanged -= Evaluate;
         if (_loop != null) StopCoroutine(_loop);
@@ -142,16 +162,12 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
         }
     }
 
-    /// Authority = lowest owner-clientID among avatars currently in the World venue, and that's us,
-    /// and we're in World. Reads each avatar's PlayerVenueSync (venue) + RealtimeView owner id.
+    /// Authority per NpcCrowdRules: lowest owner-clientID among avatars in World; with no avatar in World yet
+    /// (waiting lobby), the director view's owner — or anyone, if unowned — once WorldScene is loaded.
+    /// Evaluate then claims the director view; a lobby claim race settles on the server's final owner.
     private bool ComputeIsAuthority()
     {
-        if (VenueTravelManager.LocalVenue != VenueId.World) return false;
-
-        int myId = _realtime.clientID;
-        if (myId < 0) return false;
-
-        int authorityId = int.MaxValue;
+        int lowestWorldAvatarOwner = NpcCrowdRules.NoClient;
         var avatars = FindObjectsByType<PlayerVenueSync>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         for (int i = 0; i < avatars.Length; i++)
         {
@@ -161,10 +177,22 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
             if (view == null) continue;
             int owner = view.ownerIDInHierarchy;
             if (owner < 0) continue; // view not registered yet — skip until it is.
-            if (owner < authorityId) authorityId = owner;
+            if (lowestWorldAvatarOwner < 0 || owner < lowestWorldAvatarOwner) lowestWorldAvatarOwner = owner;
         }
 
-        return authorityId != int.MaxValue && myId == authorityId;
+        int directorOwner = _view != null ? _view.ownerIDInHierarchy : NpcCrowdRules.NoClient;
+        return NpcCrowdRules.IsAuthority(
+            _realtime.clientID,
+            VenueTravelManager.LocalVenue == VenueId.World,
+            IsWorldSceneLoaded(),
+            lowestWorldAvatarOwner,
+            directorOwner < 0 ? NpcCrowdRules.NoClient : directorOwner);
+    }
+
+    private bool IsWorldSceneLoaded()
+    {
+        Scene world = SceneManager.GetSceneByName(worldSceneName);
+        return world.IsValid() && world.isLoaded;
     }
 
     /// Authority only: instantiate the crowd into the persistent MainMultiplayerScene.
@@ -211,7 +239,8 @@ public class NpcDirector : RealtimeComponent<NpcDirectorModel>
 
         for (int i = existing; i < count; i++)
         {
-            if (!SpawnBudget.CanSpawnMore(spawnedThisFrame, frameTimer.Elapsed.TotalMilliseconds, spawnBudgetMs, spawnPerFrame))
+            float budgetMs = PlayerController.Local == null ? lobbySpawnBudgetMs : spawnBudgetMs;
+            if (!SpawnBudget.CanSpawnMore(spawnedThisFrame, frameTimer.Elapsed.TotalMilliseconds, budgetMs, spawnPerFrame))
             {
                 yield return null;
                 spawnedThisFrame = 0;

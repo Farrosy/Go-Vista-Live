@@ -6,7 +6,7 @@ using UnityEngine.UI;
 /// (MobileControls.ControlsRoot), jadi ikut tersembunyi bersama kontrol lain saat menu/dialog/layar mati.
 ///
 /// Kiri: roda setir ATAU tombol belok kiri/kanan (ATUR KONTROL > Kendaraan, pilihan Setir / Panah).
-/// Kanan: pedal GAS dan REM (rem saat berhenti = mundur). Tengah bawah: kecepatan.
+/// Kanan: pedal GAS dan REM (rem saat berhenti = mundur), tombol REM TANGAN (drift) di atas rem. Tengah bawah: kecepatan.
 ///
 /// Setir (roda + panah sebagai satu grup), gas, dan rem adalah CustomizableControl kategori Kendaraan,
 /// jadi posisi & ukurannya bisa diatur di ATUR KONTROL. Selama mode itu HUD ditampilkan sebagai preview
@@ -17,6 +17,7 @@ public class VehicleDriveHud : MonoBehaviour {
     private static readonly Color PanelColor = new Color32(13, 18, 34, 200);
     private static readonly Color GasColor = new Color32(52, 211, 153, 255);
     private static readonly Color BrakeColor = new Color32(248, 113, 113, 255);
+    private static readonly Color HandbrakeColor = new Color32(251, 191, 36, 255);
     private static readonly Color SteerColor = new Color32(207, 216, 240, 255);
 
     private static VehicleDriveHud instance;
@@ -27,7 +28,7 @@ public class VehicleDriveHud : MonoBehaviour {
     private Text speedText;
     private HoldButton left, right;
     private int shownSpeed = -1;
-    private CustomizableControl steerControl, gasControl, brakeControl;
+    private CustomizableControl steerControl, gasControl, brakeControl, handbrakeControl;
     private bool previewing;
     private DriveControlMode previewMode;
 
@@ -38,7 +39,7 @@ public class VehicleDriveHud : MonoBehaviour {
     public static CustomizableControl[] EditableControls {
         get {
             EnsureBuilt();
-            return instance ? new[] { instance.steerControl, instance.gasControl, instance.brakeControl }
+            return instance ? new[] { instance.steerControl, instance.gasControl, instance.brakeControl, instance.handbrakeControl }
                             : new CustomizableControl[0];
         }
     }
@@ -162,6 +163,10 @@ public class VehicleDriveHud : MonoBehaviour {
         gas.Changed += held => DriveInput.UiGas = held;
         HoldButton brake = Pedal("Brake Pedal", root, new Vector2(-360f, 155f), new Vector2(160f, 170f), BrakeColor, "REM");
         brake.Changed += held => DriveInput.UiBrake = held;
+        // Rem tangan (drift), di atas pedal rem.
+        HoldButton handbrake = IconButton("Handbrake Button", root, new Vector2(-360f, 340f), new Vector2(160f, 150f),
+                                          HandbrakeColor, "icon-handbrake", "REM TANGAN");
+        handbrake.Changed += held => DriveInput.UiHandbrake = held;
 
         // Ditambahkan paling akhir: CustomizableControl mencatat ukuran semua child sebagai ukuran default.
         hud.steerControl = steer.gameObject.AddComponent<CustomizableControl>();
@@ -170,6 +175,8 @@ public class VehicleDriveHud : MonoBehaviour {
         hud.gasControl.Init("VehicleGas", "Gas", ControlCategory.Vehicle);
         hud.brakeControl = brake.gameObject.AddComponent<CustomizableControl>();
         hud.brakeControl.Init("VehicleBrake", "Rem", ControlCategory.Vehicle);
+        hud.handbrakeControl = handbrake.gameObject.AddComponent<CustomizableControl>();
+        hud.handbrakeControl.Init("VehicleHandbrake", "Rem Tangan", ControlCategory.Vehicle);
 
         // ---- Tengah bawah: kecepatan
         RectTransform speedPanel = Place(NewRect("Speed Panel", root), new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(240f, 84f));
@@ -226,6 +233,36 @@ public class VehicleDriveHud : MonoBehaviour {
         text.anchorMin = new Vector2(0f, 0f);
         text.anchorMax = new Vector2(1f, 0.28f);
         text.offsetMin = text.offsetMax = Vector2.zero;
+        return rect.gameObject.AddComponent<HoldButton>();
+    }
+
+    /// Tombol tahan dengan ikon di atas dan label di bawah (rem tangan).
+    private static HoldButton IconButton(string name, Transform parent, Vector2 position, Vector2 size, Color color,
+                                         string icon, string label) {
+        RectTransform rect = Place(NewRect(name, parent), new Vector2(1f, 0f), position, size);
+        Image bg = rect.gameObject.AddComponent<Image>();
+        bg.sprite = Resources.Load<Sprite>("UI/ui-rounded");
+        bg.type = Image.Type.Sliced;
+        bg.color = PanelColor;
+
+        RectTransform iconRect = NewRect(name + " Icon", rect);
+        iconRect.anchorMin = new Vector2(0.2f, 0.3f);
+        iconRect.anchorMax = new Vector2(0.8f, 0.92f);
+        iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
+        Image iconImage = iconRect.gameObject.AddComponent<Image>();
+        iconImage.sprite = LoadIcon(icon, "ui-circle");
+        iconImage.preserveAspect = true;
+        iconImage.color = color;
+        iconImage.raycastTarget = false;
+
+        Text text = NewText(name + " Label", rect, label, 22, color);
+        RectTransform textRect = text.rectTransform;
+        textRect.anchorMin = new Vector2(0.04f, 0f);
+        textRect.anchorMax = new Vector2(0.96f, 0.3f);
+        textRect.offsetMin = textRect.offsetMax = Vector2.zero;
+        text.resizeTextForBestFit = true;   // label tidak keluar dari kotak walau tombol diperkecil
+        text.resizeTextMinSize = 12;
+        text.resizeTextMaxSize = 22;
         return rect.gameObject.AddComponent<HoldButton>();
     }
 

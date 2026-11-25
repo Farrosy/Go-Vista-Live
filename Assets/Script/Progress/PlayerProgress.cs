@@ -53,9 +53,20 @@ public class PlayerProgress {
     /// <summary>Saldo Go Vista Coin. Save lama tanpa field ini otomatis mulai dari saldo awal (100).</summary>
     public int coins = CoinRules.StartingBalance;
 
+    // ---------------------------------------------------------------- Toko pakaian (lihat OutfitShop)
+    /// <summary>Item yang sudah dibeli: path outfit BoZo ("Top/BSMC_Top_Hoodie") atau "sticker:&lt;nama&gt;".
+    /// Item karakter default tidak dicatat di sini (selalu gratis).</summary>
+    public List<string> ownedItems = new List<string>();
+    /// <summary>Item yang sudah dipakai di slot custom saat toko pertama kali ada sudah dicatat sebagai milik.</summary>
+    public bool shopMigrated;
+
     // ---------------------------------------------------------------- Hadiah login harian (lihat DailyLoginService)
     /// <summary>Siklus 7 hari, hari yang sudah login, dan hari yang sudah diklaim. Ubah lewat DailyLoginRules.</summary>
     public DailyLoginProgress dailyLogin = new DailyLoginProgress();
+
+    // ---------------------------------------------------------------- Dealer mobil (lihat CarDealerService)
+    /// <summary>ID mobil (CarCatalog.Entry.id) yang sudah dibeli pemain. Hanya mobil ini yang bisa di-Spawn.</summary>
+    public List<string> ownedCars = new List<string>();
 
     // ---------------------------------------------------------------- Posisi terakhir (TIDAK DIPAKAI)
     // Dulu dipakai untuk spawn di posisi terakhir. Sekarang pemain selalu spawn di PlayerSpawnPoint,

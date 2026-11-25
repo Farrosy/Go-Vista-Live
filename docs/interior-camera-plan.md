@@ -87,8 +87,11 @@ camera **locked**. The hair / facial hair editor = a **zoomed A**, locked. Stand
 
 ## Barber hair editor (2026-11-25, offline Play-tested)
 Owner picks: entry = extra HUD button **"Gaya Rambut"** next to the Interact (Berdiri) button while seated; scope =
-**hair (Depan/Belakang) + beard (Jenggot) + their colours**; **free**; preview = **seated in the chair**. Berdiri is
+**hair (Depan/Belakang) + beard (Jenggot) + their colours**; preview = **seated in the chair**. Berdiri is
 not inside the editor: close the editor first.
+- Pricing (owner, 2026-11-25, after merging main's clothing shop): haircuts are **paid** like clothes. The shared
+  editor's `CustomizerShop` prices hair/beard by grid position (`OutfitShopRules.PriceAt`), tags unowned items and
+  opens the cart on SIMPAN; colours stay free. Originally planned as free.
 - `BarberEditorStation` (on `Barber Chair Seat`, added by Pasang Kursi Barber) shows `HudActionButton` on
   `ChairSeat.Seated`. Open: lock input + hide HUD → `ChairSeatCamera.SetEditorShot(true)` → wait for the glide → fade →
   `CharacterSceneLoader.OpenFittingRoom(view with WorldEditorKind.Barber)` → hide the real avatar, main camera mask 0 →

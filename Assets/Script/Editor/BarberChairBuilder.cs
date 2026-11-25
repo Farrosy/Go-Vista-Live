@@ -190,8 +190,7 @@ public static class BarberChairBuilder {
         Transform entry = Point(station.transform, "Entry", floor + forward * standForward + side * EntrySide, facing);
         Transform footrest = Point(station.transform, "Footrest", floor + forward * FootLine + Vector3.up * FootrestTop, facing);
 
-        MeshRenderer[] glows = FittingRoomBuilder.AddFloorRing(station, RingSize, BuildingEntranceArt.RingMaterial(),
-                                                               BuildingEntranceArt.GlowMaterial());
+        MeshRenderer[] glows = FittingRoomBuilder.AddFloorRing(station, RingSize);
         var ringRenderers = new List<Renderer>(glows);
         Transform ringPanel = station.transform.Find("Ring");
         if (ringPanel && ringPanel.GetComponent<Renderer>()) ringRenderers.Add(ringPanel.GetComponent<Renderer>());

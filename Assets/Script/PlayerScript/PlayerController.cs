@@ -14,7 +14,7 @@ public class PlayerController : MonoBehaviour
     [Header("Gerak")]
     [Tooltip("Kecepatan jalan (meter/detik). Langkah animasi otomatis disesuaikan, jadi kaki tidak meluncur.")]
     [SerializeField] private float walkSpeed = 1.4f;
-    [SerializeField] private float sprintSpeed = 3.5f;
+    [SerializeField] private float sprintSpeed = 6f;
     [SerializeField] private float turnSpeed = 720f;
     [Tooltip("Percepatan dari diam ke kecepatan penuh (meter/detik²). Besar = makin responsif.")]
     [SerializeField] private float acceleration = 15f;
@@ -43,10 +43,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Animator animator;
     [Tooltip("Kehalusan perpindahan idle/walk/sprint. Makin besar makin lambat berubah.")]
     [SerializeField] private float speedDampTime = 0.1f;
-    [Tooltip("Kecepatan asli klip Walk (meter/detik, skala avatar 1) = seberapa cepat kaki menapak mundur di klip.")]
+    [Tooltip("Kecepatan asli klip Walk (meter/detik, skala avatar 1; player cewek pakai BMAC_F_Walk ~1.33) = seberapa cepat kaki menapak mundur di klip.")]
     [SerializeField] private float walkClipSpeed = 1.0f;
-    [Tooltip("Kecepatan asli klip lari (Jog Fwd Loop) di blend Speed = 1 (meter/detik, skala avatar 1).")]
-    [SerializeField] private float sprintClipSpeed = 2.85f;
+    [Tooltip("Kecepatan asli klip lari (Sprint, sprint_loop_unity_fit_anim_only.fbx) di blend Speed = 1 (meter/detik, skala avatar 1).")]
+    [SerializeField] private float sprintClipSpeed = 6f;
     [Tooltip("Toleransi 'masih dianggap menapak tanah' supaya animasi tidak berkedip di tanjakan/anak tangga.")]
     [SerializeField] private float groundedGrace = 0.1f;
 
@@ -118,7 +118,10 @@ public class PlayerController : MonoBehaviour
 
     private CharacterController cc;
     private float verticalVel;
-    private Vector3 planarVelocity;   // kecepatan horizontal aktual (dengan akselerasi)
+    // Kecepatan horizontal (m/s, dengan akselerasi). Arahnya selalu arah hadap badan (transform.forward),
+    // jadi badan dan langkah tidak pernah berbeda arah saat belok (dulu vektor kecepatan menyusul pelan
+    // di belakang rotasi badan → meluncur menyamping/"drift" dan animasi lari melambat di tengah belokan).
+    private float moveSpeed;
     private Vector3? scriptedMove;    // arah gerak dari skrip (dunia), menggantikan joystick
     private float seatedSpeed;        // kecepatan langkah (m/s) yang digerakkan SeatOccupant saat naik/turun kursi
     private float nextJumpTime;
@@ -232,7 +235,7 @@ public class PlayerController : MonoBehaviour
         launchPending = false;
         verticalVel = 0f;
         shoveTimer = 0f;
-        planarVelocity = Vector3.zero;
+        moveSpeed = 0f;
         IsSprinting = false;
         Speed01 = 0f;
         lastGroundedTime = Time.time;
@@ -248,7 +251,7 @@ public class PlayerController : MonoBehaviour
         if (InVehicle && TryGetComponent(out VehicleOccupant occupant)) occupant.ExitImmediate();
         if (IsSeated && TryGetComponent(out SeatOccupant seat)) seat.ExitImmediate();
         shoveTimer = 0f;
-        planarVelocity = Vector3.zero;
+        moveSpeed = 0f;
         cc.enabled = false;
         transform.SetPositionAndRotation(position, rotation);
         Physics.SyncTransforms();
@@ -343,7 +346,7 @@ public class PlayerController : MonoBehaviour
     {
         UpdateKnockdown();
 
-        if (InVehicle || IsSeated || frozen) planarVelocity = Vector3.zero;
+        if (InVehicle || IsSeated || frozen) moveSpeed = 0f;
 
         if (InVehicle || IsSeated)
         {
@@ -369,6 +372,7 @@ public class PlayerController : MonoBehaviour
         if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
 
         var input = PlayerInputHub.Instance;
+        if (IsLocal && input && input.JumpPressed) TryJump();   // Space = lompat (testing di PC)
         Vector3 dir;
         if (scriptedMove.HasValue && !IsKnockedDown)
         {
@@ -388,17 +392,24 @@ public class PlayerController : MonoBehaviour
         IsSprinting = input && input.Sprint && moving && !wading && !IsKnockedDown && !scriptedMove.HasValue;
         float speed = wading ? wadingSpeed : IsSprinting ? sprintSpeed : walkSpeed;
 
-        // Akselerasi/deselerasi: kecepatan tidak langsung penuh / langsung nol, jadi badan dan langkah selaras.
-        Vector3 targetVelocity = dir * speed;
-        float rate = targetVelocity.sqrMagnitude >= planarVelocity.sqrMagnitude ? acceleration : deceleration;
-        planarVelocity = Vector3.MoveTowards(planarVelocity, targetVelocity, rate * Time.deltaTime);
-        Speed01 = SpeedToBlend(planarVelocity.magnitude);
+        // Akselerasi/deselerasi hanya untuk besar kecepatan; joystick setengah = setengah kecepatan.
+        float targetSpeed = speed * dir.magnitude;
+        // Putar balik (> 90° dari arah hadap): jangan ngegas dulu sampai badan berbalik, supaya tidak melangkah
+        // ke arah yang salah / melebar. Belok 45°–90° (W+A, W+D) tidak terpengaruh.
+        if (moving && Vector3.Dot(transform.forward, dir) < 0f) targetSpeed = 0f;
+        float rate = targetSpeed >= moveSpeed ? acceleration : deceleration;
+        moveSpeed = Mathf.MoveTowards(moveSpeed, targetSpeed, rate * Time.deltaTime);
+        Speed01 = SpeedToBlend(moveSpeed);
 
         if (moving)
         {
             Quaternion target = Quaternion.LookRotation(dir);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, target, turnSpeed * Time.deltaTime);
         }
+        // Gerak selalu searah hadap badan: belok = melengkung mulus mengikuti rotasi, bukan meluncur menyamping.
+        Vector3 forward = transform.forward;
+        forward.y = 0f;
+        Vector3 planarVelocity = forward.sqrMagnitude > 0.0001f ? forward.normalized * moveSpeed : Vector3.zero;
 
         // Lompat: tunggu sebentar supaya selaras dengan animasi JumpStart, baru terangkat.
         if (launchPending)
@@ -423,7 +434,7 @@ public class PlayerController : MonoBehaviour
         // Tertahan tembok: kecepatan ikut turun, supaya animasi tidak terus berjalan di tempat.
         Vector3 actual = cc.velocity;
         actual.y = 0f;
-        if (actual.sqrMagnitude < planarVelocity.sqrMagnitude) planarVelocity = Vector3.ClampMagnitude(planarVelocity, actual.magnitude + 0.05f);
+        if (actual.magnitude < moveSpeed) moveSpeed = Mathf.Min(moveSpeed, actual.magnitude + 0.05f);
 
         if (cc.isGrounded) lastGroundedTime = Time.time;
         UpdateAnimator();

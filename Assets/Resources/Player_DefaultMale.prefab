@@ -64,7 +64,7 @@ CharacterController:
   m_Enabled: 1
   serializedVersion: 3
   m_Height: 1.8
-  m_Radius: 0.3
+  m_Radius: 0.25
   m_SlopeLimit: 45
   m_StepOffset: 0.3
   m_SkinWidth: 0.08
@@ -83,7 +83,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   walkSpeed: 1.4
-  sprintSpeed: 3.5
+  sprintSpeed: 6
   turnSpeed: 720
   acceleration: 15
   deceleration: 22
@@ -97,7 +97,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   speedDampTime: 0.1
   walkClipSpeed: 1
-  sprintClipSpeed: 2.85
+  sprintClipSpeed: 6
   groundedGrace: 0.1
   knockdownStartTimeout: 0.5
   knockdownMaxSeconds: 8
@@ -213,7 +213,7 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.3
+  m_Radius: 0.25
   m_Height: 1.8
   m_Direction: 1
   m_Center: {x: 0, y: 0.9, z: 0}
@@ -227,7 +227,7 @@ NavMeshObstacle:
   m_Enabled: 1
   serializedVersion: 3
   m_Shape: 0
-  m_Extents: {x: 0.3, y: 0.9, z: 0.3}
+  m_Extents: {x: 0.25, y: 0.9, z: 0.25}
   m_MoveThreshold: 0.25
   m_Carve: 1
   m_CarveOnlyStationary: 0

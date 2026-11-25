@@ -9,6 +9,17 @@ using UnityEngine;
 /// Menyinkronkan "venue" avatar lewat Normcore. Dalam satu room, pemain hanya melihat/menabrak
 /// avatar lain yang venue-nya sama (lihat VenueVisibilityFilter). Avatar lokal adalah sumber
 /// kebenaran venue pemain ini; nilainya ditulis saat travel selesai (VenueTravelManager, Phase 3).
+/// Status avatar terkait ruang ganti, dilihat pemain lain (lihat VenueVisibilityFilter).
+public enum FittingRoomPresence
+{
+    /// Normal: terlihat dan bisa ditabrak.
+    None = 0,
+    /// Sedang di editor karakter: tidak terlihat dan tidak bisa ditabrak (suara + minimap tetap).
+    Hidden = 1,
+    /// Berjalan otomatis keluar bilik: terlihat tapi tembus pemain lain dan NPC.
+    PassThrough = 2,
+}
+
 [RequireComponent(typeof(PlayerController))]
 public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
 {
@@ -30,6 +41,10 @@ public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
         }
     }
 
+    // Avatar pemain lain bisa tercipta di scene venue yang sedang aktif; pindahkan ke scene persisten
+    // supaya tidak ikut ter-destroy saat venue itu di-unload.
+    private void Awake() => PersistentSceneAdopter.Adopt(gameObject);
+
     private void OnEnable() => _all.Add(this);
     private void OnDisable() => _all.Remove(this);
 
@@ -45,6 +60,12 @@ public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
     /// True selama avatar disembunyikan (pemiliknya sedang di layar mati).
     public bool IsHidden => model != null && model.hidden;
 
+    /// Dipicu saat status ruang ganti avatar ini berubah.
+    public event Action FittingRoomChanged;
+
+    /// Status ruang ganti avatar ini. None kalau model belum ada.
+    public FittingRoomPresence FittingRoom => model != null ? (FittingRoomPresence)model.fittingRoom : FittingRoomPresence.None;
+
     /// Venue avatar ini sekarang. World (default) kalau model belum ada (mis. mode offline/DevScene).
     public VenueId Venue => model != null ? (VenueId)model.venue : VenueId.World;
 
@@ -58,18 +79,23 @@ public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
         {
             previousModel.venueDidChange -= OnVenueDidChange;
             previousModel.hiddenDidChange -= OnHiddenDidChange;
+            previousModel.fittingRoomDidChange -= OnFittingRoomDidChange;
         }
 
         if (currentModel != null)
         {
             currentModel.venueDidChange += OnVenueDidChange;
             currentModel.hiddenDidChange += OnHiddenDidChange;
+            currentModel.fittingRoomDidChange += OnFittingRoomDidChange;
             // Evaluasi awal dengan nilai yang sudah ada di model (penting untuk avatar yang sudah ada
             // di room saat kita bergabung).
             Raise((VenueId)currentModel.venue);
             HiddenChanged?.Invoke();
+            FittingRoomChanged?.Invoke();
         }
     }
+
+    private void OnFittingRoomDidChange(PlayerVenueModel m, int value) => FittingRoomChanged?.Invoke();
 
     private void OnVenueDidChange(PlayerVenueModel m, int value) => Raise((VenueId)value);
 
@@ -89,6 +115,14 @@ public class PlayerVenueSync : RealtimeComponent<PlayerVenueModel>
         if (model == null || !isOwnedLocallyInHierarchy || model.hidden == hidden)
             return;
         model.hidden = hidden;
+    }
+
+    /// Hanya avatar lokal: set status ruang ganti avatar ini di semua pemain (FittingRoomStation).
+    public void SetFittingRoom(FittingRoomPresence presence)
+    {
+        if (model == null || !isOwnedLocallyInHierarchy || model.fittingRoom == (int)presence)
+            return;
+        model.fittingRoom = (int)presence;
     }
 
     /// Hanya avatar lokal: set venue avatar ini. Dipanggil VenueTravelManager saat travel selesai (Phase 3).

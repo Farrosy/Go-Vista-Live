@@ -40,6 +40,19 @@ public static class PlayerCoins {
         Notify();
     }
 
+    /// Bayar sejumlah koin (mis. beli pakaian di OutfitShop, beli mobil di CarDealerService). false = saldo kurang,
+    /// saldo tidak berubah. Jumlah ≤ 0 = true. Progres ditandai dirty; 'saveNow' = false kalau pemanggil langsung
+    /// menyimpan perubahan lain dalam satu save.
+    public static bool TrySpend(int amount, bool saveNow = true) {
+        if (amount <= 0) return true;
+        if (Balance < amount) return false;
+        ProgressService.Current.coins = Balance - amount;
+        ProgressService.MarkDirty();
+        if (saveNow) _ = ProgressService.SaveAsync();
+        Notify();
+        return true;
+    }
+
     /// Memotong penalti mati dan mengembalikan jumlah yang benar-benar terpotong.
     public static int ApplyDeathPenalty() {
         int lost = CoinRules.DeathPenalty(Balance);

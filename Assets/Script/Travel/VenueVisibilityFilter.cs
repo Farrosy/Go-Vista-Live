@@ -7,7 +7,9 @@ using UnityEngine;
 ///
 /// Re-evaluasi saat: (a) venue avatar ini berubah, (b) venue pemain lokal berubah (VenueChanged),
 /// (c) avatar ini disembunyikan atau ditampilkan lagi (HiddenChanged),
-/// (d) tampilan custom berganti / avatar pemain lain masih menunggu bake (PlayerAppearanceSync.VisualChanged).
+/// (d) avatar ini masuk/keluar ruang ganti (FittingRoomChanged): di editor = tak terlihat + tembus,
+///     berjalan keluar bilik = terlihat tapi tembus. Hanya untuk pemain lain; avatar lokal diurus FittingRoomStation.
+/// (e) tampilan custom berganti / avatar pemain lain masih menunggu bake (PlayerAppearanceSync.VisualChanged).
 [RequireComponent(typeof(PlayerVenueSync))]
 public class VenueVisibilityFilter : MonoBehaviour
 {
@@ -36,6 +38,7 @@ public class VenueVisibilityFilter : MonoBehaviour
     {
         venueSync.VenueChanged += OnThisAvatarVenueChanged;
         venueSync.HiddenChanged += Reevaluate;
+        venueSync.FittingRoomChanged += Reevaluate;
         VenueTravelManager.VenueChanged += Reevaluate;
         if (appearance) appearance.VisualChanged += OnAppearanceChanged;
         applied = false;
@@ -46,6 +49,7 @@ public class VenueVisibilityFilter : MonoBehaviour
     {
         venueSync.VenueChanged -= OnThisAvatarVenueChanged;
         venueSync.HiddenChanged -= Reevaluate;
+        venueSync.FittingRoomChanged -= Reevaluate;
         VenueTravelManager.VenueChanged -= Reevaluate;
         if (appearance) appearance.VisualChanged -= OnAppearanceChanged;
     }
@@ -65,9 +69,10 @@ public class VenueVisibilityFilter : MonoBehaviour
         bool isLocal = venueSync.IsLocalAvatar;
         bool inSameVenue = isLocal || venueSync.Venue == VenueTravelManager.LocalVenue;
         bool waitingForBake = appearance && appearance.HideUntilReady;
-        bool visible = inSameVenue && !venueSync.IsHidden && !waitingForBake;
+        FittingRoomPresence fitting = isLocal ? FittingRoomPresence.None : venueSync.FittingRoom;
+        bool visible = inSameVenue && !venueSync.IsHidden && !waitingForBake && fitting != FittingRoomPresence.Hidden;
         // Jangan pernah matikan collider gerak avatar lokal.
-        bool collidable = isLocal || visible;
+        bool collidable = isLocal || (visible && fitting == FittingRoomPresence.None);
         Apply(visible, collidable);
     }
 

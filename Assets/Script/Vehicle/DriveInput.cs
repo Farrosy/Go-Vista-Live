@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Pusat input menyetir. UI (roda setir / tombol kiri-kanan / pedal) menulis ke sini, CarDriveController membaca.
-/// Di Editor dan PC, keyboard ikut dibaca: W/↑ gas, S/↓ rem/mundur, A/D/←/→ belok, Space rem.
+/// Di Editor dan build PC (untuk testing), keyboard ikut dibaca: J gas, K rem/mundur, A/D/←/→ belok,
+/// Space rem tangan (drift). Keluar mobil tetap lewat tombol di layar (klik mouse).
 ///
 /// Input dianggap nol selama PlayerInputHub mengunci gerak (menu pause, chat diketik, dialog, layar mati).
 /// </summary>
@@ -11,6 +12,7 @@ public static class DriveInput {
     public static float UiSteer { get; set; }
     public static bool UiGas { get; set; }
     public static bool UiBrake { get; set; }
+    public static bool UiHandbrake { get; set; }
 
     private static bool Locked {
         get {
@@ -19,12 +21,21 @@ public static class DriveInput {
         }
     }
 
+    private static bool Keyboard {
+        get {
+            PlayerInputHub hub = PlayerInputHub.Instance;
+            return hub != null && hub.UseKeyboard;
+        }
+    }
+
     public static float Steer {
         get {
             if (Locked) return 0f;
             float key = 0f;
-            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) key -= 1f;
-            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) key += 1f;
+            if (Keyboard) {
+                if (TestKeyboard.Held(TestKeyboard.Btn.A) || TestKeyboard.Held(TestKeyboard.Btn.Left)) key -= 1f;
+                if (TestKeyboard.Held(TestKeyboard.Btn.D) || TestKeyboard.Held(TestKeyboard.Btn.Right)) key += 1f;
+            }
             return Mathf.Clamp(UiSteer + key, -1f, 1f);
         }
     }
@@ -32,15 +43,22 @@ public static class DriveInput {
     public static float Gas {
         get {
             if (Locked) return 0f;
-            return UiGas || Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1f : 0f;
+            return UiGas || (Keyboard && TestKeyboard.Held(TestKeyboard.Btn.J)) ? 1f : 0f;
         }
     }
 
     public static float Brake {
         get {
             if (Locked) return 0f;
-            return UiBrake || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) ||
-                   Input.GetKey(KeyCode.Space) ? 1f : 0f;
+            return UiBrake || (Keyboard && TestKeyboard.Held(TestKeyboard.Btn.K)) ? 1f : 0f;
+        }
+    }
+
+    /// <summary>Rem tangan: roda belakang dikunci dan grip sampingnya dilonggarkan, jadi mobil bisa drift.</summary>
+    public static bool Handbrake {
+        get {
+            if (Locked) return false;
+            return UiHandbrake || (Keyboard && TestKeyboard.Held(TestKeyboard.Btn.Space));
         }
     }
 
@@ -49,6 +67,7 @@ public static class DriveInput {
         UiSteer = 0f;
         UiGas = false;
         UiBrake = false;
+        UiHandbrake = false;
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
