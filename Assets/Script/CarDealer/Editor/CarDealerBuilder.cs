@@ -13,7 +13,8 @@ using UnityEngine.UI;
 ///  1. Bangun Katalog, Gambar & Preview: border 9-slice sprite dealer, model preview (tanpa fisika/jaringan),
 ///     gambar statis kartu (render model), Resources/CarDealer/CarCatalog.asset, dan dialog Johnny.
 ///  2. Bangun Panel Dealer: Assets/Resources/UI/CarDealerPanel.prefab (panel + tutorial).
-///  3. Pasang Johnny di Pom Bensin: NPC_CarDealerNpc_Johhny di samping SpawnPointMobil (WorldScene harus terbuka).
+///  3. Pasang Johnny di Flamingo: NPC_CarDealerNpc_Johhny di samping parkiran SpawnPointsCarDealership (WorldScene
+///     harus terbuka). Kalau Johnny sudah ada di scene, posisinya tidak diubah (hanya prefab-nya yang diperbarui).
 /// Editan manual di prefab panel hilang kalau menu 2 dijalankan lagi.
 /// </summary>
 public static class CarDealerBuilder {
@@ -31,7 +32,7 @@ public static class CarDealerBuilder {
     private const string BoldFontPath = "Assets/Fonts/Fredoka-Bold SDF.asset";
     private const string MediumFontPath = "Assets/Fonts/Fredoka-Medium SDF.asset";
     private const string WorldScenePath = "Assets/Scenes/WorldScene.unity";
-    private const string SpawnMarkerName = "SpawnPointMobil";
+    private const string ParkingGroupName = "SpawnPointsCarDealership";
     private const string NpcObjectName = "NPC_Johnny_CarDealer";
 
     private const string IntroId = "johnny_intro";
@@ -299,7 +300,7 @@ public static class CarDealerBuilder {
         var portrait = AssetDatabase.LoadAssetAtPath<Sprite>(PortraitPath);
         Dialogue($"{DialogueFolder}/Johnny_Intro.asset", IntroId, voice, portrait,
                  "Halo, pendatang baru! Nama saya Johnny.",
-                 "Saya yang bertanggung jawab atas dealer mobil ini.",
+                 "Selamat datang di Flamingo, dealer mobil terbaik di kota ini!",
                  "Capek jalan kaki keliling kota? Tenang, di sini kamu bisa punya mobil sendiri! Biar saya tunjukkan caranya.");
         Dialogue($"{DialogueFolder}/Johnny_Greeting.asset", GreetingId, voice, portrait,
                  "Ketemu lagi! Mau lihat-lihat mobil?");
@@ -581,18 +582,13 @@ public static class CarDealerBuilder {
         return tutorial;
     }
 
-    // ================================================================ 3. NPC di pom bensin
+    // ================================================================ 3. NPC di dealer Flamingo
 
-    [MenuItem("Go Vista/Dealer Mobil/3. Pasang Johnny di Pom Bensin")]
+    [MenuItem("Go Vista/Dealer Mobil/3. Pasang Johnny di Flamingo")]
     public static void InstallNpc() {
         Scene world = SceneManager.GetSceneByPath(WorldScenePath);
         if (!world.isLoaded) {
             EditorUtility.DisplayDialog("Pasang Johnny", "Buka WorldScene dulu (boleh additive), lalu jalankan lagi.", "OK");
-            return;
-        }
-        GameObject marker = world.GetRootGameObjects().FirstOrDefault(g => g.name == SpawnMarkerName);
-        if (marker == null) {
-            Debug.LogError($"[Dealer] '{SpawnMarkerName}' tidak ada di WorldScene.");
             return;
         }
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(NpcPrefabPath);
@@ -600,15 +596,22 @@ public static class CarDealerBuilder {
             Debug.LogError($"[Dealer] {NpcPrefabPath} tidak ditemukan.");
             return;
         }
+
+        // Johnny bisa saja sudah dipindah manual ke bawah object lain: cari di seluruh hierarchy, bukan root saja.
+        GameObject npc = FindInScene(world, NpcObjectName);
+        GameObject parking = FindInScene(world, ParkingGroupName);
+        if (npc == null && parking == null) {
+            Debug.LogError($"[Dealer] '{ParkingGroupName}' tidak ada di WorldScene.");
+            return;
+        }
         ConfigureNpcPrefab(prefab);
 
-        GameObject npc = world.GetRootGameObjects().FirstOrDefault(g => g.name == NpcObjectName);
         if (npc == null) {
             npc = (GameObject)PrefabUtility.InstantiatePrefab(prefab, world);
             npc.name = NpcObjectName;
-            // Di samping parkiran (sisi -Z patokan), menghadap ke parkiran. Geser manual kalau kurang pas.
-            Vector3 side = -marker.transform.forward;
-            Vector3 position = marker.transform.position + side * (marker.transform.lossyScale.z * 0.5f + 1.5f);
+            // Di samping parkiran (sisi -Z grup), menghadap ke parkiran. Geser manual kalau kurang pas.
+            Vector3 side = -parking.transform.forward;
+            Vector3 position = parking.transform.position + side * 3f;
             npc.transform.SetPositionAndRotation(position, Quaternion.LookRotation(-side, Vector3.up));
             Undo.RegisterCreatedObjectUndo(npc, "Pasang Johnny");
         }
@@ -655,6 +658,13 @@ public static class CarDealerBuilder {
     }
 
     // ================================================================ Helper
+
+    private static GameObject FindInScene(Scene scene, string objectName) {
+        foreach (GameObject root in scene.GetRootGameObjects())
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+                if (t.name == objectName) return t.gameObject;
+        return null;
+    }
 
     private static void EnsureFolder(string path) {
         if (AssetDatabase.IsValidFolder(path)) return;
