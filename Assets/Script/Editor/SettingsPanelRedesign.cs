@@ -210,7 +210,7 @@ public static class SettingsPanelRedesign {
         }
         Place(Label("Settings Ping Title", row, "Tampilkan ping", 28, true, TextAnchor.MiddleLeft, Color.white)
                   .rectTransform, 104f, 16f, 480f, 38f);
-        Place(Label("Settings Ping Hint", row, "Kecepatan koneksi di pojok kiri atas", 22, false,
+        Place(Label("Settings Ping Hint", row, "Kecepatan koneksi di pojok kanan atas", 22, false,
                     TextAnchor.MiddleLeft, SubColor).rectTransform, 104f, 54f, 520f, 30f);
 
         RectTransform switchRect = Place(NewRect("Settings Ping Switch", row), Inner - 28f - switchWidth,
