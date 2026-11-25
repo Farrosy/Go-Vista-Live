@@ -46,6 +46,67 @@ placeholder (no scan in the interior scene). NPCs and cars pause their authority
 5. In WorldScene, at the facade: `EnterDoor` (Interactable(EnterBuilding) + DoorTravelPoint) and a `PlayerSpawnPoint` (World/front slot).
 6. Add the scene to Build Settings.
 
+## Barber camera reverted (2026-11-23)
+Owner decision: the clothing shop setup (normal third-person orbit) is the standard for **all** interiors. In
+`Interior_Barber` the `InteriorCameraZone` is now **disabled**, and every renderer override on the `barber` prefab
+instance was removed (only its name and position remain), so the roof and walls render again. The sections above that
+describe the fixed camera and the cutaway are kept for reference only.
+
+## Barber chair camera (2026-11-23, first pass, NOT play-tested)
+Owner decisions: the swing starts the moment "Duduk" is pressed and arrives early, so the avatar walks into the
+shot. Seated idle = **timed cuts** between shot A (front, from the mirror) and shot C (3/4 front), every 6 s, with the
+camera **locked**. The hair / facial hair editor = a **zoomed A**, locked. Standing up swings back along the **same arc**.
+- `ChairSeatCamera` (on `Barber Chair Seat`) implements `CameraOrbit.ICameraShot`: `CameraOrbit.SetShot`/`ClearShot`
+  hand it the normal orbit pose each frame; look input is ignored while it's set, and the FOV is restored on clear.
+- Arc = cylindrical coordinates around `Seat + 1.0 m` (yaw, flat radius, height). The radius closes in first (done by
+  70% of the swing) and is clamped against walls; the chair and mirror colliders (`ChairSeat.ChairColliders`) are
+  ignored, so shot A may sit inside the mirror unit (its back faces aren't drawn). If the camera starts roughly
+  behind the chair (>135° from A), the swing goes round the C side (window side), away from the avatar's walk-in path.
+- Shots are child transforms under `Barber Chair Seat/Camera Shots` (`Cam Front (A)`, `Cam Side (C)`, `Cam Editor`);
+  move them to re-frame. FOVs (60 / 60 / editor 38), swing 1.5 s, editor glide 0.6 s, hold 6 s are on the component.
+- The hair editor should call `GetComponent<ChairSeatCamera>().SetEditorShot(true/false)` on the chair.
+
+### Cleanup pass (2026-11-25, NOT play-tested)
+- **Idle shots move:** each shot moves for 5 s (`moveSeconds`, smoothstep), stops for 1.5 s (`stopSeconds`), then cuts.
+  A moves from `Cam Front (A)` to `Cam Front (A) End` (a 12 cm push-in plus a 20 cm slide to the room side).
+  C moves from `Cam Side (C) Start` to `Cam Side (C)` (a ~15° arc in toward the face that ends on the original C).
+  The first cut waits until the avatar is seated. The cycle pauses while the editor is open and restarts at A afterwards.
+- **Chair moved back 15 cm** (only `SM_Prop_Barber_Chair_01 (2)`, a prefab position override). Stepping sideways along
+  the footrest, the hands span ±0.22 m, but the old seat-to-drawer gap was ~0.39 m, so `SeatIK` pushed the front hand
+  ~13 cm into the hip. The builder now **measures** the drawer front from renderer bounds (the mirror's collider
+  doesn't cover the drawers): drawers 0.89 → hand window up to 0.30, Stand Spot 0.58 (centre of the hand window).
+  Sampled standing pose: hands now only 2 cm outside the window.
+- **Ring** (`Ring` + 12 `Glow` renderers, `ChairSeat.hideWhileBusy`) is hidden from pressing Duduk until the avatar is
+  back on the floor.
+- **Third idle shot D** (owner, 2026-11-25): a 3/4 front from the room side (the original screenshot 165621). The
+  shots are now a list `ChairSeatCamera.shots` (From → To + FOV), cut in order **A → C → D → A**. D arcs ~15° in
+  toward the face (`Cam Room (D) Start` → `Cam Room (D)`). The swing-in/out only goes round `swingVia` (C, the window
+  side) when the destination is frontal (A / editor). Leaving from D takes the short way via the room side (122°).
+- **"Berdiri" floating label removed** (the Stand Up `Interactable` has no prompt prefab): the close shots clipped
+  it at the top of the frame. The HUD Interact button still shows the stand icon.
+
+## Barber hair editor (2026-11-25, offline Play-tested)
+Owner picks: entry = extra HUD button **"Gaya Rambut"** next to the Interact (Berdiri) button while seated; scope =
+**hair (Depan/Belakang) + beard (Jenggot) + their colours**; **free**; preview = **seated in the chair**. Berdiri is
+not inside the editor: close the editor first.
+- `BarberEditorStation` (on `Barber Chair Seat`, added by Pasang Kursi Barber) shows `HudActionButton` on
+  `ChairSeat.Seated`. Open: lock input + hide HUD → `ChairSeatCamera.SetEditorShot(true)` → wait for the glide → fade →
+  `CharacterSceneLoader.OpenFittingRoom(view with WorldEditorKind.Barber)` → hide the real avatar, main camera mask 0 →
+  reveal once the preview is built. Close (KEMBALI / Back, after SIMPAN or discard) reverses it and glides back to A;
+  the player stays seated. Interior unloaded mid-edit → everything restored at once (`OnDisable`).
+- `HudActionButton` (Assets/Script/UI) clones the Interact button's look at runtime, follows its position (left of it,
+  right if it doesn't fit) and hides/dims with it.
+- CharacterScene: `EditorCategories.Barber` (Rambut + Jenggot), title BARBERSHOP, no Badan/Wajah toggle;
+  `CharacterPreviewStage.EnterWorldMode(..., seatedPose: true)` holds `ChairSitIdle` + `SeatIK`, no face zoom; drag
+  orbits the camera (below). Subject = the real avatar's model pose, view = `Cam Editor` + `editorFov`, so the preview matches within ~3 cm.
+- Camera: drag on the character area orbits the preview camera around the head (vertical axis through a pivot on the
+  `Cam Editor` view axis at head depth), up to +/-110 deg, eased with SmoothDamp (`seatOrbitSmoothTime` 0.28 s), stays
+  where it is left. Pulled in (min 0.5 m) if a wall/prop is in the way; colliders the editor shot already looks
+  through (mirror counter, chair) are ignored. Tunables on `CharacterPreviewStage` ("Kursi barber" header).
+- SIMPAN = fitting-room path (template → new slot, full → overwrite choice, `Activate` + `PlayerAppearanceSync.RefreshLocal`).
+- Untested: a 2nd Normcore client seeing the new hair; the real avatar re-baking (needs a room). A hat hides the front hair
+  and can't be taken off here.
+
 ## Clothing Shop (v1, 2026-11-19)
 - Door: `ClothingShop_Entrance` in WorldScene, in front of `supermarket_001` (x ≈ 235.1, z ≈ 259.8, facing +x).
   `EnterDoor` → `TravelTo(ClothingShop, InteriorEntrance)`; leaving the shop spawns you at `Spawn_ClothingShopFront`.
@@ -80,4 +141,4 @@ code-drawn placeholder art: replace the PNGs to restyle.
 - [ ] **Exit cost:** leaving reloads the whole WorldScene. If that's too slow on mobile, keep WorldScene loaded for
       interiors: skip the unload in `VenueTravelManager` when the target is an interior, and turn off World's sun/audio while inside.
       That's why the interior already sits at y = −200.
-- [ ] Optional: a minimap blip at the barber door; a dither reveal when the fade lifts; barber interaction (haircut → customization).
+- [ ] Optional: a minimap blip at the barber door; a dither reveal when the fade lifts. (Haircut → customization: built, see Barber hair editor.)

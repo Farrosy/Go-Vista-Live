@@ -15,4 +15,6 @@ public partial class PlayerAnimSyncModel {
     [RealtimeProperty(5, true, true)] private bool _knockedDownDead;
     // True selama animasi tenggelam (mati karena O₂ habis) sampai pemain bangkit lagi.
     [RealtimeProperty(6, true, true)] private bool _drowning;
+    // True selama duduk di kursi (SeatOccupant). Pemain lain memutar animasi duduk/berdiri dari nilai ini.
+    [RealtimeProperty(7, true, true)] private bool _chairSeated;
 }

@@ -158,18 +158,7 @@ public static class FittingRoomBuilder {
         viewpoint.SetPositionAndRotation(station.transform.position + towardCamera * CameraDistance + Vector3.up * CameraHeight,
                                          Quaternion.LookRotation(booth.Inward) * Quaternion.Euler(CameraPitch, 0f, 0f));
 
-        MeshRenderer ring = Panel(station.transform, "Ring", ringMaterial, new Vector3(0f, 0.02f, 0f),
-                                  Quaternion.Euler(90f, 0f, 0f), new Vector3(RingSize, RingSize, 1f));
-        var glows = new MeshRenderer[GlowSegments];
-        float radius = RingSize * 0.5f;
-        float width = 2f * radius * Mathf.Tan(Mathf.PI / GlowSegments) + 0.01f;
-        for (int i = 0; i < GlowSegments; i++) {
-            float angle = 360f * i / GlowSegments;
-            Quaternion around = Quaternion.Euler(0f, angle, 0f);
-            glows[i] = Panel(station.transform, "Glow " + (i + 1), glowMaterial,
-                             around * new Vector3(0f, 0f, radius) + Vector3.up * GlowHeight * 0.5f, around,
-                             new Vector3(width, GlowHeight, 1f));
-        }
+        MeshRenderer[] glows = AddFloorRing(station, RingSize, ringMaterial, glowMaterial);
 
         var trigger = station.AddComponent<BoxCollider>();
         trigger.isTrigger = true;
@@ -183,14 +172,6 @@ public static class FittingRoomBuilder {
         io.FindProperty("promptPrefab").objectReferenceValue = prompt;
         io.FindProperty("promptOffset").vector3Value = new Vector3(0f, PromptHeight, 0f);
         io.ApplyModifiedPropertiesWithoutUndo();
-
-        var marker = station.AddComponent<BuildingEntranceMarker>();
-        var mo = new SerializedObject(marker);
-        mo.FindProperty("doormat").objectReferenceValue = ring;
-        SerializedProperty glowList = mo.FindProperty("glow");
-        glowList.arraySize = glows.Length;
-        for (int i = 0; i < glows.Length; i++) glowList.GetArrayElementAtIndex(i).objectReferenceValue = glows[i];
-        mo.ApplyModifiedPropertiesWithoutUndo();
 
         var fitting = station.AddComponent<FittingRoomStation>();
         var so = new SerializedObject(fitting);
@@ -210,6 +191,34 @@ public static class FittingRoomBuilder {
         var ho = new SerializedObject(hint);
         ho.FindProperty("arrowMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>(HintArrowMaterialPath);
         ho.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>
+    /// Lingkaran cahaya teal di lantai (cincin + kolom cahaya pendek) dengan BuildingEntranceMarker, berpusat di
+    /// <paramref name="station"/>. Dipakai juga oleh kursi barber (BarberChairBuilder). Mengembalikan kolom cahaya.
+    /// </summary>
+    internal static MeshRenderer[] AddFloorRing(GameObject station, float ringSize, Material ringMaterial, Material glowMaterial) {
+        MeshRenderer ring = Panel(station.transform, "Ring", ringMaterial, new Vector3(0f, 0.02f, 0f),
+                                  Quaternion.Euler(90f, 0f, 0f), new Vector3(ringSize, ringSize, 1f));
+        var glows = new MeshRenderer[GlowSegments];
+        float radius = ringSize * 0.5f;
+        float width = 2f * radius * Mathf.Tan(Mathf.PI / GlowSegments) + 0.01f;
+        for (int i = 0; i < GlowSegments; i++) {
+            float angle = 360f * i / GlowSegments;
+            Quaternion around = Quaternion.Euler(0f, angle, 0f);
+            glows[i] = Panel(station.transform, "Glow " + (i + 1), glowMaterial,
+                             around * new Vector3(0f, 0f, radius) + Vector3.up * GlowHeight * 0.5f, around,
+                             new Vector3(width, GlowHeight, 1f));
+        }
+
+        var marker = station.AddComponent<BuildingEntranceMarker>();
+        var mo = new SerializedObject(marker);
+        mo.FindProperty("doormat").objectReferenceValue = ring;
+        SerializedProperty glowList = mo.FindProperty("glow");
+        glowList.arraySize = glows.Length;
+        for (int i = 0; i < glows.Length; i++) glowList.GetArrayElementAtIndex(i).objectReferenceValue = glows[i];
+        mo.ApplyModifiedPropertiesWithoutUndo();
+        return glows;
     }
 
     private static MeshRenderer Panel(Transform parent, string name, Material material, Vector3 position,

@@ -11,6 +11,7 @@ public class PlayerAnimSync : RealtimeComponent<PlayerAnimSyncModel>
     private const float SpeedEpsilon = 0.01f;
 
     private PlayerController controller;
+    private SeatOccupant seat;   // ditambah saat pemain lokal pertama kali duduk
     // Avatar pemain lain: kapan mulai rebahan karena tertabrak sampai mati, untuk animasi masuk ke tanah.
     private float remoteDeadSince = float.NegativeInfinity;
 
@@ -45,6 +46,9 @@ public class PlayerAnimSync : RealtimeComponent<PlayerAnimSyncModel>
             currentModel.drowningDidChange += OnDrowningChanged;
             // Masuk room saat pemain ini sudah rebahan mati: langsung tampil sudah di dalam tanah.
             remoteDeadSince = float.NegativeInfinity;
+            // Masuk room saat pemain ini sudah duduk: langsung tampil duduk, tanpa animasi duduk.
+            if (!isOwnedLocallyInHierarchy && currentModel.chairSeated)
+                SeatOccupant.ApplyRemote(controller.Animator, true, snap: true);
         }
     }
 
@@ -61,10 +65,14 @@ public class PlayerAnimSync : RealtimeComponent<PlayerAnimSyncModel>
             if (model.knockedDownDead != dead) model.knockedDownDead = dead;
             bool drowning = controller.IsDrowning;
             if (model.drowning != drowning) model.drowning = drowning;
+            if (!seat && controller.IsSeated) seat = GetComponent<SeatOccupant>();
+            bool seated = seat && seat.WantsSeated;
+            if (model.chairSeated != seated) model.chairSeated = seated;
         }
         else
         {
             controller.ApplyLocomotion(model.speed, model.grounded); // pengali langkah sama dengan pemiliknya
+            SeatOccupant.ApplyRemote(controller.Animator, model.chairSeated, snap: false);
         }
     }
 

@@ -108,6 +108,18 @@ public static class EditorCategories {
         Get("Dalaman"),
     };
 
+    /// <summary>
+    /// Tab editor BARBERSHOP (duduk di kursi barber): hanya rambut (depan, belakang) dan jenggot, plus bagian
+    /// warnanya. Jenggot khusus cowok lewat GenderRules (cewek: item abu-abu + toast). Kamera tetap (bidikan kursi),
+    /// jadi tidak ada zoom Wajah (FocusFace false).
+    /// </summary>
+    public static readonly IReadOnlyList<EditorCategory> Barber = new[] {
+        new EditorCategory("Rambut", "icon-hair", EditorCategoryKind.Outfits, false,
+                           new EditorSubTab("Depan", "HairFront"), new EditorSubTab("Belakang", "HairBack")),
+        new EditorCategory("Jenggot", "icon-face", EditorCategoryKind.Outfits, false,
+                           new EditorSubTab("Jenggot", "LowerFace")),
+    };
+
     /// <summary>Indeks kategori berlabel <paramref name="label"/> di <paramref name="categories"/>, atau 0.</summary>
     public static int IndexOf(IReadOnlyList<EditorCategory> categories, string label) {
         for (int i = 0; i < categories.Count; i++) {
