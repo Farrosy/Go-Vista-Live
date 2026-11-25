@@ -3,7 +3,8 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// Chip ping di kanan koin (ikon WiFi 4 lapis + "45 ms") dan peringatan "Koneksi tidak stabil" di bawahnya.
+/// Chip ping di pojok kanan atas, kiri tombol pause (ikon WiFi 4 lapis + "45 ms"), dan peringatan
+/// "Koneksi tidak stabil" di kirinya, sebaris (di bawah chip ada tombol Quest/Hadiah).
 /// Sprite di Assets/GoVista_HUD_Assets/Ping (dari desain 2026-11-25), ikut dipaket ke sprite atlas HUD.
 public static partial class GameHudBuilder {
     private const string PingFolder = "Ping/";
@@ -11,7 +12,7 @@ public static partial class GameHudBuilder {
     private const float PingIconLeft = 12f;
     private const float PingWarningWidth = 340f;
     private const float PingWarningHeight = 78f;
-    private const float PingWarningGap = 10f;
+    private const float PingWarningGap = 12f;
     private const float PingWarningIconSize = 52f;
     // pill_ping 220x64: ujung bulat (radius 32) tidak ikut melar.
     private static readonly Vector4 PingPillBorder = new Vector4(32f, 0f, 32f, 0f);
@@ -38,11 +39,17 @@ public static partial class GameHudBuilder {
     }
 
     private static void BuildPing(RectTransform safeArea, Fonts fonts) {
-        RectTransform root = TopLeft(NewRect("Ping", safeArea), HudLayout.PingLeft, HudLayout.PingTop,
-            PingWarningWidth, HudLayout.PingHeight + PingWarningGap + PingWarningHeight);
+        // Root menempel kanan atas: chip di ujung kanan, peringatan di kirinya.
+        float rootWidth = PingWarningWidth + PingWarningGap + HudLayout.PingWidth;
+        float rootTop = HudLayout.PauseButtonCenterY - PingWarningHeight / 2f;
+        RectTransform root = NewRect("Ping", safeArea);
+        root.anchorMin = root.anchorMax = root.pivot = new Vector2(1f, 1f);
+        root.anchoredPosition = new Vector2(-HudLayout.PingRight, -rootTop);
+        root.sizeDelta = new Vector2(rootWidth, PingWarningHeight);
 
         Image pill = SlicedImage("Ping Chip", root, PingFolder + "pill_ping.png");
-        TopLeft(pill.rectTransform, 0f, 0f, HudLayout.PingWidth, HudLayout.PingHeight);
+        TopLeft(pill.rectTransform, PingWarningWidth + PingWarningGap, HudLayout.PingTop - rootTop,
+            HudLayout.PingWidth, HudLayout.PingHeight);
         float iconTop = (HudLayout.PingHeight - PingIconSize) / 2f;
         var bars = new Image[4];
         for (int i = 0; i < bars.Length; i++) {
@@ -65,9 +72,10 @@ public static partial class GameHudBuilder {
     private static CanvasGroup BuildPingWarning(RectTransform root, Fonts fonts) {
         Image pill = SlicedImage("Ping Warning", root, "Panels/pill_toast.png");
         RectTransform rect = pill.rectTransform;
-        TopLeft(rect, 0f, HudLayout.PingHeight + PingWarningGap, PingWarningWidth, PingWarningHeight);
-        // Muncul dari kiri atas (dekat chip ping).
-        rect.pivot = new Vector2(0f, 1f);
+        TopLeft(rect, 0f, 0f, PingWarningWidth, PingWarningHeight);
+        // Muncul dari sisi kanan (dekat chip ping).
+        rect.pivot = new Vector2(1f, 0.5f);
+        rect.anchoredPosition = new Vector2(PingWarningWidth, -PingWarningHeight / 2f);
         var group = pill.gameObject.AddComponent<CanvasGroup>();
         group.interactable = false;
         group.blocksRaycasts = false;
