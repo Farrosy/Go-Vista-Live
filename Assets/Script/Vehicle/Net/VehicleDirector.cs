@@ -11,11 +11,11 @@ public enum CarSpawnResult {
     Offline,
     /// Pemain sedang di venue lain (mobil hanya ada di World).
     NotInWorld,
-    /// Patokan parkiran (SpawnPointMobil) belum dimuat / tidak ada.
+    /// Patokan parkiran (SpawnPointMobil*) belum dimuat / tidak ada.
     NoParking,
     /// Mobil lama pemain sedang dinaiki orang, jadi tidak bisa dipindah.
     OldCarInUse,
-    /// Parkiran terhalang mobil/pemain lain.
+    /// Semua slot parkiran terhalang mobil/pemain lain.
     ParkingBlocked,
     Failed,
 }
@@ -24,8 +24,10 @@ public enum CarSpawnResult {
 /// Spawner mobil pemain. Pasang di object di MainMultiplayerScene bersama RealtimeView.
 ///
 /// Mobil di-spawn atas permintaan pemain lewat dealer (CarDealerPanel > Spawn): SATU mobil per pemain. Spawn lagi =
-/// mobil lama pemain itu dihapus, lalu mobil baru muncul di parkiran (patokan SpawnPointMobil di WorldScene,
-/// menempel ke tanah, menghadap sumbu X lokal patokan). Pemilik dicatat di CarSyncModel.ownerClient.
+/// mobil lama pemain itu dihapus, lalu mobil baru muncul di parkiran depan dealer Flamingo: slot KOSONG PERTAMA di
+/// antara anak 'SpawnPointsCarDealership' yang namanya diawali 'SpawnPointMobil' (urut nomor di nama, lalu urutan
+/// hierarchy). Mobil menempel ke tanah dan menghadap sumbu X lokal patokan. Pemilik dicatat di CarSyncModel.ownerClient.
+/// Di layar pemilik, mobil yang baru di-spawn diberi panah penanda (OwnCarArrow).
 ///
 /// Mobil tidak bisa ditaruh langsung di WorldScene, karena WorldScene di-unload saat pemain pindah venue. Jadi
 /// mobil di-spawn lewat Realtime.Instantiate lalu dipindah ke MainMultiplayerScene (pola sama dengan NpcDirector).
@@ -35,7 +37,9 @@ public enum CarSpawnResult {
 /// </summary>
 [RequireComponent(typeof(RealtimeView))]
 public class VehicleDirector : RealtimeComponent<VehicleDirectorModel> {
-    [Tooltip("Nama object patokan posisi spawn (parkiran depan dealer) di WorldScene.")]
+    [Tooltip("Nama object induk semua slot parkiran (depan dealer Flamingo) di WorldScene.")]
+    [SerializeField] private string parkingGroupName = "SpawnPointsCarDealership";
+    [Tooltip("Awalan nama patokan slot parkiran (mis. SpawnPointMobil1, SpawnPointMobil2, ...).")]
     [SerializeField] private string spawnMarkerName = "SpawnPointMobil";
     [Tooltip("Ukuran kotak yang harus kosong di parkiran sebelum spawn (meter, lebar x tinggi x panjang mobil).")]
     [SerializeField] private Vector3 parkingClearance = new Vector3(2.2f, 1.6f, 4.6f);
@@ -50,6 +54,7 @@ public class VehicleDirector : RealtimeComponent<VehicleDirectorModel> {
     private Coroutine _loop;
     private readonly Dictionary<CarSync, float> _ownerMissingSince = new Dictionary<CarSync, float>();
     private readonly List<CarSync> _scratch = new List<CarSync>();
+    private readonly List<Transform> _slots = new List<Transform>();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() => Instance = null;
@@ -68,25 +73,61 @@ public class VehicleDirector : RealtimeComponent<VehicleDirectorModel> {
 
     private bool Connected => _realtime != null && _realtime.connected && _realtime.clientID >= 0;
 
-    /// <summary>Posisi parkiran (untuk tutorial/kamera). False kalau WorldScene belum dimuat.</summary>
+    /// <summary>Posisi slot parkiran pertama (untuk tutorial/kamera). False kalau WorldScene belum dimuat.</summary>
     public bool TryGetParking(out Vector3 position, out Quaternion rotation) {
-        GameObject marker = GameObject.Find(spawnMarkerName);
-        if (!marker) {
+        CollectSlots();
+        if (_slots.Count == 0) {
             position = default;
             rotation = default;
             return false;
         }
-        position = GroundBelow(marker.transform);
-        Vector3 forward = Vector3.ProjectOnPlane(marker.transform.right, Vector3.up).normalized;
-        rotation = Quaternion.LookRotation(forward, Vector3.up);
+        SlotPose(_slots[0], out position, out rotation);
         return true;
     }
 
-    /// <summary>Spawn mobil milik pemain lokal di parkiran. Mobil lama pemain (kalau ada) dihapus dulu.</summary>
+    /// <summary>Patokan slot parkiran berurutan: SpawnPointMobil1, 1 (1), 2, ... (nomor di nama, lalu urutan hierarchy).</summary>
+    private void CollectSlots() {
+        _slots.Clear();
+        GameObject group = GameObject.Find(parkingGroupName);
+        if (group) {
+            foreach (Transform child in group.GetComponentsInChildren<Transform>()) {
+                if (child != group.transform && child.name.StartsWith(spawnMarkerName, System.StringComparison.Ordinal))
+                    _slots.Add(child);
+            }
+            // Sort stabil (List.Sort tidak stabil): urutan hierarchy dipakai sebagai pemecah seri.
+            var order = new Dictionary<Transform, int>();
+            for (int i = 0; i < _slots.Count; i++) order[_slots[i]] = i;
+            _slots.Sort((a, b) => {
+                int byNumber = SlotNumber(a.name).CompareTo(SlotNumber(b.name));
+                return byNumber != 0 ? byNumber : order[a].CompareTo(order[b]);
+            });
+            return;
+        }
+        // Cadangan: satu patokan lama bernama persis SpawnPointMobil.
+        GameObject single = GameObject.Find(spawnMarkerName);
+        if (single) _slots.Add(single.transform);
+    }
+
+    /// <summary>Angka tepat setelah awalan nama (SpawnPointMobil12 -> 12). Tanpa angka = paling akhir.</summary>
+    private int SlotNumber(string slotName) {
+        int value = 0, digits = 0;
+        for (int i = spawnMarkerName.Length; i < slotName.Length && char.IsDigit(slotName[i]) && digits < 6; i++, digits++)
+            value = value * 10 + (slotName[i] - '0');
+        return digits == 0 ? int.MaxValue : value;
+    }
+
+    private static void SlotPose(Transform marker, out Vector3 position, out Quaternion rotation) {
+        position = GroundBelow(marker);
+        Vector3 forward = Vector3.ProjectOnPlane(marker.right, Vector3.up).normalized;
+        rotation = Quaternion.LookRotation(forward, Vector3.up);
+    }
+
+    /// <summary>Spawn mobil milik pemain lokal di slot parkiran kosong pertama. Mobil lama pemain (kalau ada) dihapus dulu.</summary>
     public CarSpawnResult SpawnLocalCar(string prefabName) {
         if (!Connected) return CarSpawnResult.Offline;
         if (VenueTravelManager.LocalVenue != VenueId.World) return CarSpawnResult.NotInWorld;
-        if (!TryGetParking(out Vector3 position, out Quaternion rotation)) return CarSpawnResult.NoParking;
+        CollectSlots();
+        if (_slots.Count == 0) return CarSpawnResult.NoParking;
 
         int me = _realtime.clientID + 1;
         _scratch.Clear();
@@ -95,7 +136,17 @@ public class VehicleDirector : RealtimeComponent<VehicleDirectorModel> {
         foreach (CarSync old in _scratch)
             if (!old.IsUnoccupied) return CarSpawnResult.OldCarInUse;
 
-        if (IsParkingBlocked(position, rotation, _scratch)) return CarSpawnResult.ParkingBlocked;
+        // Mobil lama sendiri (yang akan dihapus) tidak dihitung menghalangi, jadi slotnya boleh dipakai lagi.
+        bool found = false;
+        Vector3 position = default;
+        Quaternion rotation = default;
+        foreach (Transform slot in _slots) {
+            SlotPose(slot, out position, out rotation);
+            if (IsParkingBlocked(position, rotation, _scratch)) continue;
+            found = true;
+            break;
+        }
+        if (!found) return CarSpawnResult.ParkingBlocked;
 
         foreach (CarSync old in _scratch) Realtime.Destroy(old.gameObject);
 
@@ -113,6 +164,8 @@ public class VehicleDirector : RealtimeComponent<VehicleDirectorModel> {
         }
         if (spawned.scene != gameObject.scene) SceneManager.MoveGameObjectToScene(spawned, gameObject.scene);
         if (spawned.TryGetComponent(out CarSync sync)) sync.InitSpawn(position, rotation, me);
+        // Panah penanda hanya dibuat di client ini (pemilik), jadi pemain lain tidak melihatnya.
+        OwnCarArrow.Attach(spawned);
         Debug.Log($"[VehicleDirector] {prefabName} milik client {me - 1} di-spawn di {position}.", this);
         return CarSpawnResult.Spawned;
     }
