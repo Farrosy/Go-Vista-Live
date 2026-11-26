@@ -16,6 +16,8 @@ using UnityEngine.SceneManagement;
 ///     (celah antara dudukan dan meja cermin), titik duduk, garis pijakan kaki, dan Interactable "Berdiri".
 ///  3. ChairSeatCamera + "Camera Shots" (bidikan A depan, C 3/4 depan, editor rambut) di bawah station.
 ///     BarberEditorStation (tombol HUD "Gaya Rambut" → editor rambut + jenggot selama duduk).
+///  4. Kursi terkunci sampai perkenalan Bang Dodi (dialog dodi_intro) selesai + FittingRoomHint (panah di atas
+///     lingkaran setelah perkenalan, sampai pertama kali diinjak).
 /// Ukuran kursi (SM_Prop_Barber_Chair_01, meter, sumbu maju = ke cermin): dudukan atas 0,69, depan dudukan 0,35,
 /// sandaran -0,32, sandaran tangan sampai 0,30; pijakan kaki 0,40..0,80 maju, ±0,30 samping, atas 0,215;
 /// meja cermin mulai 0,84.
@@ -35,6 +37,9 @@ public static class BarberChairBuilder {
     private const string StandActionPath = "Assets/NPCAction/StandUp.asset";
     private const string SitIconSource = "Assets/NPCAction/Sit.asset";
     private const string StandIconPath = "Assets/Resources/UI/Icons/icon-logout.png";
+    private const string IntroDialogueId = "dodi_intro";
+    private const string HintTutorialId = "barber-chair-hint";
+    private const string HintArrowMaterialPath = "Assets/Art/Entrance/FittingHintArrow.mat";
 
     // Tata letak relatif kursi (meter). forward = arah hadap kursi (ke cermin), side = sisi kursi yang menghadap ruangan.
     private const float SeatBack = -0.06f;      // posisi duduk akhir (setelah bergeser mundur dari depan dudukan)
@@ -232,6 +237,10 @@ public static class BarberChairBuilder {
         for (int i = 0; i < ringRenderers.Count; i++) hideList.GetArrayElementAtIndex(i).objectReferenceValue = ringRenderers[i];
         so.FindProperty("path").arraySize = 0;
         so.FindProperty("standUp").objectReferenceValue = standInteractable;
+        // Terkunci sampai perkenalan Bang Dodi (NPC_Dodi di meja kasir) selesai, seperti ruang ganti dan Mira.
+        so.FindProperty("requiredDialogueId").stringValue = IntroDialogueId;
+        so.FindProperty("lockedTitle").stringValue = "Kursi cukur belum bisa dipakai";
+        so.FindProperty("lockedDetail").stringValue = "Ngobrol dulu dengan Bang Dodi di kasir, ya!";
         // Kursi + meja cermin di depannya: avatar masuk ke celah di antaranya. Lantai tidak (avatar tetap menapak).
         Vector3 gap = standSpot.position + Vector3.up * 0.6f;
         Collider[] colliders = chair.GetComponentsInChildren<Collider>(true)
@@ -247,6 +256,13 @@ public static class BarberChairBuilder {
         AddSeatCamera(chairSeat, forward, side);
         // Tombol HUD "Gaya Rambut" + editor rambut/jenggot selama duduk.
         if (!station.GetComponent<BarberEditorStation>()) station.AddComponent<BarberEditorStation>();
+        // Petunjuk tutorial setelah perkenalan Bang Dodi: sorot lingkaran + panah sampai pertama kali diinjak.
+        var hint = station.AddComponent<FittingRoomHint>();
+        var ho = new SerializedObject(hint);
+        ho.FindProperty("tutorialId").stringValue = HintTutorialId;
+        ho.FindProperty("afterDialogueId").stringValue = IntroDialogueId;
+        ho.FindProperty("arrowMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>(HintArrowMaterialPath);
+        ho.ApplyModifiedPropertiesWithoutUndo();
 
         EditorSceneManager.MarkSceneDirty(scene);
         AssetDatabase.SaveAssets();

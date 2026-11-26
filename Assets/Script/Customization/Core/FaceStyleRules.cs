@@ -29,6 +29,11 @@ public static class FaceStyleRules {
         EyesType, PupilType, "EyeShine", "EyeBrows", "EyeLashes", "MakeUpLips", "MakeUpCheeks", "MakeUpEyes", "FaceDetails"
     };
 
+    /// Rambut ikut aturan gaya kepala HANYA lewat requiredTags di prefab (2026-11-25, cek visual 25 rambut × 4
+    /// template): HairFront_HangingDreads, HairBack_Flare, HairBack_LongDreads = "Stylized" karena di kepala Anime
+    /// mata/alis tembus ke dreads dan cambang tenggelam ke pipi. Rambut lain cocok di dua gaya kepala.
+    private static readonly HashSet<string> HairTypes = new HashSet<string> { "HairFront", "HairBack" };
+
     /// <summary>Alis &amp; bulu mata hanya ada versi anime; dikembalikan saat kembali ke kepala anime.</summary>
     public static readonly IReadOnlyList<string> RestorableTypes = new[] { "EyeBrows", "EyeLashes" };
 
@@ -37,6 +42,7 @@ public static class FaceStyleRules {
     /// memakai `tags`). Pengecualian: pupil Basic/Sharp juga cocok di mata anime (dicek visual), Round tetap anime.
     /// </summary>
     public static FaceStyle RequiredStyle(string outfitType, IEnumerable<string> requiredTags, IEnumerable<string> tags) {
+        if (HairTypes.Contains(outfitType ?? "")) return StyleOf(requiredTags);
         if (!FaceTypes.Contains(outfitType ?? "")) return FaceStyle.Any;
         FaceStyle style = StyleOf(requiredTags);
         if (style == FaceStyle.Any) style = StyleOf(tags);
@@ -71,7 +77,8 @@ public static class FaceStyleRules {
         result = WithDefault(result, defaultRecord(animeHead ? AnimePupil : BasicPupil));
         foreach (OutfitRecord worn in result.outfits.ToList()) {
             string type = RecordEdits.TypeOf(worn?.path);
-            if (FaceTypes.Contains(type) && !fits(worn.path)) result = RecordEdits.WithoutOutfit(result, type);
+            if ((FaceTypes.Contains(type) || HairTypes.Contains(type)) && !fits(worn.path))
+                result = RecordEdits.WithoutOutfit(result, type);
         }
         if (!animeHead || restore == null) return result;
         foreach (string type in RestorableTypes) {

@@ -55,6 +55,12 @@ public sealed class ChairSeat : MonoBehaviour {
     [Tooltip("Lingkaran cahaya di lantai: disembunyikan dari tekan Duduk sampai avatar kembali di lantai.")]
     [SerializeField] private Renderer[] hideWhileBusy = new Renderer[0];
 
+    [Header("Kunci tutorial")]
+    [Tooltip("Kursi baru bisa diduduki setelah dialog ini selesai (Dialogue Id perkenalan NPC). Kosong = selalu bisa.")]
+    [SerializeField] private string requiredDialogueId = "";
+    [SerializeField] private string lockedTitle = "Kursi belum bisa dipakai";
+    [SerializeField] private string lockedDetail = "Ngobrol dulu dengan penjaga toko, ya!";
+
     /// Pemain lokal menekan "Duduk" (avatar mulai berjalan ke kursi).
     public event Action SitStarted;
     /// Avatar lokal sudah duduk diam (mis. buka editor rambut di sini).
@@ -124,12 +130,20 @@ public sealed class ChairSeat : MonoBehaviour {
 
     // ---------------------------------------------------------------- Duduk
 
+    /// Progres per akun dan hanya dicek di perangkat ini, jadi pemain lain tidak terpengaruh.
+    private bool IsUnlocked => string.IsNullOrEmpty(requiredDialogueId) ||
+                               (ProgressService.IsLoaded && ProgressService.IsDialogueCompleted(requiredDialogueId));
+
     private void Sit() {
         PlayerController local = PlayerController.Local;
         if (_phase != Phase.Idle || !seat || !standSpot || !entry || !local || local.InVehicle || local.IsSeated ||
             local.IsKnockedDown || local.IsFrozen)
             return;
         if (!SeatOccupant.HasSeatedParam(local.Animator)) return;
+        if (!IsUnlocked) {
+            QuestToastView.ShowMessage(lockedTitle, lockedDetail);
+            return;
+        }
         _player = local;
         _occupant = local.GetComponent<SeatOccupant>();
         if (!_occupant) _occupant = local.gameObject.AddComponent<SeatOccupant>();

@@ -270,6 +270,100 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 2.4, z: 4.4}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &153774005
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 153774006}
+  m_Layer: 0
+  m_Name: NPC
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &153774006
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 153774005}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 191339309}
+  m_Father: {fileID: 1377415183}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &191339308
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 153774006}
+    m_Modifications:
+    - target: {fileID: 774945287154304117, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_Name
+      value: NPC_Dodi
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -2.58
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 1.88
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.13052626
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.9914449
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+--- !u!4 &191339309 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6108634685909474818, guid: 869d04385073dbc4cbebf3dbe8bb8a42, type: 3}
+  m_PrefabInstance: {fileID: 191339308}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &268612913
 GameObject:
   m_ObjectHideFlags: 0
@@ -1378,6 +1472,7 @@ Transform:
   - {fileID: 2088455690}
   - {fileID: 87482511}
   - {fileID: 1556167036}
+  - {fileID: 153774006}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!64 &1405216183 stripped
@@ -1400,6 +1495,7 @@ GameObject:
   - component: {fileID: 1556167038}
   - component: {fileID: 1556167037}
   - component: {fileID: 1556167042}
+  - component: {fileID: 1556167043}
   m_Layer: 0
   m_Name: Barber Chair Seat
   m_TagString: Untagged
@@ -1515,6 +1611,9 @@ MonoBehaviour:
   - {fileID: 1995641279}
   - {fileID: 1154390667}
   - {fileID: 1255383659}
+  requiredDialogueId: dodi_intro
+  lockedTitle: Kursi cukur belum bisa dipakai
+  lockedDetail: Ngobrol dulu dengan Bang Dodi di kasir, ya!
 --- !u!114 &1556167039
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1607,6 +1706,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BarberEditorStation
   buttonLabel: Gaya Rambut
   buttonIcon: icon-hair
+--- !u!114 &1556167043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1556167035}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b20a919336cc81e42974e23ee399a74e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FittingRoomHint
+  tutorialId: barber-chair-hint
+  afterDialogueId: dodi_intro
+  zone: {fileID: 0}
+  arrowMaterial: {fileID: 2100000, guid: 2d5b72793df06ab30901870ce80a77d9, type: 2}
+  arrowHeight: 2.3
+  arrowSize: 0.45
+  bobAmplitude: 0.12
+  bobSpeed: 3
 --- !u!1 &1785568957
 GameObject:
   m_ObjectHideFlags: 0

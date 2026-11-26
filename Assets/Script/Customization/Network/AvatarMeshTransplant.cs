@@ -42,10 +42,24 @@ public static class AvatarMeshTransplant {
         shrunk.Textures.Clear();
     }
 
+    private const float PoseTolerance = 0.001f;     // meter / skala
+    private const float RotationTolerance = 0.5f;   // derajat
+
+    /// Nama tulang kerangka dasar BoZo (yang digerakkan Animator). Tulang lain berasal dari outfit (rambut, kepala
+    /// anime, rok) dan posisinya berbeda per outfit.
+    private static HashSet<string> _skeleton;
+
+    /// Satu kali Apply: tulang rig pemain per nama + tulang outfit yang sudah di-resolve (sumber → rig).
+    private sealed class BoneMap {
+        public Dictionary<string, Transform> Target;
+        public HashSet<string> Skeleton;
+        public readonly Dictionary<Transform, Transform> Resolved = new Dictionary<Transform, Transform>();
+    }
+
     /// <returns>Penampung renderer custom (anak <paramref name="targetRig"/>), atau null kalau tidak ada yang dipindah.</returns>
     public static GameObject Apply(OutfitSystem baked, Transform targetRig) {
         if (!baked || !targetRig) return null;
-        Dictionary<string, Transform> targetBones = MapByName(targetRig);
+        var bones = new BoneMap { Target = MapByName(targetRig), Skeleton = Skeleton() };
         var holder = new GameObject(HolderName);
         holder.transform.SetParent(targetRig, false);
 
@@ -54,10 +68,10 @@ public static class AvatarMeshTransplant {
             if (!renderer.enabled) continue;
             if (renderer is SkinnedMeshRenderer skinned) {
                 if (skinned.sharedMesh == null) continue;
-                CopySkinned(skinned, holder.transform, targetBones);
+                CopySkinned(skinned, holder.transform, bones);
                 moved++;
             } else if (renderer is MeshRenderer) {
-                if (MoveAttached(renderer.transform, targetBones)) moved++;
+                if (MoveAttached(renderer.transform, bones)) moved++;
             }
         }
         if (moved == 0) {
@@ -67,7 +81,7 @@ public static class AvatarMeshTransplant {
         return holder;
     }
 
-    private static void CopySkinned(SkinnedMeshRenderer source, Transform holder, Dictionary<string, Transform> targetBones) {
+    private static void CopySkinned(SkinnedMeshRenderer source, Transform holder, BoneMap targetBones) {
         var go = new GameObject(source.name);
         go.transform.SetParent(holder, false);
         go.layer = holder.gameObject.layer;
@@ -95,7 +109,7 @@ public static class AvatarMeshTransplant {
     }
 
     /// Outfit yang menempel di satu tulang (mis. topi dengan MeshRenderer): pindahkan objeknya ke tulang yang sama.
-    private static bool MoveAttached(Transform attached, Dictionary<string, Transform> targetBones) {
+    private static bool MoveAttached(Transform attached, BoneMap targetBones) {
         Transform parent = attached.parent;
         Transform target = parent ? Resolve(parent, targetBones) : null;
         if (!target) return false;
@@ -104,25 +118,53 @@ public static class AvatarMeshTransplant {
         return true;
     }
 
-    /// Tulang dengan nama yang sama di rig pemain; kalau tidak ada, disalin (bersama induknya yang hilang).
-    private static Transform Resolve(Transform bone, Dictionary<string, Transform> targetBones) {
+    /// Tulang kerangka dasar: tulang rig pemain dengan nama yang sama (digerakkan Animator).
+    /// Tulang outfit: tulang rig dengan nama sama HANYA kalau induk dan pose lokalnya sama persis. Nama tulang
+    /// outfit tidak unik antar-outfit (mis. Hair_Front ada di semua rambut depan dengan posisi berbeda), dan rig
+    /// template masih membawa rambut bawaannya; tanpa cek ini rambut baru menempel ke tulang rambut template
+    /// dan bergeser (2026-11-25: WolfCut naik ±10 cm di rig anime_male). Selain itu disalin (bersama induknya
+    /// yang hilang); salinan teratas ditandai CustomAppearancePart supaya ikut dihapus saat wujud diganti.
+    private static Transform Resolve(Transform bone, BoneMap map) {
         if (!bone) return null;
-        if (targetBones.TryGetValue(bone.name, out Transform existing)) return existing;
-        Transform parent = bone.parent ? Resolve(bone.parent, targetBones) : null;
+        if (map.Resolved.TryGetValue(bone, out Transform done)) return done;
+        bool skeleton = map.Skeleton == null || map.Skeleton.Contains(bone.name);
+        map.Target.TryGetValue(bone.name, out Transform existing);
+        if (existing && skeleton) return map.Resolved[bone] = existing;
+
+        Transform parent = bone.parent ? Resolve(bone.parent, map) : null;
         if (!parent) return null;
+        if (existing && existing.parent == parent && SamePose(existing, bone)) return map.Resolved[bone] = existing;
+
         var clone = new GameObject(bone.name).transform;
         clone.SetParent(parent, false);
         clone.localPosition = bone.localPosition;
         clone.localRotation = bone.localRotation;
         clone.localScale = bone.localScale;
-        targetBones[bone.name] = clone;
-        return clone;
+        if (!parent.GetComponentInParent<CustomAppearancePart>(true)) clone.gameObject.AddComponent<CustomAppearancePart>();
+        return map.Resolved[bone] = clone;
     }
 
+    private static bool SamePose(Transform a, Transform b) =>
+        (a.localPosition - b.localPosition).sqrMagnitude <= PoseTolerance * PoseTolerance &&
+        (a.localScale - b.localScale).sqrMagnitude <= PoseTolerance * PoseTolerance &&
+        Quaternion.Angle(a.localRotation, b.localRotation) <= RotationTolerance;
+
+    /// null = kerangka tidak diketahui (CustomizerSettings belum ada): semua tulang dicocokkan lewat nama saja.
+    private static HashSet<string> Skeleton() {
+        if (_skeleton != null) return _skeleton;
+        OutfitSystem characterBase = CustomizerSettings.Instance ? CustomizerSettings.Instance.characterBase : null;
+        if (!characterBase) return null;
+        _skeleton = new HashSet<string>();
+        foreach (Transform t in characterBase.GetComponentsInChildren<Transform>(true)) _skeleton.Add(t.name);
+        return _skeleton;
+    }
+
+    /// Tulang salinan dari wujud sebelumnya (CustomAppearancePart, dihapus akhir frame ini) tidak dipakai ulang.
     private static Dictionary<string, Transform> MapByName(Transform root) {
         var map = new Dictionary<string, Transform>();
         foreach (Transform t in root.GetComponentsInChildren<Transform>(true)) {
-            if (!map.ContainsKey(t.name)) map.Add(t.name, t);
+            if (map.ContainsKey(t.name) || t.GetComponentInParent<CustomAppearancePart>(true)) continue;
+            map.Add(t.name, t);
         }
         return map;
     }
