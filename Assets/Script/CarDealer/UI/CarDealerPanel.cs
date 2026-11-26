@@ -301,7 +301,7 @@ public sealed class CarDealerPanel : MonoBehaviour {
         CarSpawnResult.NotInWorld => "Mobil hanya bisa dimunculkan di kota.",
         CarSpawnResult.NoParking => "Parkiran belum siap. Coba lagi sebentar.",
         CarSpawnResult.OldCarInUse => "Mobilmu yang lama sedang dinaiki. Tunggu semua penumpang turun dulu ya.",
-        CarSpawnResult.ParkingBlocked => "Parkiran depan dealer sedang terhalang. Coba lagi sebentar.",
+        CarSpawnResult.ParkingBlocked => "Parkiran depan dealer sedang penuh. Coba lagi sebentar.",
         _ => "Mobil gagal dimunculkan. Coba lagi.",
     };
 

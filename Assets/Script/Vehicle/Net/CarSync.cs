@@ -162,6 +162,17 @@ public class CarSync : RealtimeComponent<CarSyncModel> {
 
     public bool IsSeatFree(int seat) => !IsOnline || model.GetSeatClient(seat) == 0;
 
+    /// <summary>True kalau pemain lokal sedang masuk/duduk/keluar di salah satu kursi mobil ini.</summary>
+    public bool HasLocalOccupant {
+        get {
+            if (!IsOnline) return !car.IsEmpty;
+            int me = LocalClientId + 1;
+            for (int seat = 0; seat < CarSyncModel.MaxSeats; seat++)
+                if (model.GetSeatClient(seat) == me) return true;
+            return false;
+        }
+    }
+
     /// <summary>Pemain lokal menulis fasenya di kursi ini.</summary>
     public void WriteLocalSeat(int seat, VehicleSeatPhase phase) {
         if (!IsOnline || seat < 0 || seat >= CarSyncModel.MaxSeats) return;

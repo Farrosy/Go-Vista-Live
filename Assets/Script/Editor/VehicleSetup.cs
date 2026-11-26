@@ -35,6 +35,7 @@ public static class VehicleSetup {
     private const string IconTemplatePath = IconFolder + "icon-play.png";
     private const string ActionFolder = "Assets/NPCAction/";
     private const string SpawnMarkerName = "SpawnPointMobil";
+    private const string ParkingGroupName = "SpawnPointsCarDealership";
     private const int GroundVehicleType = 0;
 
     [MenuItem("Go Vista/Mobil/1. Siapkan Sistem Mobil")]
@@ -572,7 +573,10 @@ public static class VehicleSetup {
         }
         GameObject marker = world.GetRootGameObjects().FirstOrDefault(g => g.name == SpawnMarkerName);
         if (!marker) {
-            log.Add($"WorldScene: '{SpawnMarkerName}' tidak ditemukan! VehicleDirector butuh object ini sebagai titik spawn.");
+            if (world.GetRootGameObjects().Any(g => g.name == ParkingGroupName))
+                log.Add($"WorldScene: slot parkiran ada di '{ParkingGroupName}' (pastikan collider tiap slot mati)");
+            else
+                log.Add($"WorldScene: '{ParkingGroupName}' tidak ditemukan! VehicleDirector butuh slot parkiran sebagai titik spawn.");
         } else if (marker.TryGetComponent(out Collider markerCollider) && markerCollider.enabled) {
             Undo.RecordObject(markerCollider, "Matikan collider SpawnPointMobil");
             markerCollider.enabled = false;
