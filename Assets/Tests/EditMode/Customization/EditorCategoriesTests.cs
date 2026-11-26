@@ -109,4 +109,26 @@ public class EditorCategoriesTests {
         Assert.AreEqual(1, EditorCategories.IndexOf(EditorCategories.FittingRoom, "Atasan"));
         Assert.AreEqual(0, EditorCategories.IndexOf(EditorCategories.FittingRoom, "Rambut"));
     }
+
+    // ---------------------------------------------------------------- Barbershop (kursi barber)
+
+    [Test]
+    public void Barber_offers_only_hair_front_back_and_beard() {
+        CollectionAssert.AreEqual(new[] { "Rambut", "Jenggot" }, EditorCategories.Barber.Select(c => c.Label).ToArray());
+        string[] types = EditorCategories.Barber.SelectMany(c => c.SubTabs).SelectMany(t => t.OutfitTypes).ToArray();
+        CollectionAssert.AreEquivalent(new[] { "HairFront", "HairBack", "LowerFace" }, types);
+        Assert.IsTrue(EditorCategories.Barber.All(c => c.Kind == EditorCategoryKind.Outfits));
+        Assert.IsTrue(EditorCategories.Barber.SelectMany(c => c.SubTabs).All(t => t.Panel == EditorPanelKind.Outfits));
+    }
+
+    [Test]
+    public void Barber_keeps_the_fixed_chair_camera() {
+        Assert.IsFalse(EditorCategories.Barber.Any(c => c.FocusFace));
+    }
+
+    [Test]
+    public void Barber_types_keep_their_lobby_labels() {
+        Assert.AreEqual("Rambut · Depan", EditorCategories.LabelOf("HairFront"));
+        Assert.AreEqual("Aksesori · Jenggot", EditorCategories.LabelOf("LowerFace"));
+    }
 }

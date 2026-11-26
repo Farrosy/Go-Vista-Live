@@ -29,6 +29,14 @@ public class CharacterPreviewStage : MonoBehaviour {
     [Tooltip("Waktu (detik) kamera berpindah antara Seluruh Badan dan Wajah.")]
     [SerializeField] private float cameraSmoothTime = 0.18f;
 
+    [Header("Kursi barber: kamera geser kiri/kanan")]
+    [Tooltip("Batas putar kamera mengelilingi kepala dari bidikan editor (derajat ke tiap sisi).")]
+    [SerializeField] private float seatOrbitLimit = 110f;
+    [Tooltip("Waktu (detik) kamera menyusul posisi geser: makin besar makin halus/lambat berhenti.")]
+    [SerializeField] private float seatOrbitSmoothTime = 0.28f;
+    [Tooltip("Jarak terdekat kamera ke kepala (meter) saat ditarik masuk oleh tembok / kursi sebelah.")]
+    [SerializeField] private float seatOrbitMinDistance = 0.5f;
+
     [Header("Thumbnail slot")]
     [SerializeField] private float thumbnailDistance = 1.7f;
     [SerializeField] private float thumbnailFieldOfView = 26f;
@@ -45,6 +53,9 @@ public class CharacterPreviewStage : MonoBehaviour {
     private bool expressionDirty;
     // State idle di HumanoidPlayerController. InAir/Land = pose melayang lalu mendarat yang harus dihindari.
     private static readonly int LocomotionState = Animator.StringToHash("Locomotion");
+    // Kursi barber (SeatOccupant): bool duduk + state duduk diam di HumanoidPlayerController.
+    private static readonly int SeatedParam = Animator.StringToHash(SeatOccupant.SeatedParam);
+    private static readonly int SitIdleState = Animator.StringToHash(SeatOccupant.SitIdleState);
     private float lastDragTime = -999f;
 
     // Kamera "Seluruh Badan" = posisi kamera di scene/prefab (diambil saat pertama dipakai).
@@ -62,6 +73,21 @@ public class CharacterPreviewStage : MonoBehaviour {
     private bool worldMode;
     private float screenCenterX;
     private float screenCenterY;
+    // Mode dunia kursi barber: karakter duduk diam (ChairSitIdle + SeatIK), tanpa zoom Wajah. Geser layar memutar
+    // KAMERA mengelilingi kepala (bukan karakternya), dengan easing.
+    private bool seated;
+    private float seatYaw;            // derajat dari bidikan editor (+ = searah jarum jam dilihat dari atas)
+    private float seatYawTarget;
+    private float seatYawVelocity;
+    private bool seatPivotReady;
+    private Vector3 seatPivot;        // titik di sumbu bidikan editor setinggi/sedalam kepala
+    private float seatDistance;       // jarak kamera ke pivot sekarang (dijepit tembok)
+    private float seatDistanceVelocity;
+    // Collider yang memang ditembus bidikan editor (mis. meja cermin): tidak dianggap menghalangi.
+    private readonly System.Collections.Generic.HashSet<Collider> seatSeeThrough =
+        new System.Collections.Generic.HashSet<Collider>();
+    private const float SeatProbeRadius = 0.12f;
+    private const float SeatProbeBuffer = 0.08f;
     // Layer sementara saat memotret thumbnail di mode dunia, supaya latar toko tidak ikut terfoto.
     private const int ThumbnailLayer = 31;
 
@@ -123,9 +149,15 @@ public class CharacterPreviewStage : MonoBehaviour {
     /// <paramref name="reference"/> (kamera utama), dengan pengaturan render yang sama.
     /// </summary>
     /// <param name="cullingMask">Layer dunia yang dirender (masker kamera utama sebelum dimatikan).</param>
-    public void EnterWorldMode(Pose subject, Pose view, float fieldOfView, Camera reference, int cullingMask) {
+    /// <param name="seatedPose">Kursi barber: <paramref name="subject"/> = pose root avatar yang duduk. Karakter
+    /// memakai pose duduk diam (kaki di pijakan lewat SeatIK), meja putar dan zoom Wajah dimatikan; geser layar
+    /// memutar kamera mengelilingi kepala.</param>
+    public void EnterWorldMode(Pose subject, Pose view, float fieldOfView, Camera reference, int cullingMask,
+                               bool seatedPose = false) {
         if (!previewCamera || !turntable) return;
         worldMode = true;
+        seated = seatedPose;
+        ResetSeatOrbit();
         foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true)) {
             if (!renderer.transform.IsChildOf(turntable)) renderer.enabled = false;
         }
@@ -228,11 +260,15 @@ public class CharacterPreviewStage : MonoBehaviour {
         // OnRigChanged di frame yang sama. Idle dipasang di situ, SEBELUM animator dievaluasi, supaya
         // karakter tidak sempat "loncat" (InAir) lalu mendarat (Land) setiap ganti baju/warna.
         avatar.OnRigChanged += _ => {
-            ForceIdle(liveAnimator);
+            HoldPose(liveAnimator);
             expressionDirty = true;
         };
         SetExpression(expression);
         UseTemplateAnimator(liveAnimator, source);
+        if (seated) {
+            SeatIK.Ensure(liveAnimator); // kaki di pijakan kursi terdekat, sama seperti avatar yang duduk
+            HoldPose(liveAnimator);
+        }
         _ = BMAC_SaveSystem.LoadCharacter(avatar, data, false, avatar.async);
         turntable.localRotation = Quaternion.identity;
     }
@@ -267,8 +303,13 @@ public class CharacterPreviewStage : MonoBehaviour {
         headBone = null;
     }
 
-    /// Dipanggil CharacterPreviewDrag saat layar preview digeser.
+    /// Dipanggil CharacterPreviewDrag saat layar preview digeser. Duduk di kursi: kamera yang berputar (arah putar
+    /// karakter terlihat sama dengan meja putar: geser ke kanan = wajah berpaling ke kanan).
     public void Rotate(float degrees) {
+        if (seated) {
+            seatYawTarget = Mathf.Clamp(seatYawTarget - degrees, -seatOrbitLimit, seatOrbitLimit);
+            return;
+        }
         if (turntable) turntable.Rotate(0f, degrees, 0f, Space.Self);
         lastDragTime = Time.unscaledTime;
         turnToFront = false;
@@ -279,6 +320,7 @@ public class CharacterPreviewStage : MonoBehaviour {
     /// berhenti) atau Seluruh Badan (posisi kamera di scene).
     /// </summary>
     public void SetFaceFocus(bool face) {
+        if (seated) face = false; // kursi barber: kamera tetap di bidikan editor kursi
         CaptureCameraBase();
         if (face && !faceFocus) turnToFront = true;
         faceFocus = face;
@@ -299,7 +341,93 @@ public class CharacterPreviewStage : MonoBehaviour {
 
     void LateUpdate() {
         if (cameraBlend > 0f) ApplyCamera(cameraBlend);
+        if (seated && worldMode) ApplySeatOrbit();
         ApplyLensShift();
+    }
+
+    // ---------------------------------------------------------------- Kursi barber: kamera mengelilingi kepala
+
+    private void ResetSeatOrbit() {
+        seatYaw = seatYawTarget = seatYawVelocity = 0f;
+        seatDistance = seatDistanceVelocity = 0f;
+        seatPivotReady = false;
+        seatSeeThrough.Clear();
+    }
+
+    /// Kamera = bidikan editor yang diputar mengelilingi pivot (sumbu tegak), jadi di 0 derajat persis bidikan editor
+    /// dan kepala tetap di tengah area panggung (pivot ada di sumbu kamera, lens shift tetap berlaku). Sudut menyusul
+    /// target dengan SmoothDamp (mulai dan berhenti halus); jarak ditarik masuk seketika kalau terhalang tembok /
+    /// kursi sebelah, dan kembali keluar dengan halus.
+    private void ApplySeatOrbit() {
+        if (!previewCamera || !cameraBaseCaptured) return;
+        if (!seatPivotReady && !TryCaptureSeatPivot()) return;
+        float dt = Time.unscaledDeltaTime;
+        seatYaw = Mathf.SmoothDamp(seatYaw, seatYawTarget, ref seatYawVelocity, seatOrbitSmoothTime, Mathf.Infinity, dt);
+        if (Mathf.Abs(seatYaw - seatYawTarget) < 0.01f && Mathf.Abs(seatYawVelocity) < 0.01f) seatYaw = seatYawTarget;
+
+        Quaternion turn = Quaternion.AngleAxis(seatYaw, Vector3.up);
+        Vector3 offset = turn * (baseCameraPosition - seatPivot);
+        float full = offset.magnitude;
+        if (full < 0.001f) return;
+        Vector3 direction = offset / full;
+        float allowed = SeatClearance(direction, full);
+        if (seatDistance <= 0f || allowed < seatDistance) {
+            seatDistance = allowed;      // tembok: langsung masuk, jangan sempat menembus
+            seatDistanceVelocity = 0f;
+        } else {
+            seatDistance = Mathf.SmoothDamp(seatDistance, allowed, ref seatDistanceVelocity, seatOrbitSmoothTime,
+                                            Mathf.Infinity, dt);
+        }
+        previewCamera.transform.SetPositionAndRotation(seatPivot + direction * seatDistance, turn * baseCameraRotation);
+    }
+
+    /// Pivot = titik di sumbu bidikan editor yang paling dekat dengan kepala (sekali, setelah avatar selesai dirakit).
+    private bool TryCaptureSeatPivot() {
+        if (!liveAnimator || IsBusy) return false;
+        Transform head = liveAnimator.isHuman ? liveAnimator.GetBoneTransform(HumanBodyBones.Head) : null;
+        Vector3 headPoint = head ? head.position : new Vector3(turntable.position.x, HeadHeight(), turntable.position.z);
+        headPoint += Vector3.up * faceAimAbove;
+        Vector3 forward = baseCameraRotation * Vector3.forward;
+        float depth = Mathf.Max(0.3f, Vector3.Dot(headPoint - baseCameraPosition, forward));
+        seatPivot = baseCameraPosition + forward * depth;
+        seatPivotReady = true;
+
+        // Semua yang ditembus bidikan editor sendiri (meja cermin tempat kamera A berada) boleh ditembus di sudut lain.
+        seatSeeThrough.Clear();
+        Vector3 toBase = baseCameraPosition - seatPivot;
+        float length = toBase.magnitude;
+        if (length > 0.001f) {
+            foreach (RaycastHit hit in Physics.SphereCastAll(seatPivot, SeatProbeRadius, toBase / length, length, ~0,
+                                                             QueryTriggerInteraction.Ignore))
+                seatSeeThrough.Add(hit.collider);
+            foreach (Collider inside in Physics.OverlapSphere(baseCameraPosition, SeatProbeRadius, ~0,
+                                                              QueryTriggerInteraction.Ignore))
+                seatSeeThrough.Add(inside);
+        }
+        ChairSeat chair = ChairSeat.FindNear(turntable.position, 2f);
+        if (chair) {
+            foreach (Collider part in chair.ChairColliders)
+                if (part) seatSeeThrough.Add(part);
+        }
+        return true;
+    }
+
+    /// Jarak terjauh dari pivot ke arah <paramref name="direction"/> sebelum menabrak tembok / perabot.
+    private float SeatClearance(Vector3 direction, float full) {
+        float allowed = full;
+        foreach (RaycastHit hit in Physics.SphereCastAll(seatPivot, SeatProbeRadius, direction, full, ~0,
+                                                         QueryTriggerInteraction.Ignore)) {
+            if (hit.distance <= 0f || IgnoredBySeatProbe(hit.collider)) continue;
+            allowed = Mathf.Min(allowed, hit.distance - SeatProbeBuffer);
+        }
+        return Mathf.Clamp(allowed, Mathf.Min(seatOrbitMinDistance, full), full);
+    }
+
+    private bool IgnoredBySeatProbe(Collider c) {
+        if (!c || seatSeeThrough.Contains(c)) return true;
+        if (model && c.transform.IsChildOf(model.transform)) return true;
+        if (c is CharacterController) return true;
+        return c.GetComponentInParent<PlayerController>() || c.GetComponentInParent<NpcController>();
     }
 
     /// Geser proyeksi (bukan kamera) supaya sumbu karakter jatuh di ScreenCenterX. Dihitung ulang tiap frame
@@ -443,8 +571,29 @@ public class CharacterPreviewStage : MonoBehaviour {
     /// Jaring pengaman selain OnRigChanged: kalau parameter idle sempat ter-reset (Rebind di jalur lain),
     /// pasang lagi di frame berikutnya. Murah: hanya membaca satu bool.
     private void KeepIdle() {
-        if (liveAnimator && liveAnimator.isActiveAndEnabled && !liveAnimator.GetBool(PlayerController.IsGroundedParam))
-            ForceIdle(liveAnimator);
+        if (!liveAnimator || !liveAnimator.isActiveAndEnabled) return;
+        bool reset = !liveAnimator.GetBool(PlayerController.IsGroundedParam);
+        if (seated && !reset && SeatOccupant.HasSeatedParam(liveAnimator)) reset = !liveAnimator.GetBool(SeatedParam);
+        if (reset) HoldPose(liveAnimator);
+    }
+
+    private void HoldPose(Animator animator) {
+        if (seated && ForceSeated(animator)) return;
+        ForceIdle(animator);
+    }
+
+    /// Duduk diam di kursi: bool duduk + langsung ke ChairSitIdle (tanpa klip duduk dari berdiri).
+    /// <returns>false kalau controller tidak punya state duduk (pakai idle berdiri).</returns>
+    private static bool ForceSeated(Animator animator) {
+        if (!animator || !animator.runtimeAnimatorController || !animator.isActiveAndEnabled) return false;
+        if (!SeatOccupant.HasSeatedParam(animator) || !animator.HasState(0, SitIdleState)) return false;
+        PlayerController.ApplyAnimator(animator, 0f, true, 0f);
+        animator.SetBool(SeatedParam, true);
+        AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+        bool inSeat = state.shortNameHash == SitIdleState;
+        if (!inSeat || animator.IsInTransition(0))
+            animator.Play(SitIdleState, 0, inSeat ? state.normalizedTime % 1f : 0f);
+        return true;
     }
 
     /// Diam di tanah: parameter idle + langsung ke state Locomotion (tanpa transisi InAir → Land).

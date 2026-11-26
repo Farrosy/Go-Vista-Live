@@ -1,0 +1,149 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3593cca96b18f97429dbaabf5f45b732, type: 3}
+  m_Name: dodi-intro
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueData
+  speakerName: Bang Dodi
+  portrait: {fileID: 0}
+  dialogueId: dodi_intro
+  lines:
+  - speaker: 
+    text: Wah, ada pelanggan baru! Kenalin, aku <b>Bang Dodi</b>, tukang cukur di barbershop Go Vista.
+    portraitOverride: {fileID: 0}
+    isQuestion: 0
+    question:
+      questionId: 
+      options:
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+  - speaker: 
+    text: Di sini kamu bisa ganti <b>gaya rambut</b> dan <b>jenggot</b>. Mau rapi, gondrong, atau nyentrik, semua bisa!
+    portraitOverride: {fileID: 0}
+    isQuestion: 0
+    question:
+      questionId: 
+      options:
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+  - speaker: 
+    text: 'Caranya gampang: berdiri di <b>lingkaran cahaya</b> di depan kursi cukur, lalu tekan <b>Duduk</b>.'
+    portraitOverride: {fileID: 0}
+    isQuestion: 0
+    question:
+      questionId: 
+      options:
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+  - speaker: 
+    text: Setelah duduk, tekan tombol <b>Gaya Rambut</b>. Ada tab <b>Rambut</b> (depan dan belakang) dan <b>Jenggot</b>, warnanya juga bisa diganti. Geser layar buat lihat dari samping.
+    portraitOverride: {fileID: 0}
+    isQuestion: 0
+    question:
+      questionId: 
+      options:
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+  - speaker: 
+    text: Nyoba-nyoba gratis kok. Model yang belum kamu punya ada <b>label harganya</b>, dan baru dibayar waktu kamu tekan <b>SIMPAN</b>. Kalau sudah selesai, tekan <b>Berdiri</b>.
+    portraitOverride: {fileID: 0}
+    isQuestion: 0
+    question:
+      questionId: 
+      options:
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+      - optionId: 
+        text: 
+        isCorrect: 0
+        reply: []
+        askAgainLater: 0
+  - speaker: 
+    text: Gimana, udah paham?
+    portraitOverride: {fileID: 0}
+    isQuestion: 1
+    question:
+      questionId: paham
+      options:
+      - optionId: a
+        text: Siap, Bang!
+        isCorrect: 1
+        reply:
+        - speaker: 
+          text: Sip! Kursinya sudah siap, silakan duduk. Kalau butuh apa-apa, panggil aku di kasir!
+          portraitOverride: {fileID: 0}
+        askAgainLater: 0
+      - optionId: b
+        text: Ulangi dong
+        isCorrect: 0
+        reply:
+        - speaker: 
+          text: Boleh, aku jelasin sekali lagi, ya.
+          portraitOverride: {fileID: 0}
+        - speaker: 
+          text: 'Caranya gampang: berdiri di <b>lingkaran cahaya</b> di depan kursi cukur, lalu tekan <b>Duduk</b>.'
+          portraitOverride: {fileID: 0}
+        - speaker: 
+          text: Setelah duduk, tekan tombol <b>Gaya Rambut</b>. Ada tab <b>Rambut</b> (depan dan belakang) dan <b>Jenggot</b>, warnanya juga bisa diganti. Geser layar buat lihat dari samping.
+          portraitOverride: {fileID: 0}
+        - speaker: 
+          text: Nyoba-nyoba gratis kok. Model yang belum kamu punya ada <b>label harganya</b>, dan baru dibayar waktu kamu tekan <b>SIMPAN</b>. Kalau sudah selesai, tekan <b>Berdiri</b>.
+          portraitOverride: {fileID: 0}
+        - speaker: 
+          text: Gampang, kan? Yuk, duduk!
+          portraitOverride: {fileID: 0}
+        askAgainLater: 0
+  charactersPerSecond: 30
+  punctuationPause: 0.15
+  voiceClips:
+  - {fileID: 8300000, guid: eb06d9483b9b50d4d9fdadc4a550d52e, type: 3}
+  pitchMin: 0.8
+  pitchMax: 0.95
+  voiceVolume: 0.8
+  focusCamera: 1
+  cameraDistance: 2.5
+  cameraHeight: 0.2
+  cameraSideOffset: 0.6

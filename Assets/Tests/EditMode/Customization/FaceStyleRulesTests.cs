@@ -28,6 +28,15 @@ public class FaceStyleRulesTests {
     }
 
     [Test]
+    public void Hair_follows_head_style_only_through_required_tags() {
+        // HangingDreads/Flare/LongDreads: requiredTags Stylized (tembus/tenggelam di kepala Anime, cek visual 2026-11-25).
+        Assert.AreEqual(FaceStyle.Basic, FaceStyleRules.RequiredStyle("HairBack", Basic, None));
+        Assert.AreEqual(FaceStyle.Basic, FaceStyleRules.RequiredStyle("HairFront", Basic, None));
+        Assert.AreEqual(FaceStyle.Any, FaceStyleRules.RequiredStyle("HairFront", None, None));
+        Assert.AreEqual(FaceStyle.Any, FaceStyleRules.RequiredStyle("HairBack", None, Anime), "plain tags never block hair");
+    }
+
+    [Test]
     public void Basic_pupils_also_fit_anime_heads_but_the_anime_pupil_needs_an_anime_head() {
         // Dicek visual 2026-11-18: Basic/Sharp rapi di mata anime; Round rusak di mata Basic.
         Assert.AreEqual(FaceStyle.Any, FaceStyleRules.RequiredStyle("Pupil", Basic, None));
@@ -65,7 +74,8 @@ public class FaceStyleRulesTests {
         { FaceStyleRules.BasicPupil, FaceStyle.Any }, { "EyeShine/EyeShine_DoubleRound", FaceStyle.Anime },
         { "EyeBrows/Brows_BasicBrows", FaceStyle.Anime }, { "EyeLashes/EyeLashes_LongLashes", FaceStyle.Anime },
         { "MakeUpLips/MakeUpLips_SimpleLipstick", FaceStyle.Anime }, { "MakeUpLips/MakeUpLips_BasicLipstick", FaceStyle.Basic },
-        { "MakeUpEyes/MakeUpEyes_BasicEyeLiner", FaceStyle.Basic }
+        { "MakeUpEyes/MakeUpEyes_BasicEyeLiner", FaceStyle.Basic },
+        { "HairBack/BSMC_HairBack_Flare", FaceStyle.Basic }, { "HairFront/BSMC_HairFront_HangingDreads", FaceStyle.Basic }
     };
 
     private static bool FitsFor(string path, bool animeHead) =>
@@ -131,6 +141,21 @@ public class FaceStyleRulesTests {
         Assert.AreEqual(FaceStyleRules.AnimeEyes, RecordEdits.Find(result, "Eyes").path);
         Assert.AreEqual(FaceStyleRules.AnimePupil, RecordEdits.Find(result, "Pupil").path);
         Assert.IsNull(RecordEdits.Find(result, "MakeUpEyes"));
+    }
+
+    [Test]
+    public void Switching_to_an_anime_head_removes_basic_only_hair_and_keeps_other_hair() {
+        var record = new CustomCharacterRecord {
+            outfits = new List<OutfitRecord> {
+                Worn(FaceStyleRules.BasicEyes), Worn("HairBack/BSMC_HairBack_Flare"), Worn("HairFront/BSMC_HairFront_Fohawk")
+            }
+        };
+
+        CustomCharacterRecord result = FaceStyleRules.ForHeadStyle(record, animeHead: true, path => FitsFor(path, true),
+                                                                   Default, new Dictionary<string, OutfitRecord>());
+
+        Assert.IsNull(RecordEdits.Find(result, "HairBack"));
+        Assert.AreEqual("HairFront/BSMC_HairFront_Fohawk", RecordEdits.Find(result, "HairFront").path);
     }
 
     [Test]

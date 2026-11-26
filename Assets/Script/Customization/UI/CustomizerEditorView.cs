@@ -83,6 +83,9 @@ public static class CustomizerEditorView {
     private const float ContentTop = 128f;
     private const float ContentBottom = 32f;
     private const float RailWidth = 156f;
+    /// Rail dengan tab sebanyak ini atau kurang memakai tinggi tab tetap (kira-kira tinggi tab ruang ganti).
+    private const int FewTabs = 3;
+    private const float FewTabHeight = 140f;
     private const float SideWidth = 720f;
     private const float Gap = 24f;
     private const float Pad = 28f;
@@ -111,8 +114,11 @@ public static class CustomizerEditorView {
     /// <param name="categories">Tab rail kiri; null = EditorCategories.All (editor lobby).</param>
     /// <param name="inWorld">Mode ruang ganti: tanpa latar gradasi, karakter tampil di dalam toko (kamera
     /// panggung merender langsung ke layar di belakang UI ini).</param>
+    /// <param name="title">Judul bar atas; null = "RUANG GANTI" (inWorld) atau "UBAH KARAKTER".</param>
+    /// <param name="fixedView">Tanpa preset kamera (kursi barber: geser = kamera mengelilingi kepala): toggle Seluruh
+    /// Badan/Wajah tidak ditampilkan (tetap dibuat, karena CustomizerEditor memasang listener-nya).</param>
     public static CustomizerEditorRefs Build(Transform canvas, ChatUiAssets a, IReadOnlyList<EditorCategory> categories = null,
-                                             bool inWorld = false) {
+                                             bool inWorld = false, string title = null, bool fixedView = false) {
         categories ??= EditorCategories.All;
         var refs = new CustomizerEditorRefs();
         RectTransform root = ChatUiKit.Stretch(ChatUiKit.CreateRect("Customizer Editor View", canvas), 0f, 0f, 0f, 0f);
@@ -122,9 +128,9 @@ public static class CustomizerEditorView {
         RectTransform safe = ChatUiKit.Stretch(ChatUiKit.CreateRect("Safe Area", root), 0f, 0f, 0f, 0f);
         safe.gameObject.AddComponent<SafeAreaFitter>();
 
-        BuildTopBar(safe, a, refs, inWorld ? "RUANG GANTI" : "UBAH KARAKTER");
+        BuildTopBar(safe, a, refs, title ?? (inWorld ? "RUANG GANTI" : "UBAH KARAKTER"));
         BuildRail(safe, a, refs, categories);
-        BuildStage(safe, a, refs);
+        BuildStage(safe, a, refs, fixedView);
         BuildSidePanel(safe, a, refs);
         refs.Discard = CustomizerUi.CreateConfirmDialog(root, a, "Buang perubahan?",
             "Perubahan yang belum disimpan akan hilang.", "BATAL", "BUANG");
@@ -216,10 +222,16 @@ public static class CustomizerEditorView {
         layout.padding = new RectOffset(12, 12, 16, 16);
         layout.spacing = 6f;
         layout.childControlWidth = layout.childControlHeight = true;
-        layout.childForceExpandWidth = layout.childForceExpandHeight = true;
+        // Sedikit tab (barbershop: Rambut + Jenggot): tinggi tetap, rapat di atas, bukan dibagi rata setinggi rail.
+        bool few = categories.Count <= FewTabs;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = !few;
 
         refs.Tabs = new EditorTabRefs[categories.Count];
-        for (int i = 0; i < refs.Tabs.Length; i++) refs.Tabs[i] = BuildTab(rail, a, categories[i]);
+        for (int i = 0; i < refs.Tabs.Length; i++) {
+            refs.Tabs[i] = BuildTab(rail, a, categories[i]);
+            if (few) refs.Tabs[i].Button.gameObject.AddComponent<LayoutElement>().preferredHeight = FewTabHeight;
+        }
     }
 
     private static EditorTabRefs BuildTab(RectTransform rail, ChatUiAssets a, EditorCategory category) {
@@ -255,7 +267,7 @@ public static class CustomizerEditorView {
 
     // ---------------------------------------------------------------- Panggung
 
-    private static void BuildStage(RectTransform parent, ChatUiAssets a, CustomizerEditorRefs refs) {
+    private static void BuildStage(RectTransform parent, ChatUiAssets a, CustomizerEditorRefs refs, bool fixedView) {
         RectTransform area = ChatUiKit.Stretch(ChatUiKit.CreateRect("Stage Area", parent), Edge + RailWidth + Gap,
                                                ContentTop, Edge + SideWidth + Gap, ContentBottom);
         refs.StageArea = area;
@@ -278,6 +290,7 @@ public static class CustomizerEditorView {
         hint.rectTransform.pivot = new Vector2(0.5f, 0f);
         hint.rectTransform.offsetMin = new Vector2(0f, 0f);
         hint.rectTransform.offsetMax = new Vector2(0f, 34f);
+        if (fixedView) refs.BodyCamButton.transform.parent.gameObject.SetActive(false);
         refs.Loading = CustomizerUi.CreateLoadingPill(area, a, 0f);
         ((RectTransform)refs.Loading.transform).anchoredPosition += new Vector2(0f, -64f); // di bawah toggle kamera
     }

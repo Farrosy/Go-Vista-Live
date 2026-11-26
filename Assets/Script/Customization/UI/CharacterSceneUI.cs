@@ -59,8 +59,12 @@ public class CharacterSceneUI : MonoBehaviour {
         ui = CustomizerPickView.Build(canvas.transform, assets);
         WireButtons();
         editor = gameObject.AddComponent<CustomizerEditor>();
-        IReadOnlyList<EditorCategory> categories = fittingRoom != null ? EditorCategories.FittingRoom : EditorCategories.All;
-        editorUi = CustomizerEditorView.Build(canvas.transform, assets, categories, fittingRoom != null);
+        bool barber = fittingRoom != null && fittingRoom.Kind == WorldEditorKind.Barber;
+        IReadOnlyList<EditorCategory> categories = fittingRoom == null ? EditorCategories.All
+            : barber ? EditorCategories.Barber : EditorCategories.FittingRoom;
+        // Barbershop: geser = kamera mengelilingi kepala dari bidikan kursi, jadi toggle Seluruh Badan/Wajah disembunyikan.
+        editorUi = CustomizerEditorView.Build(canvas.transform, assets, categories, fittingRoom != null,
+                                              barber ? "BARBERSHOP" : null, barber);
         editor.Init(editorUi, assets, stage, categories);
         CharacterPreviewDrag drag = ui.Preview.gameObject.AddComponent<CharacterPreviewDrag>();
         drag.SetStage(stage);
@@ -98,7 +102,7 @@ public class CharacterSceneUI : MonoBehaviour {
             return;
         }
         stage.EnterWorldMode(fittingRoom.Subject, fittingRoom.View, fittingRoom.FieldOfView, Camera.main,
-                             fittingRoom.CullingMask);
+                             fittingRoom.CullingMask, fittingRoom.Seated);
         CenterOnStageArea();
         editorUi.Preview.color = new Color(1f, 1f, 1f, 0f); // tetap jadi area geser, gambarnya = toko di belakang UI
         editor.OfferOverwriteWhenFull = true;

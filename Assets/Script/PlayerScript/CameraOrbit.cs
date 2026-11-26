@@ -127,6 +127,34 @@ public class CameraOrbit : MonoBehaviour
             cam.fieldOfView = Mathf.Lerp(overrideBaseFov, overrideFov, Mathf.SmoothStep(0f, 1f, overrideBlend));
     }
 
+    // ---- Bidikan dari luar (kursi barber): menerima pose orbit normal tiap frame dan mengembalikan pose akhir ----
+    /// Pemegang kamera sementara (mis. ChairSeatCamera). Selama terpasang, geser layar diabaikan.
+    public interface ICameraShot {
+        /// <paramref name="position"/>/<paramref name="rotation"/> masuk sebagai pose orbit normal (sudah termasuk
+        /// collision), <paramref name="fieldOfView"/> sebagai FOV dasar; <paramref name="orbitPivot"/> = titik yang
+        /// dilihat orbit (kepala pemain).
+        void Resolve(ref Vector3 position, ref Quaternion rotation, ref float fieldOfView, Vector3 orbitPivot);
+    }
+
+    private ICameraShot shot;
+    private float shotBaseFov;
+    private Vector3 shotPivot;
+
+    /// Pasang pemegang kamera. FOV saat ini disimpan dan dikembalikan oleh ClearShot.
+    public void SetShot(ICameraShot value) {
+        if (value == null || ReferenceEquals(shot, value)) return;
+        if (!cam) cam = GetComponent<Camera>();
+        if (shot == null && cam) shotBaseFov = cam.fieldOfView;
+        shot = value;
+    }
+
+    /// Lepas pemegang kamera (hanya kalau <paramref name="value"/> yang sedang memegang).
+    public void ClearShot(ICameraShot value) {
+        if (shot == null || !ReferenceEquals(shot, value)) return;
+        shot = null;
+        if (cam) cam.fieldOfView = shotBaseFov;
+    }
+
     /// Pengali jarak kamera. Di bawah 1 = zoom mendekat (dipakai saat layar mati).
     public float DistanceScale { get; set; } = 1f;
 
@@ -170,10 +198,11 @@ public class CameraOrbit : MonoBehaviour
     {
         if (!target) return;
         UpdatePoseOverride();
+        if (shot is Object shotObject && !shotObject) ClearShot(shot);   // pemegang ter-destroy tanpa melepas
 
         Vector2 look = PlayerInputHub.Instance ? PlayerInputHub.Instance.ConsumeLook() : Vector2.zero;
         bool interior = UpdateInteriorZone();
-        if (!focusing && !interior)   // di interior sudut kamera terkunci: geser layar diabaikan
+        if (!focusing && !interior && shot == null)   // interior / bidikan kursi: sudut terkunci, geser layar diabaikan
         {
             float lookSpeed = sensitivity * GameSettings.CameraSensitivity; // pengali dari menu Pengaturan
             yaw += look.x * lookSpeed;
@@ -211,6 +240,7 @@ public class CameraOrbit : MonoBehaviour
             pivot = target.position + pivotOffset * avatarScale;
             orbitPos = pivot - orbitRot * Vector3.forward * (distance * DistanceScale * avatarScale);
         }
+        shotPivot = pivot;
 
         blend = Mathf.MoveTowards(blend, focusing ? 1f : 0f, Time.deltaTime / Mathf.Max(0.01f, focusBlendTime));
 
@@ -292,6 +322,12 @@ public class CameraOrbit : MonoBehaviour
 
     private void ApplyPose(Vector3 position, Quaternion rotation)
     {
+        if (shot != null)
+        {
+            float fov = shotBaseFov;
+            shot.Resolve(ref position, ref rotation, ref fov, shotPivot);
+            if (cam) cam.fieldOfView = fov;
+        }
         if (overrideBlend > 0f)
         {
             float t = Mathf.SmoothStep(0f, 1f, overrideBlend);

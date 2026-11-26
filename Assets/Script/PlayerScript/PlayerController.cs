@@ -73,6 +73,8 @@ public class PlayerController : MonoBehaviour
     public bool IsFrozen => frozen;
     /// True selama masuk, menyetir, dan keluar mobil (VehicleOccupant). Gerak, lompat, dan tertabrak mati.
     public bool InVehicle { get; private set; }
+    /// True selama duduk di kursi (SeatOccupant): dari mulai duduk sampai selesai berdiri. Gerak dan lompat mati.
+    public bool IsSeated { get; private set; }
     public bool IsSprinting { get; private set; }
     public float Speed01 { get; private set; }   // 0 = diam, 0.5 = jalan, 1 = sprint
     public bool IsGroundedForAnim => Time.time - lastGroundedTime <= groundedGrace;
@@ -121,6 +123,7 @@ public class PlayerController : MonoBehaviour
     // di belakang rotasi badan → meluncur menyamping/"drift" dan animasi lari melambat di tengah belokan).
     private float moveSpeed;
     private Vector3? scriptedMove;    // arah gerak dari skrip (dunia), menggantikan joystick
+    private float seatedSpeed;        // kecepatan langkah (m/s) yang digerakkan SeatOccupant saat naik/turun kursi
     private float nextJumpTime;
     private bool launchPending;
     private float launchTimer;
@@ -224,10 +227,29 @@ public class PlayerController : MonoBehaviour
         lastGroundedTime = Time.time;
     }
 
-    /// Pindahkan avatar tanpa terhalang CharacterController. Kalau sedang di mobil, keluar dulu tanpa animasi.
+    /// Dipanggil SeatOccupant. Posisi avatar selama duduk diatur SeatOccupant, bukan script ini.
+    public void SetSeated(bool value)
+    {
+        IsSeated = value;
+        seatedSpeed = 0f;
+        launchPending = false;
+        verticalVel = 0f;
+        shoveTimer = 0f;
+        moveSpeed = 0f;
+        IsSprinting = false;
+        Speed01 = 0f;
+        lastGroundedTime = Time.time;
+    }
+
+    /// Kecepatan langkah (m/s) saat SeatOccupant memindahkan avatar (naik/turun pijakan kursi), supaya animasi jalan
+    /// dan langkah kakinya cocok. 0 = diam.
+    public void SetSeatedSpeed(float metersPerSecond) => seatedSpeed = Mathf.Max(0f, metersPerSecond);
+
+    /// Pindahkan avatar tanpa terhalang CharacterController. Kalau sedang di mobil/kursi, keluar dulu tanpa animasi.
     public void TeleportTo(Vector3 position, Quaternion rotation)
     {
         if (InVehicle && TryGetComponent(out VehicleOccupant occupant)) occupant.ExitImmediate();
+        if (IsSeated && TryGetComponent(out SeatOccupant seat)) seat.ExitImmediate();
         shoveTimer = 0f;
         moveSpeed = 0f;
         cc.enabled = false;
@@ -285,7 +307,7 @@ public class PlayerController : MonoBehaviour
     /// supaya animasi Hit Knockback terlihat terpental menjauhi mobil.
     public void KnockDown(bool fatal, Vector3 pushDirection)
     {
-        if (!IsLocal || InVehicle) return;
+        if (!IsLocal || InVehicle || IsSeated) return;
         Vector3 face = Vector3.ProjectOnPlane(-pushDirection, Vector3.up);
         if (face.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(face.normalized, Vector3.up);
         IsKnockedDown = true;
@@ -324,13 +346,14 @@ public class PlayerController : MonoBehaviour
     {
         UpdateKnockdown();
 
-        if (InVehicle || frozen) moveSpeed = 0f;
+        if (InVehicle || IsSeated || frozen) moveSpeed = 0f;
 
-        if (InVehicle)
+        if (InVehicle || IsSeated)
         {
             // Diam di kursi. Speed 0 + menapak supaya kembali ke Locomotion idle setelah animasi keluar.
+            // Kursi (SeatOccupant) bisa menggerakkan avatar beberapa langkah: animasi jalan ikut kecepatannya.
             IsSprinting = false;
-            Speed01 = 0f;
+            Speed01 = IsSeated ? SpeedToBlend(seatedSpeed) : 0f;
             lastGroundedTime = Time.time;
             UpdateAnimator();
             return;
@@ -422,7 +445,8 @@ public class PlayerController : MonoBehaviour
     {
         var input = PlayerInputHub.Instance;
         // Pakai toleransi menapak tanah: cc.isGrounded bisa false sesaat di tanjakan/anak tangga.
-        if (!IsLocal || frozen || wading || IsKnockedDown || InVehicle || (input && input.MovementLocked) || !IsGroundedForAnim ||
+        if (!IsLocal || frozen || wading || IsKnockedDown || InVehicle || IsSeated || scriptedMove.HasValue ||
+            (input && input.MovementLocked) || !IsGroundedForAnim ||
             launchPending ||
             Time.time < nextJumpTime)
             return;

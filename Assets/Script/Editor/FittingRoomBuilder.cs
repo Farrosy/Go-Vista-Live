@@ -167,8 +167,7 @@ public static class FittingRoomBuilder {
         viewpoint.SetPositionAndRotation(station.transform.position + towardCamera * CameraDistance + Vector3.up * CameraHeight,
                                          Quaternion.LookRotation(booth.Inward) * Quaternion.Euler(CameraPitch, 0f, 0f));
 
-        (MeshRenderer ring, MeshRenderer[] glows) =
-            BuildingEntranceArt.BuildFloorRing(station.transform, RingSize, GlowHeight, GlowSegments);
+        MeshRenderer[] glows = AddFloorRing(station, RingSize);
 
         var trigger = station.AddComponent<BoxCollider>();
         trigger.isTrigger = true;
@@ -182,14 +181,6 @@ public static class FittingRoomBuilder {
         io.FindProperty("promptPrefab").objectReferenceValue = prompt;
         io.FindProperty("promptOffset").vector3Value = new Vector3(0f, PromptHeight, 0f);
         io.ApplyModifiedPropertiesWithoutUndo();
-
-        var marker = station.AddComponent<BuildingEntranceMarker>();
-        var mo = new SerializedObject(marker);
-        mo.FindProperty("doormat").objectReferenceValue = ring;
-        SerializedProperty glowList = mo.FindProperty("glow");
-        glowList.arraySize = glows.Length;
-        for (int i = 0; i < glows.Length; i++) glowList.GetArrayElementAtIndex(i).objectReferenceValue = glows[i];
-        mo.ApplyModifiedPropertiesWithoutUndo();
 
         var fitting = station.AddComponent<FittingRoomStation>();
         var so = new SerializedObject(fitting);
@@ -210,6 +201,25 @@ public static class FittingRoomBuilder {
         var ho = new SerializedObject(hint);
         ho.FindProperty("arrowMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>(HintArrowMaterialPath);
         ho.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>
+    /// Lingkaran cahaya teal di lantai (cincin + kolom cahaya pendek, BuildingEntranceArt.BuildFloorRing) dengan
+    /// BuildingEntranceMarker, berpusat di <paramref name="station"/>. Dipakai juga oleh kursi barber
+    /// (BarberChairBuilder). Mengembalikan kolom cahaya.
+    /// </summary>
+    internal static MeshRenderer[] AddFloorRing(GameObject station, float ringSize) {
+        (MeshRenderer ring, MeshRenderer[] glows) =
+            BuildingEntranceArt.BuildFloorRing(station.transform, ringSize, GlowHeight, GlowSegments);
+
+        var marker = station.AddComponent<BuildingEntranceMarker>();
+        var mo = new SerializedObject(marker);
+        mo.FindProperty("doormat").objectReferenceValue = ring;
+        SerializedProperty glowList = mo.FindProperty("glow");
+        glowList.arraySize = glows.Length;
+        for (int i = 0; i < glows.Length; i++) glowList.GetArrayElementAtIndex(i).objectReferenceValue = glows[i];
+        mo.ApplyModifiedPropertiesWithoutUndo();
+        return glows;
     }
 
     /// Jalan keluar setelah editor ditutup: lewat pintu bilik, lalu berdiri menghadap cermin luar.
