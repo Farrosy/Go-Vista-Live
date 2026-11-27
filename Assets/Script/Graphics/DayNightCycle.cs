@@ -101,9 +101,9 @@ public sealed class DayNightCycle : MonoBehaviour {
     };
     [SerializeField] private Look night = new Look {
         sunColor = new Color(0.5f, 0.6f, 1f),
-        ambientSky = new Color(0.36f, 0.42f, 0.6f),
-        ambientEquator = new Color(0.25f, 0.27f, 0.38f),
-        ambientGround = new Color(0.13f, 0.13f, 0.17f),
+        ambientSky = new Color(0.43f, 0.5f, 0.72f),
+        ambientEquator = new Color(0.3f, 0.32f, 0.46f),
+        ambientGround = new Color(0.16f, 0.16f, 0.2f),
         fogColor = new Color(0.08f, 0.1f, 0.18f),
         skyTint = new Color(0.3f, 0.35f, 0.5f),
         skyExposure = 0.35f,
@@ -121,6 +121,8 @@ public sealed class DayNightCycle : MonoBehaviour {
     [Header("Lampu jalan")]
     [Tooltip("Light lampu yang lebih jauh dari ini (m) dari kamera dimatikan; bohlamnya tetap menyala.")]
     [SerializeField] private float lampCullDistance = 75f;
+    [Tooltip("Maksimal Light lampu jalan yang menyala sekaligus (yang terdekat dari kamera). HP hanya memproses ~32 lampu terlihat; sisanya untuk lampu interior.")]
+    [SerializeField] private int maxActiveLamps = 18;
 
     private const float CullInterval = 0.5f;
     private static readonly int SkyTintId = Shader.PropertyToID("_SkyTint");
@@ -151,6 +153,8 @@ public sealed class DayNightCycle : MonoBehaviour {
     private Realtime _realtime;
     private float _nextRealtimeLookup;
     private float _nextCull;
+    private float[] _lampDistances = new float[0];
+    private float[] _sortedDistances = new float[0];
 
     /// <summary>Jam game sekarang (0..24), untuk UI jam nanti.</summary>
     public float CurrentHour { get; private set; }
@@ -301,11 +305,23 @@ public sealed class DayNightCycle : MonoBehaviour {
             cull = cam != null;
             if (cull) camPos = cam.transform.position;
         }
-        float maxSqr = lampCullDistance * lampCullDistance;
-        for (int i = 0; i < lamps.Count; i++) {
-            StreetLamp lamp = lamps[i];
-            if (cull) lamp.SetCulled((lamp.LightPosition - camPos).sqrMagnitude > maxSqr);
-            lamp.SetLevel(level);
+        if (cull) {
+            // Batas jarak, lalu hanya N lampu terdekat yang Light-nya menyala.
+            float maxSqr = lampCullDistance * lampCullDistance;
+            if (_lampDistances.Length < lamps.Count) _lampDistances = new float[lamps.Count * 2];
+            if (_sortedDistances.Length < lamps.Count) _sortedDistances = new float[lamps.Count * 2];
+            for (int i = 0; i < lamps.Count; i++) {
+                float d = (lamps[i].LightPosition - camPos).sqrMagnitude;
+                _lampDistances[i] = d;
+                _sortedDistances[i] = d;
+            }
+            float limit = maxSqr;
+            if (maxActiveLamps > 0 && lamps.Count > maxActiveLamps) {
+                System.Array.Sort(_sortedDistances, 0, lamps.Count);
+                limit = Mathf.Min(limit, _sortedDistances[maxActiveLamps - 1]);
+            }
+            for (int i = 0; i < lamps.Count; i++) lamps[i].SetCulled(_lampDistances[i] > limit);
         }
+        for (int i = 0; i < lamps.Count; i++) lamps[i].SetLevel(level);
     }
 }
