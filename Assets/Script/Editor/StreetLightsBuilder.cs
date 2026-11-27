@@ -24,6 +24,7 @@ public static class StreetLightsBuilder {
     private const string CycleName = "Day Night Cycle";
     private const string LightChildName = "Lamp Light";
     private const string LamppostPath = "Assets/Download_Assets/ithappy/Megacity/Meshes/Landscape/Roads/lamppost_001.fbx";
+    private const string ParkLampPath = "Assets/Download_Assets/ithappy/Megacity/Prefabs/Props/lamp_post_001.prefab";
     private const string StreetMesh = "lamppost_001";
     private const string ParkMesh = "lamp_post_001";
     private const string ExampleLampName = "contohlampu";
@@ -83,6 +84,47 @@ public static class StreetLightsBuilder {
         new Spot(339.0f, 118.9f, "Road_009 (144)"),
         new Spot(224.3f, 198.8f, "Road_009 (75)"),
         new Spot(427.3f, 257.6f, "Road_009 (177)"),
+        // Tahap 2 (celah gelap): tikungan, pertigaan, jalan zebra cross; tiap trotoar <= ~16 m dari tiang.
+        new Spot(213.88f, 124.12f, "Road_011(Clone) (03)"),
+        new Spot(213.88f, 168.82f, "Road_010 (33)"),
+        new Spot(144.08f, 223.88f, "Road_011(Clone) (17)"),
+        new Spot(338.53f, 178.62f, "Road_009 (87)"),
+        new Spot(284.01f, 138.82f, "Road_010 (19)"),
+        new Spot(348.69f, 228.80f, "Road_011(Clone) (6)"),
+        new Spot(284.01f, 168.82f, "Road_010 (31)"),
+        new Spot(278.89f, 294.17f, "Road_019(Clone) (3)"),
+        new Spot(94.58f, 233.58f, "road_013 (4)"),
+        new Spot(223.58f, 233.58f, "road_013 (2)"),
+        new Spot(432.92f, 178.60f, "Road_009 (159)"),
+        new Spot(464.72f, 178.60f, "Road_009 (161)"),
+        new Spot(278.83f, 118.92f, "Road_011(Clone) (13)"),
+        new Spot(138.86f, 288.96f, "Road_011(Clone) (1)"),
+        new Spot(224.28f, 109.08f, "Road_010 (28)"),
+        new Spot(144.08f, 148.88f, "Road_009 (130)"),
+        new Spot(138.88f, 244.08f, "Road_009 (118)"),
+        new Spot(93.88f, 109.08f, "Road_009 (73)"),
+        new Spot(93.88f, 154.08f, "Road_011(Clone) (16)"),
+        new Spot(93.88f, 184.08f, "Road_009 (150)"),
+        new Spot(273.64f, 153.82f, "Road_011(Clone) (19)"),
+        new Spot(224.28f, 139.08f, "Road_010 (24)"),
+        new Spot(234.08f, 283.78f, "Road_010 (30)"),
+        new Spot(338.76f, 283.79f, "Road_009 (94)"),
+        new Spot(348.70f, 139.06f, "Road_009 (129)"),
+        new Spot(385.23f, 234.00f, "Road_009 (169)"),
+    };
+
+    // Lampu taman bola (lamp_post_001) di rumput sepanjang jalan setapak taman kolam (park_road_007),
+    // di kedua sisi jembatan, menjauh dari bangku.
+    // Parkiran depan dealer Flamingo (bukan tile jalan): tiang di garis pembatas tengah tiap kolom slot,
+    // lengan menghadap jalur tengah (x ~129). (x, z, arah lengan / yaw).
+    private static readonly Vector3[] ParkingSpots = {
+        new Vector3(119.0f, 183.0f, 90f), new Vector3(119.0f, 170.6f, 90f),
+        new Vector3(139.2f, 183.0f, 270f), new Vector3(139.2f, 170.6f, 270f),
+    };
+
+    private static readonly Vector2[] ParkSpots = {
+        new Vector2(294f, 158.3f), new Vector2(294f, 149.7f),
+        new Vector2(337.5f, 158.3f), new Vector2(337.5f, 149.7f),
     };
 
     [MenuItem("Go Vista/Kota/Pasang Lampu Jalan")]
@@ -111,7 +153,7 @@ public static class StreetLightsBuilder {
         var log = new List<string>();
         int placed = 0;
         Dictionary<string, Transform> roads = world.GetRootGameObjects()
-            .Where(g => g.name.StartsWith("Road_"))
+            .Where(g => IsRoad(g.name))
             .GroupBy(g => g.name).ToDictionary(g => g.Key, g => g.First().transform);
         foreach (Spot spot in Spots) {
             if (!roads.TryGetValue(spot.Road, out Transform road)) {
@@ -120,6 +162,12 @@ public static class StreetLightsBuilder {
             }
             PlaceLamppost(lamppostPrefab, root.transform, spot, road, ++placed);
         }
+        int parkingPlaced = 0;
+        foreach (Vector3 p in ParkingSpots) PlaceParkingLamppost(lamppostPrefab, root.transform, p, ++parkingPlaced);
+        var parkPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(ParkLampPath);
+        int parkPlaced = 0;
+        if (parkPrefab == null) log.Add($"Model {ParkLampPath} tidak ditemukan; lampu taman dilewati.");
+        else foreach (Vector2 p in ParkSpots) PlaceParkLamp(parkPrefab, root.transform, p, ++parkPlaced);
 
         int lit = 0;
         foreach (MeshFilter mf in AllLampMeshes(world)) {
@@ -130,15 +178,17 @@ public static class StreetLightsBuilder {
         EnsureCycle(world);
         EditorSceneManager.MarkSceneDirty(world);
         EditorSceneManager.SaveScene(world);
-        log.Insert(0, $"{placed} tiang baru, {lit} tiang diberi lampu.");
+        log.Insert(0, $"{placed} tiang jalan, {parkingPlaced} tiang parkiran, {parkPlaced} lampu taman, {lit} tiang diberi lampu.");
         return string.Join("\n", log);
     }
 
     private static void PlaceLamppost(GameObject prefab, Transform parent, Spot spot, Transform road, int index) {
-        // Arah dari trotoar ke garis tengah jalan (tegak lurus arah jalan).
-        Vector3 along = road.forward;
+        // Arah dari trotoar ke garis tengah jalan (tegak lurus arah jalan). Tikungan (road_013): ke tengah tile,
+        // yang berada di atas busur jalannya.
         Vector3 offset = new Vector3(road.position.x - spot.X, 0f, road.position.z - spot.Z);
-        Vector3 toCenter = (offset - Vector3.Dot(offset, along) * along).normalized;
+        bool curve = road.GetComponent<MeshFilter>()?.sharedMesh?.name == "road_013";
+        Vector3 along = road.forward;
+        Vector3 toCenter = curve ? offset.normalized : (offset - Vector3.Dot(offset, along) * along).normalized;
 
         var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
         go.name = $"{StreetMesh} (Gen {index:00})";
@@ -153,11 +203,45 @@ public static class StreetLightsBuilder {
         }
     }
 
+    private static bool IsRoad(string name) => name.StartsWith("Road_") || name.StartsWith("road_");
+
+    private static void PlaceParkingLamppost(GameObject prefab, Transform parent, Vector3 spot, int index) {
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+        go.name = $"{StreetMesh} (Gen Parkir {index:00})";
+        go.transform.SetPositionAndRotation(new Vector3(spot.x, SurfaceY(spot.x, spot.y, go.transform), spot.y),
+            Quaternion.Euler(0f, spot.z, 0f));
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic |
+                                                   StaticEditorFlags.OccludeeStatic);
+        if (go.GetComponent<Collider>() == null) go.AddComponent<MeshCollider>().sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+    }
+
+    /// Permukaan teratas (bukan trigger, bukan objek itu sendiri) di titik (x, z).
+    private static float SurfaceY(float x, float z, Transform self) {
+        foreach (RaycastHit hit in Physics.RaycastAll(new Vector3(x, 40f, z), Vector3.down, 30f).OrderBy(h => h.distance)) {
+            if (hit.collider.isTrigger || hit.collider.transform.IsChildOf(self)) continue;
+            return hit.point.y;
+        }
+        return 23.2f;
+    }
+
+    private static void PlaceParkLamp(GameObject prefab, Transform parent, Vector2 p, int index) {
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+        go.name = $"{ParkMesh} (Gen Taman {index:00})";
+        float y = 23.2f;
+        foreach (RaycastHit hit in Physics.RaycastAll(new Vector3(p.x, 40f, p.y), Vector3.down, 30f).OrderBy(h => h.distance)) {
+            if (hit.collider.isTrigger || hit.collider.transform.IsChildOf(go.transform)) continue;
+            y = hit.point.y;
+            break;
+        }
+        go.transform.SetPositionAndRotation(new Vector3(p.x, y, p.y), Quaternion.identity);
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
+    }
+
     private static float GroundY(float x, float z, float fallback) {
         foreach (RaycastHit hit in Physics.RaycastAll(new Vector3(x, fallback + 10f, z), Vector3.down, 20f)
                      .OrderBy(h => h.distance)) {
             if (hit.collider.isTrigger || hit.collider is TerrainCollider) continue;
-            if (hit.collider.transform.root.name.StartsWith("Road_")) return hit.point.y;
+            if (IsRoad(hit.collider.transform.root.name)) return hit.point.y;
         }
         return fallback;
     }
@@ -190,16 +274,21 @@ public static class StreetLightsBuilder {
             lightGo.transform.localPosition = new Vector3(0f, 6.35f, 2.19f);
             lightGo.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             light.type = LightType.Spot;
-            light.range = 18f;
-            light.spotAngle = 125f;
-            light.innerSpotAngle = 70f;
-            intensity = 60f;
+            // Sorot lebar supaya trotoar di antara tiang ikut terang.
+            light.range = 22f;
+            light.spotAngle = 150f;
+            light.innerSpotAngle = 85f;
+            // Aspal parkiran dealer lebih gelap dari jalan, jadi tiang parkiran lebih terang.
+            intensity = lamp.name.Contains("(Gen Parkir") ? 120f : 75f;
         } else {
-            // Lampu taman bola: cahaya ke segala arah, jangkauan pendek.
+            // Lampu taman bola: cahaya ke segala arah, jangkauan pendek. Important: mesh taman berukuran besar
+            // (park_road_007 45x45 m) hanya menerima 8 lampu per objek, dan tanpa prioritas lampu taman kalah
+            // dari lampu jalan di sekelilingnya sehingga jalan setapak tetap gelap.
             lightGo.transform.localPosition = new Vector3(0f, 4.2f, 0f);
             light.type = LightType.Point;
-            light.range = 10f;
-            intensity = 18f;
+            light.range = 12f;
+            light.renderMode = LightRenderMode.ForcePixel;
+            intensity = 14f;
         }
         light.intensity = intensity;
         light.enabled = false; // dinyalakan DayNightCycle
