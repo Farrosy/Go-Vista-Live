@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// dipasang sebagai nested prefab di LobbyCanvas ("Settings Overlay") dan RoomWaitingCanvas (menu pause).
 /// Ubah desainnya sekali di prefab itu, kedua tempat ikut berubah.
 ///
-/// Panel ini mengurus semua isi dialog sendiri (sensitivitas kamera, tampilkan ping, info akun, simpan saat ditutup).
+/// Panel ini mengurus semua isi dialog sendiri (sensitivitas kamera, tampilkan ping, efek grafik, info akun, simpan saat ditutup).
 /// Pemakai hanya memanggil Open() dengan dua callback untuk hal yang memang beda per tempat:
 ///  - controlsRequested : tombol "Atur kontrol" (lobby menyembunyikan menu, pause menyembunyikan overlay pause)
 ///  - closed            : SELESAI / tombol × (lobby menutup overlay, pause kembali ke menu pause)
@@ -30,6 +30,8 @@ public sealed class SettingsPanel : MonoBehaviour {
     [Header("Tampilan")]
     [Tooltip("Opsional. Saklar \"Tampilkan ping\" (GameSettings.ShowPing).")]
     [SerializeField] private SettingsSwitch pingSwitch;
+    [Tooltip("Opsional. Saklar \"Efek grafik\" (GameSettings.GraphicsEffects).")]
+    [SerializeField] private SettingsSwitch graphicsSwitch;
 
     // Pilihan kontrol belok mobil (roda setir / tombol) pindah ke ATUR KONTROL > Kendaraan.
 
@@ -46,9 +48,10 @@ public sealed class SettingsPanel : MonoBehaviour {
 
     /// <summary>Dipakai pembuat prefab (Editor) untuk mengisi referensi.</summary>
     public void Init(Slider slider, Text value, Text account, Button controls, Button done, Button close,
-                     SettingsSwitch ping) {
+                     SettingsSwitch ping, SettingsSwitch graphics) {
         sensitivitySlider = slider;
         pingSwitch = ping;
+        graphicsSwitch = graphics;
         sensitivityValue = value;
         accountLabel = account;
         controlsButton = controls;
@@ -63,6 +66,7 @@ public sealed class SettingsPanel : MonoBehaviour {
             sensitivitySlider.onValueChanged.AddListener(OnSensitivityChanged);
         }
         if (pingSwitch != null) pingSwitch.Changed += OnPingSwitchChanged;
+        if (graphicsSwitch != null) graphicsSwitch.Changed += OnGraphicsSwitchChanged;
         if (controlsButton != null) controlsButton.onClick.AddListener(RequestControls);
         if (doneButton != null) doneButton.onClick.AddListener(Close);
         if (closeButton != null) closeButton.onClick.AddListener(Close);
@@ -112,10 +116,14 @@ public sealed class SettingsPanel : MonoBehaviour {
         UpdateSensitivityLabel();
         if (pingSwitch != null)
             pingSwitch.SetWithoutNotify(GameSettings.ShowPing);
+        if (graphicsSwitch != null)
+            graphicsSwitch.SetWithoutNotify(GameSettings.GraphicsEffects);
         RefreshAccount();
     }
 
     private static void OnPingSwitchChanged(bool on) => GameSettings.ShowPing = on;
+
+    private static void OnGraphicsSwitchChanged(bool on) => GameSettings.GraphicsEffects = on;
 
     private void RequestControls() {
         GameSettings.Save();
