@@ -4,8 +4,8 @@ Desain mengikuti konsep logo dari user (2026-11-26): plat badge navy bersudut de
 perak miring tebal, subjudul hijau, candlestick + panah naik di atas kata kedua.
 
 Pakai (dari root project):
-  python3 -I Docs/Branding/Logo/make_logo.py Docs/Branding/Logo/fonts/NotoSans-Black.ttf Docs/Branding/Logo
-Lalu export PNG: lihat Docs/Branding/Logo/README.md.
+  python3 -I docs/Branding/Logo/make_logo.py docs/Branding/Logo/fonts/NotoSans-Black.ttf docs/Branding/Logo
+Lalu export PNG: lihat docs/Branding/Logo/README.md.
 """
 import sys
 from pathlib import Path

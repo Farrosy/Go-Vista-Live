@@ -27,8 +27,8 @@ logo warna 2048/1024/512, putih & navy 1024, ikon 1024/512/192.
 ## Ubah lalu bangun ulang
 Atur posisi/ukuran di bagian "tata letak" `make_logo.py`, lalu dari root project:
 ```
-python3 -I Docs/Branding/Logo/make_logo.py Docs/Branding/Logo/fonts/NotoSans-Black.ttf Docs/Branding/Logo
-A=Assets/GoVista_Branding/Logo; D=Docs/Branding/Logo
+python3 -I docs/Branding/Logo/make_logo.py docs/Branding/Logo/fonts/NotoSans-Black.ttf docs/Branding/Logo
+A=Assets/GoVista_Branding/Logo; D=docs/Branding/Logo
 for w in 2048 1024 512; do rsvg-convert -w $w $D/govista_logo_color.svg -o $A/govista_logo_color_$w.png; done
 rsvg-convert -w 1024 $D/govista_logo_white.svg -o $A/govista_logo_white_1024.png
 rsvg-convert -w 1024 $D/govista_logo_dark.svg -o $A/govista_logo_dark_1024.png
