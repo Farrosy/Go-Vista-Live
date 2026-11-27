@@ -27,8 +27,10 @@ public static class SettingsPanelRedesign {
     private const float PingRowY = 620f;
     private const float PingRowHeight = 100f;
     private const float PingRowSpace = PingRowHeight + 20f;
-    private const float Height = 840f - AccountRowHeight + PingRowSpace;
-    private const float DoneY = 698f - AccountRowHeight + PingRowSpace;
+    // Baris "Efek grafik" (2026-11-26) di bawah Tampilkan ping, ukuran sama.
+    private const float GraphicsRowY = PingRowY + PingRowSpace;
+    private const float Height = 840f - AccountRowHeight + PingRowSpace * 2f;
+    private const float DoneY = 698f - AccountRowHeight + PingRowSpace * 2f;
     private const string DriveSectionName = "Settings Drive Section";
     private static readonly string[] DriveRowObjects = {
         DriveSectionName, "Settings Drive Hint", "Settings Drive Wheel Button", "Settings Drive Buttons Button",
@@ -66,7 +68,8 @@ public static class SettingsPanelRedesign {
             panel.Init(Find<Slider>(rect, "Settings Sensitivity Slider"), Find<Text>(rect, "Settings Sensitivity Value"),
                        null, Find<Button>(rect, "Settings Controls Button"),
                        Find<Button>(rect, "Settings Done Button"), Find<Button>(rect, "Settings Close Button"),
-                       Find<SettingsSwitch>(rect, "Settings Ping Switch"));
+                       Find<SettingsSwitch>(rect, "Settings Ping Switch"),
+                       Find<SettingsSwitch>(rect, "Settings Graphics Switch"));
             SetLayerRecursive(rect, LayerMask.NameToLayer("UI"));
             root.SetActive(false); // dibuka lewat SettingsPanel.Open()
             return PrefabUtility.SaveAsPrefabAsset(root, PanelPrefabPath);
@@ -180,6 +183,7 @@ public static class SettingsPanelRedesign {
         Icon("Settings Controls Chevron", controlsFace, "icon-chevron-right", SubColor, Inner - 28f - 40f, 38f, 40f);
 
         BuildPingRow(dialog);
+        BuildGraphicsRow(dialog);
 
         // ---- SELESAI: tombol utama, gaya sama dengan MAIN.
         Button done = MenuButton("Settings Done Button", dialog, BlueColor, VioletColor, VioletLipColor,
@@ -190,30 +194,47 @@ public static class SettingsPanelRedesign {
 
     /// Baris "Tampilkan ping": ikon WiFi, judul + keterangan, saklar di kanan (GameSettings.ShowPing).
     private static void BuildPingRow(RectTransform dialog) {
-        const float switchWidth = 92f;
-        const float switchHeight = 52f;
-        const float knobSize = 40f;
-        const float knobInset = 6f;
-        RectTransform row = Place(NewRect("Settings Ping Row", dialog), Pad, PingRowY, Inner, PingRowHeight);
-        GradientShape(row.gameObject, SectionTopColor, SectionBottomColor, cornerScale: 1.2f).raycastTarget = false;
-        AddOutline(row, new Color(1f, 1f, 1f, 0.07f), cornerScale: 1.2f);
-
-        RectTransform tile = IconTile("Settings Ping Icon", row, "icon-settings", GreenTopColor, GreenBottomColor,
-                                      28f, 22f, 56f, 30f);
+        RectTransform row = SwitchRow(dialog, "Settings Ping", PingRowY, GreenTopColor, GreenBottomColor,
+                                      "Tampilkan ping", "Kecepatan koneksi di pojok kanan atas");
         // Ikon WiFi HUD menggantikan ikon gear placeholder dari IconTile.
-        Transform glyph = tile.childCount > 0 ? tile.GetChild(tile.childCount - 1) : null;
+        Transform tile = FindDeep(row, "Settings Ping Icon");
+        Transform glyph = tile != null && tile.childCount > 0 ? tile.GetChild(tile.childCount - 1) : null;
         Sprite wifi = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/GoVista_HUD_Assets/Ping/icon_wifi.png");
         if (glyph != null && wifi != null && glyph.TryGetComponent(out Image glyphImage)) {
             glyphImage.sprite = wifi;
             glyphImage.color = Color.white;
             glyphImage.preserveAspect = true;
         }
-        Place(Label("Settings Ping Title", row, "Tampilkan ping", 28, true, TextAnchor.MiddleLeft, Color.white)
-                  .rectTransform, 104f, 16f, 480f, 38f);
-        Place(Label("Settings Ping Hint", row, "Kecepatan koneksi di pojok kanan atas", 22, false,
-                    TextAnchor.MiddleLeft, SubColor).rectTransform, 104f, 54f, 520f, 30f);
+    }
 
-        RectTransform switchRect = Place(NewRect("Settings Ping Switch", row), Inner - 28f - switchWidth,
+    /// Baris "Efek grafik": post-processing kota (GameSettings.GraphicsEffects). Mati = lebih ringan di HP.
+    private static void BuildGraphicsRow(RectTransform dialog) {
+        RectTransform row = SwitchRow(dialog, "Settings Graphics", GraphicsRowY, BlueColor, VioletColor,
+                                      "Efek grafik", "Warna lebih hidup; matikan kalau HP terasa berat");
+        Transform tile = FindDeep(row, "Settings Graphics Icon");
+        Transform glyph = tile != null && tile.childCount > 0 ? tile.GetChild(tile.childCount - 1) : null;
+        if (glyph != null && glyph.TryGetComponent(out Image glyphImage))
+            glyphImage.sprite = LoadSprite("Icons/icon-star");
+    }
+
+    /// Kartu baris dengan ikon, judul + keterangan, dan SettingsSwitch "<prefix> Switch" di kanan.
+    private static RectTransform SwitchRow(RectTransform dialog, string prefix, float y, Color iconTop,
+                                           Color iconBottom, string title, string hint) {
+        const float switchWidth = 92f;
+        const float switchHeight = 52f;
+        const float knobSize = 40f;
+        const float knobInset = 6f;
+        RectTransform row = Place(NewRect(prefix + " Row", dialog), Pad, y, Inner, PingRowHeight);
+        GradientShape(row.gameObject, SectionTopColor, SectionBottomColor, cornerScale: 1.2f).raycastTarget = false;
+        AddOutline(row, new Color(1f, 1f, 1f, 0.07f), cornerScale: 1.2f);
+
+        IconTile(prefix + " Icon", row, "icon-settings", iconTop, iconBottom, 28f, 22f, 56f, 30f);
+        Place(Label(prefix + " Title", row, title, 28, true, TextAnchor.MiddleLeft, Color.white)
+                  .rectTransform, 104f, 16f, 480f, 38f);
+        Place(Label(prefix + " Hint", row, hint, 22, false, TextAnchor.MiddleLeft, SubColor).rectTransform,
+              104f, 54f, 520f, 30f);
+
+        RectTransform switchRect = Place(NewRect(prefix + " Switch", row), Inner - 28f - switchWidth,
                                          (PingRowHeight - switchHeight) / 2f, switchWidth, switchHeight);
         Image track = Shape(switchRect.gameObject, GreenTopColor, cornerScale: 2.2f);
         var button = switchRect.gameObject.AddComponent<Button>();
@@ -224,6 +245,7 @@ public static class SettingsPanelRedesign {
         switchRect.gameObject.AddComponent<UiPressScale>();
         switchRect.gameObject.AddComponent<SettingsSwitch>()
             .Init(track, knob, knobInset, switchWidth - knobInset - knobSize);
+        return row;
     }
 
     /// Patch SettingsPanel.prefab yang sudah ada (editan manual lain tetap): hapus baris akun, naikkan SELESAI,

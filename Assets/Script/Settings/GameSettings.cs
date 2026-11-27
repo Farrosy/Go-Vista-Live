@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Pengaturan pemain yang disimpan per perangkat (PlayerPrefs) dan langsung diterapkan.
-/// Saat ini: pengali sensitivitas kamera (dipakai CameraOrbit).
+/// Saat ini: pengali sensitivitas kamera (dipakai CameraOrbit), tampilkan ping, efek grafik.
 ///
 /// TODO (next develop): tambahkan MasterVolume (AudioListener.volume / AudioMixer) setelah game punya audio,
 /// lalu slider-nya di BuildSettingsOverlay (LobyUISceneController).
@@ -24,11 +24,31 @@ public static class GameSettings {
     private const string CameraSensitivityKey = "Settings.CameraSensitivity";
     private const string DriveControlKey = "Settings.DriveControl";
     private const string ShowPingKey = "Settings.ShowPing";
+    private const string GraphicsEffectsKey = "Settings.GraphicsEffects";
 
     // Di-cache karena CameraOrbit membaca sensitivitas setiap frame (PlayerPrefs di Android cukup mahal).
     private static float? _cameraSensitivity;
     private static DriveControlMode? _driveControl;
     private static bool? _showPing;
+    private static bool? _graphicsEffects;
+
+    /// <summary>Dipanggil saat "Efek grafik" dinyalakan/dimatikan di PENGATURAN.</summary>
+    public static event System.Action GraphicsEffectsChanged;
+
+    /// <summary>
+    /// Post-processing kota (warna, bloom, vignette). Default ikut RAM HP (GraphicsQualityRules):
+    /// HP low-end mulai dengan efek mati supaya FPS aman.
+    /// </summary>
+    public static bool GraphicsEffects {
+        get => _graphicsEffects ??= PlayerPrefs.GetInt(GraphicsEffectsKey,
+            GraphicsQualityRules.DefaultEffectsOn(SystemInfo.systemMemorySize) ? 1 : 0) != 0;
+        set {
+            if (_graphicsEffects == value) return;
+            _graphicsEffects = value;
+            PlayerPrefs.SetInt(GraphicsEffectsKey, value ? 1 : 0);
+            GraphicsEffectsChanged?.Invoke();
+        }
+    }
 
     /// <summary>Dipanggil saat indikator ping dinyalakan/dimatikan di PENGATURAN.</summary>
     public static event System.Action ShowPingChanged;
@@ -79,7 +99,9 @@ public static class GameSettings {
         _cameraSensitivity = null;
         _driveControl = null;
         _showPing = null;
+        _graphicsEffects = null;
         DriveControlChanged = null;
+        GraphicsEffectsChanged = null;
         ShowPingChanged = null;
     }
 }

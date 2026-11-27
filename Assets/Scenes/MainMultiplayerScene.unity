@@ -14,17 +14,17 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 0
-  m_FogColor: {r: 1, g: 1, b: 1, a: 1}
-  m_FogMode: 3
+  m_Fog: 1
+  m_FogColor: {r: 0.7, g: 0.82, b: 0.95, a: 1}
+  m_FogMode: 1
   m_FogDensity: 0.09
-  m_LinearFogStart: 0
-  m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
-  m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
-  m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
+  m_LinearFogStart: 45
+  m_LinearFogEnd: 380
+  m_AmbientSkyColor: {r: 0.52, g: 0.62, b: 0.78, a: 1}
+  m_AmbientEquatorColor: {r: 0.48, g: 0.5, b: 0.53, a: 1}
+  m_AmbientGroundColor: {r: 0.3, g: 0.27, b: 0.24, a: 1}
   m_AmbientIntensity: 1
-  m_AmbientMode: 0
+  m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
   m_SkyboxMaterial: {fileID: 2100000, guid: 6a9a29d807a43624b8d8758de7c530d6, type: 2}
   m_HaloStrength: 0.5
@@ -303,6 +303,7 @@ GameObject:
   - component: {fileID: 565050217}
   - component: {fileID: 565050218}
   - component: {fileID: 565050219}
+  - component: {fileID: 565050220}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -422,8 +423,8 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
-  m_Antialiasing: 0
+  m_RenderPostProcessing: 1
+  m_Antialiasing: 1
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
@@ -472,6 +473,18 @@ MonoBehaviour:
   vehicleRecenterDelay: 1.2
   vehicleRecenterSpeed: 2.5
   vehiclePitch: 12
+--- !u!114 &565050220
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 565050213}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b363d9de63e08840b0f8fbc0d2e8757, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraGraphicsEffects
 --- !u!1 &590405443
 GameObject:
   m_ObjectHideFlags: 0
@@ -885,6 +898,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d2c6b9119011eb1499ef2404766ed073, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VehicleDirector
+  parkingGroupName: SpawnPointsCarDealership
   spawnMarkerName: SpawnPointMobil
   parkingClearance: {x: 2.2, y: 1.6, z: 4.6}
   evaluateInterval: 1
